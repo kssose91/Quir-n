@@ -1,0 +1,50 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/llore_core",
+    "crates/llore_util",
+    "crates/llore_buffer",
+    "crates/llore_language",
+    "crates/llore_editor",
+    "crates/llore_ui",
+    "crates/llore_brain",
+]
+
+[package]
+name = "llore"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Llore Editor - Tu casa privada para código"
+
+[[bin]]
+name = "llore"
+path = "src/main.rs"
+required-features = ["full_editor"]
+
+[features]
+default = ["minimal"]
+# Minimal: solo UI + brain (para conectar a quiron-brain)
+minimal = ["llore_ui", "llore_brain"]
+# Full: incluye editor de texto completo
+full_editor = ["minimal", "llore_buffer", "llore_language", "llore_editor"]
+
+[dependencies]
+llore_core = { path = "crates/llore_core" }
+llore_util = { path = "crates/llore_util" }
+llore_ui = { path = "crates/llore_ui", optional = true }
+llore_brain = { path = "crates/llore_brain", optional = true }
+llore_buffer = { path = "crates/llore_buffer", optional = true }
+llore_language = { path = "crates/llore_language", optional = true }
+llore_editor = { path = "crates/llore_editor", optional = true }
+
+# Workspace-wide dependencies
+[workspace.dependencies]
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"

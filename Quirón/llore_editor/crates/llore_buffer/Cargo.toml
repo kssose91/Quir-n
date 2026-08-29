@@ -1,0 +1,13 @@
+[package]
+name = "llore_buffer"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Buffer de edición con historial undo/redo para Llore Editor"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+llore_core = { path = "../llore_core" }
+parking_lot = "0.12"

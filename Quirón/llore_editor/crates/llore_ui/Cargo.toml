@@ -1,0 +1,56 @@
+[package]
+name = "llore_ui"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Interfaz gráfica propia para Llore Editor"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "llore_gui"
+path = "src/bin/llore_gui.rs"
+
+[dependencies]
+# Identidad de proyecto: misma familia de identificadores que el registro de
+# eventos de quiron-brain, para que el ULID viaje sin traducción.
+ulid = "1.1"
+
+# Windowing
+winit = { version = "0.30", features = ["x11", "wayland"] }
+
+# Rendering (CPU, simple)
+tiny-skia = "0.11"
+softbuffer = "0.4"
+
+# Layout (Flexbox/Grid)
+taffy = "0.7"
+
+# Text rendering
+cosmic-text = "0.12"
+
+# Utils
+thiserror = "2.0"
+tracing = "0.1"
+# Esquemas y argumentos de las herramientas del chat.
+serde_json = "1"
+rfd = { version = "0.14", default-features = false, features = ["xdg-portal", "tokio"] }
+arboard = "3.4"
+regex = "1.11"
+tree-sitter = "0.26"
+tree-sitter-rust = "0.24"
+tree-sitter-python = "0.25"
+
+# Async runtime para conectar con quiron-brain
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
+
+
+# Nuestros crates - SOLO lo esencial
+llore_core = { path = "../llore_core" }
+llore_brain = { path = "../llore_brain" }
+llore_editor = { path = "../llore_editor" }
+llore_language = { path = "../llore_language" }
+
+[dev-dependencies]
+tracing-subscriber = "0.3"

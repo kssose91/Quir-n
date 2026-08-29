@@ -1,0 +1,20 @@
+[package]
+name = "llore_language"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Soporte de lenguajes de programación para Llore Editor"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+llore_core = { path = "../llore_core" }
+llore_util = { path = "../llore_util" }
+
+# Syntax highlighting via tree-sitter
+tree-sitter = "0.26"
+
+# Common utilities
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

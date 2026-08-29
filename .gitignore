@@ -1,0 +1,32 @@
+# Compilados de Rust
+target/
+
+# Datos de runtime de los almacenes (Qdrant, Neo4j, Ollama) y del cerebro
+/data/
+/quiron-brain/
+Quirón/quiron-brain/data/
+
+# Secretos y configuración local (las plantillas .env.example SÍ se versionan)
+.env
+.env.local
+*.pem
+*.key
+id_rsa*
+auth.json
+
+# Estado efímero de sesión del editor
+**/.llore/state/
+
+# Artefactos
+__pycache__/
+*.pyc
+*.log
+*.pid
+node_modules/
+.DS_Store
+
+# Caché de modelos descargados (1,8 GB, reproducible)
+.fastembed_cache/
+
+# Symlink a ruta absoluta del equipo: redundante con Quirón/vertex-gateway
+/vertex-gateway

@@ -1,0 +1,45 @@
+[package]
+name = "vertex-gateway"
+version = "1.0.0"
+edition = "2021"
+description = "Punto único de egreso entre quiron-brain y los proveedores de modelo (OpenAI/Codex, Ollama, OpenClaw)"
+license = "MIT"
+
+# Adaptador de protocolo stdio. NO es un firewall: no filtra tráfico ni valida
+# destinos. Concentra la salida hacia los proveedores en un solo binario para
+# que auditar el egreso signifique auditar este fichero.
+#
+# No habla con Vertex AI (el nombre es histórico). El destino de Codex está fijo
+# en compilación; los de OpenAI-compatible y Ollama vienen del entorno.
+#
+# Cambios en el camino petición/respuesta autenticado hacia Codex requieren
+# re-auditar la serialización del cuerpo y el parser SSE.
+
+[[bin]]
+name = "vertex-gateway"
+path = "src/main.rs"
+
+[dependencies]
+# HTTP client
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "stream"] }
+
+# JSON
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async runtime
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "io-std", "process", "time"] }
+
+# Streaming (SSE parsing)
+futures-util = "0.3"
+
+# Home dir resolution
+dirs = "5"
+
+[profile.release]
+# Security: make the binary as small and auditable as possible
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

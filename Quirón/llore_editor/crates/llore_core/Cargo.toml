@@ -1,0 +1,17 @@
+[package]
+name = "llore_core"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Core data structures for Llore Editor - text buffers, clocks, collections"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# We start with minimal dependencies, adding only what we truly need
+smallvec = "1.13"      # Inline small vectors
+parking_lot = "0.12"   # Efficient mutex/rwlock
+
+[dev-dependencies]
+# Test support

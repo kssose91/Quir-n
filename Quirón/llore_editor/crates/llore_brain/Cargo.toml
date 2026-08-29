@@ -1,0 +1,33 @@
+[package]
+name = "llore_brain"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Puente entre Llore Editor y Quirón - El único gateway a modelos externos"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+# Serialización
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP client para quiron-brain
+reqwest = { version = "0.11", features = ["json"] }
+
+# Logging
+tracing = "0.1"
+
+# Storage (sled - como quiron-brain)
+sled = "0.34"
+
+# Tiempo
+chrono = { version = "0.4", features = ["serde"] }
+
+# Nuestros crates
+llore_core = { path = "../llore_core" }

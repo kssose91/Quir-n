@@ -1,0 +1,7 @@
+/target
+/data
+*.log
+.env
+
+# secretos: symlink a ~/.config/quiron/quiron-brain.env
+.env.local

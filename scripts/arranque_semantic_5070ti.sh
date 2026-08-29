@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SEMANTIC_BIN="${SEMANTIC_BIN:-/home/kssose/Quirón/Quirón/semantic-ia-local/target/release/semantic-ia-local}"
+SEMANTIC_ROOT="${SEMANTIC_ROOT:-/home/kssose/Quirón/Quirón/semantic-ia-local/target/release}"
+ORT_RUNTIME_ROOT="${ORT_RUNTIME_ROOT:-/home/kssose/Quirón/data/runtime/onnxruntime-nightly/capi-v125}"
+SEMANTIC_IA_BIND_ADDR="${SEMANTIC_IA_BIND_ADDR:-127.0.0.1:8091}"
+SEMANTIC_IA_DEVICE_LABEL="${SEMANTIC_IA_DEVICE_LABEL:-RTX 5070 Ti}"
+SEMANTIC_IA_CUDA_DEVICE_ID="${SEMANTIC_IA_CUDA_DEVICE_ID:-0}"
+SEMANTIC_IA_EXECUTION_PROVIDERS="${SEMANTIC_IA_EXECUTION_PROVIDERS:-cuda,cpu}"
+SEMANTIC_IA_EMBED_MODEL="${SEMANTIC_IA_EMBED_MODEL:-BAAI/bge-m3}"
+SEMANTIC_IA_RERANK_MODEL="${SEMANTIC_IA_RERANK_MODEL:-rozgo/bge-reranker-v2-m3}"
+SEMANTIC_IA_MODEL_CACHE_DIR="${SEMANTIC_IA_MODEL_CACHE_DIR:-/home/kssose/.cache/semantic-ia-local}"
+SEMANTIC_IA_SHOW_DOWNLOAD_PROGRESS="${SEMANTIC_IA_SHOW_DOWNLOAD_PROGRESS:-true}"
+SEMANTIC_IA_WARMUP="${SEMANTIC_IA_WARMUP:-false}"
+
+if [[ ! -x "${SEMANTIC_BIN}" ]]; then
+  echo "[semantic-5070ti] No encuentro binario ejecutable en ${SEMANTIC_BIN}" >&2
+  exit 1
+fi
+
+export SEMANTIC_IA_BIND_ADDR
+export SEMANTIC_IA_DEVICE_LABEL
+export SEMANTIC_IA_CUDA_DEVICE_ID
+export SEMANTIC_IA_EXECUTION_PROVIDERS
+export SEMANTIC_IA_EMBED_MODEL
+export SEMANTIC_IA_RERANK_MODEL
+export SEMANTIC_IA_MODEL_CACHE_DIR
+export SEMANTIC_IA_SHOW_DOWNLOAD_PROGRESS
+export SEMANTIC_IA_WARMUP
+export ORT_DYLIB_PATH="${ORT_DYLIB_PATH:-${ORT_RUNTIME_ROOT}/libonnxruntime.so}"
+export LD_LIBRARY_PATH="${ORT_RUNTIME_ROOT}:${SEMANTIC_ROOT}:${SEMANTIC_ROOT}/deps:/opt/cuda/lib64:${LD_LIBRARY_PATH:-}"
+
+exec "${SEMANTIC_BIN}"

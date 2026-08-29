@@ -1,0 +1,36 @@
+[package]
+name = "semantic-ia-local"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.92"
+description = "Isolated Rust semantic IA service for Quiron"
+license = "MIT"
+publish = false
+
+[dependencies]
+anyhow = "1"
+axum = { version = "0.7", features = ["json"] }
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6"
+fastembed = { version = "5.12.1", default-features = false, features = [
+  "hf-hub-native-tls",
+  "ort-load-dynamic",
+] }
+once_cell = "1"
+ort = { version = "=2.0.0-rc.11", features = [
+  "cuda",
+  "load-dynamic",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

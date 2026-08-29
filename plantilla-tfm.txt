@@ -1,0 +1,738 @@
+      UNIVERSIDAD EUROPEA DE MADRID
+
+
+    ESCUELA DE ARQUITECTURA, INGENIERÍA Y DISEÑO
+
+MASTER EN FORMACION PERMANENTE EN INTELIGENCIA ARTIFICIAL
+
+                          APLICADA
+
+
+               TRABAJO FIN DE MÁSTER
+
+
+               TÍTULO DEL PROYECTO
+
+
+          NOMBRE ALUMNO APELLIDO 1 APELLIDO 2
+                         Dirigido por
+ [Dr. / Ingeniero / …] NOMBRE DIRECTOR APELLIDO 1 APELLIDO 2
+                      CURSO 20xx-20x
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+TÍTULO: XXXXXX
+
+
+AUTOR: NOMBRE APELLIDO1 APELLIDO 2
+
+
+TITULACIÓN: MASTER [*]
+
+
+DIRECTOR/ES DEL PROYECTO: [Dr./Ingeniero/…] NOMBRE DIR. APELLIDO1 APELLIDO2
+                             [Dr./Ingeniero/…] NOMBRE CODIR. APELLIDO1 APELLIDO2
+
+
+FECHA: [MES] de 202x
+
+
+
+
+                                          2
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+INSTRUCCIONES Y COMENTARIOS ACERCA UTILIZAR ESTA
+PLANTILLA
+[ESTA SECCIÓN DE INSTRUCCIONES SE DEBE BORRAR EN EL DOCUMENTO FINAL. SE INCLUYE A
+EFECTOS INFORMATIVOS PARA ACLARAR EL FORMATO QUE SE DEBE UTILIZAR EN LA
+REDACCIÓN DE LA MEMORIA]
+Control de versión de esta plantilla
+Este control de versiones de la plantilla se debe eliminar de la memoria de proyecto. Se incluye
+aquí para asegurar que se utiliza la versión más actualizada de plantilla de memoria PFG,
+publicada en el campus virtual.
+
+ Nombre del fichero de la plantilla    Versión de esta    Fecha          Comentarios
+                                       plantilla
+
+ Plantilla memoria PFG – AED – v1.0    v1.0               abril/2020     Versión inicial
+
+ Plantilla memoria TFG – AED – v1.0    v1.1               nov/2021       Cambio de logo
+
+
+
+Instrucciones
+Sustituye el texto en ROJO de tu versión definitiva de la memoria, y borra el texto en rojo que
+no aplica.
+Se recomienda que antes de empezar a escribir, leas el contenido sugerido de cada apartado de
+esta plantilla.
+
+Actualización de índices
+Antes de entregar la memoria, asegúrate de haber actualizado los índices de contenido, de
+figuras y tablas.
+
+Extensión de la memoria
+Se recomienda redactar de forma sintética los puntos de contenido, incluyendo toda la
+información esencial requerida para explicar tu trabajo, y añadir información auxiliar en el
+anexo.
+
+Headings / encabezados
+Utiliza el Heading 1, Heading 2 y Heading 3 de esta plantilla. Lo encuentras en el menú “Home
+ Styles”
+No varíes los interlineados ni características de párrafo.
+El encabezado Heading 1 inserta una página nueva para iniciar el capítulo.
+
+Estilo de redacción
+
+
+
+
+                                               3
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+Deberá mantenerse el mismo estilo de redacción a lo largo de todo el texto. Se recomienda
+utilizar un estilo impersonal (“Se ha desarrollado…”), o en primera persona plural (“Hemos
+desarrollado un…”).
+Cuando sea necesario el uso de siglas o acrónimos, es recomendable aclarar su significado la
+primera vez que aparecen, siempre que no sean suficientemente conocidos o se incluya un
+glosario en el documento.
+En la redacción de los textos incluidos en el proyecto se seguirán los siguientes criterios:
+Títulos directos y completos (ejemplo: “Interrelación entre secciones del proceso de fabricación”,
+en vez de: “Proceso de fabricación. Interrelación entre secciones”).
+Párrafos cortos.
+Oraciones directas y completas con el mínimo posible de oraciones intercaladas.
+Estilo impersonal y objetivo (ejemplo: Posteriormente se estudiará, en vez de: Posteriormente
+estudiaremos)
+Todos los textos deberán estar ordenados en capítulos, divididos en apartados y subapartados,
+y éstos, en párrafos. Se recomienda que estén escritos en formato A4 y mecanografiado a
+espacio y medio (pero puede que tengáis una guía de estilo, en ese caso se deben seguir las
+recomendaciones de esta).
+Los capítulos llevarán numeración correlativa, así como apartados y subapartados de cada
+capítulo. Capítulos, apartados y subapartados utilizarán el sistema de numeración decimal.
+
+Font / tipo de letra
+El tipo de letra a utilizar es Times New Roman, Arial o Calibri, en tamaño 11 (el estilo “Normal”
+de esta plantilla utiliza Calibri, 11pt).
+Recuerda que quieres que se lea fácilmente, por tanto:
+     • el uso de viñetas se agradece
+     • usa los títulos de secciones y sub-secciones para dividir la información
+     • si hay fórmulas, utiliza un interlineado de 1,15 como mínimo.
+
+Separaciones
+Los capítulos iniciarán página. La separación, entre nombres de los capítulos y los nombres de
+los apartados y subapartados y su primer párrafo, será de dos espacios.
+La separación entre párrafos será de dos espacios.
+
+Márgenes y sangrados
+Sigue la guía de estilo que te den. Si vas a encuadernar el trabajo tenlo en cuenta a la hora de
+establecer los márgenes.
+Entre cada número o letra y el inicio del texto se dejarán dos espacios.
+
+Numeración de páginas
+Todas las páginas estarán numeradas correlativamente, indicando en la parte central inferior el
+número de la página.
+
+Numeración de figuras
+
+
+                                                4
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+Todas las figuras estarán numeradas correlativamente, indicando en la parte central inferior de
+la misma el número de la figura y el título que le dais a la misma, en un tamaño de fuente
+generalmente de 10 puntos.
+Si son gráficos recuerda que el título que le des tiene que ser breve y descriptivo (referirse a los
+ejes). Por ejemplo “Velocidad en función del Tiempo”. En general, el título que le des a una figura
+debe ser tal que no necesite explicaciones. Si la figura ha sido extraída de alguna otra fuente,
+recuerda que has de referenciarlo.
+
+Numeración de tablas
+Todas las tablas estarán numeradas correlativamente, indicando en la parte central inferior el
+número de la tabla y su título en un tamaño de fuente de 10 puntos.
+
+Encabezado de páginas
+Todas las páginas estarán encabezadas con la siguiente estructura:
+   • Logo de la empresa en la que trabajáis (la universidad en vuestro caso) a la derecha. Se
+        puede incluir además en una segunda línea el nombre del departamento (asignatura en
+        vuestro caso).
+   • Título del proyecto o del trabajo y en una segunda línea Nombre de los autores, en la
+        izquierda.
+
+Referencias
+¡Siempre referencia toda las fuentes e información que utilizas de otros! Si utilizas información
+que te han proporcionado de una empresa, asegúrate que tienes permiso para incluirlo en la
+memoria.
+
+
+
+[FIN DE LAS INSTRUCCIONES]
+
+
+
+
+                                                 5
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+RESUMEN
+El resumen tiene entre 150-250 palabras. Resumir consiste en ofrecer información sobre
+cómo, dónde, cuándo y por qué se aplica el proyecto. Se realiza al finalizar el trabajo.
+Debe incluir:
+     • Resumen del problema planteado y las aportaciones más importantes del proyecto al
+        respecto
+     • Indica si procede si el proyecto se realizó en colaboración con una empresa, indicando
+        nombre (siempre que haya autorización expresa por la empresa), y el sector industrial
+        o empresarial
+     • Principales resultados del proyecto (diseño de un sistema para…, desarrollo e
+        implementación de una solución para…, análisis de…, modelo de…)
+     • Resume las conclusiones más importantes del trabajo realizado
+El resumen NO
+     • Da una información genérica
+     • Se refiere a datos aportados en el texto del proyecto.
+
+Palabras clave: hasta un máximo de 6 conceptos (un concepto puede conllevar una o más
+palabras). Incluye tecnologías que hayas utilizado, conceptos relevantes del ámbito científico-
+técnico, y conceptos de la industria (algunos ejemplos: machine learning, Big Data, Smart City,
+visión artificial, social media, Twitter, computación afectiva, transformación digital, GDPR,
+DevOps, EEG, …)
+
+
+
+
+                                               6
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+ABSTRACT
+Resumen en inglés.
+
+Keywords: Palabras clave en inglés
+
+
+
+
+                                     7
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+AGRADECIMIENTOS
+En ocasiones se incluye este apartado para agradecer a aquellos que han ofrecido su ayuda en
+el desarrollo del trabajo, ya sea técnica o de otro tipo.
+
+
+
+
+                                             8
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+Cita - frase célebre / Dedicatoria
+Esta página es del todo opcional, pero resulta una muy buena forma de presentar el
+trabajo académico más importante de todo el grado.
+
+
+
+
+                                          9
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+TABLA RESUMEN
+[Rellena esta tabla, y borra la opción que no aplica. Si tu proyecto ha tenido tanto desarrollo de
+producto como investigación, haz constar “SI” en ambos casos]
+
+                                                                        DATOS
+
+                             Nombre y apellidos:                           …
+
+                             Título del proyecto:                          …
+
+                        Directores del proyecto:                           …
+
+   El proyecto se ha realizado en colaboración                          SI / NO
+ de una empresa o a petición de una empresa:
+
+    El proyecto ha implementado un producto:                            SI / NO
+ (esta entrada se puede marcar junto a la siguiente)
+
+   El proyecto ha consistido en el desarrollo de                        SI / NO
+                una investigación o innovación:
+  (esta entrada se puede marcar junto a la anterior)
+
+                  Objetivo general del proyecto:                    […una frase…]
+
+
+
+
+                                                  10
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Índice
+El índice debe ir paginado (debe incluir los números de página). Ha de ser un listado de cada una
+de las secciones o capítulos. No debe tener más de 3 niveles en las secciones (preferentemente
+2 niveles). Recuerda que lo mejor es que el procesador de textos que uses lo haga de forma
+automática.
+RESUMEN ......................................................................................................................................6
+ABSTRACT......................................................................................................................................7
+TABLA RESUMEN.........................................................................................................................10
+Capítulo 1.           RESUMEN DEL PROYECTO ...................................................................................15
+   1.1        Contexto y justificación ...............................................................................................15
+   1.2        Planteamiento del problema.......................................................................................15
+   1.3        Objetivos del proyecto ................................................................................................15
+   1.4        Resultados obtenidos ..................................................................................................15
+   1.5        Estructura de la memoria............................................................................................15
+Capítulo 2.           ANTECEDENTES / ESTADO DEL ARTE...................................................................16
+   2.1        Estado del arte ............................................................................................................16
+   2.2        Contexto y justificación ...............................................................................................16
+   2.3        Planteamiento del problema.......................................................................................16
+Capítulo 3.           OBJETIVOS ...........................................................................................................17
+   3.1        Objetivos generales.....................................................................................................17
+   3.2        Objetivos específicos...................................................................................................17
+   3.3        Beneficios del proyecto ...............................................................................................18
+Capítulo 4.           DESARROLLO DEL PROYECTO ..............................................................................19
+   4.1        Planificación del proyecto ...........................................................................................19
+   4.2        Descripción de la solución, metodologías y herramientas empleadas .......................19
+   4.3        Recursos requeridos....................................................................................................19
+   4.4        Presupuesto ................................................................................................................19
+   4.5        Viabilidad.....................................................................................................................20
+   4.6        Resultados del proyecto..............................................................................................20
+
+
+
+
+                                                                     11
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+Capítulo 5.     DISCUSIÓN...........................................................................................................21
+Capítulo 6.     CONCLUSIONES ...................................................................................................22
+  6.1     Conclusiones del trabajo .............................................................................................22
+  6.2     Conclusiones personales .............................................................................................22
+Capítulo 7.     FUTURAS LÍNEAS DE TRABAJO.............................................................................23
+Capítulo 8.     REFERENCIAS .......................................................................................................24
+Capítulo 9.     ANEXOS ...............................................................................................................25
+
+
+
+
+                                                               12
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Índice de Figuras
+Todas las figuras incluidas en la memoria deben estar referenciadas para incluir en este índice.
+
+
+
+
+                                               13
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Índice de Tablas
+Todas las tablas incluidas en la memoria deben estar referenciadas para incluir en este índice.
+
+
+
+
+                                               14
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Capítulo 1. RESUMEN DEL PROYECTO
+Este capítulo es un resumen, y no debe incluir el detalle. Existen capítulos específicos para añadir
+detalle de cada apartado. por tanto, únicamente se hace un resumen del trabajo completo,
+siguiendo la estructura marcada por las secciones de este capítulo.
+Ocupa un máximo de 1 página.
+
+1.1 Contexto y justificación
+Resumen del por qué del proyecto y del contexto en el que se desarrolla. Está relacionado con
+el capítulo 2.
+
+1.2 Planteamiento del problema
+Resumen del planteamiento del problema que pretendemos solucionar con nuestro proyecto.
+Se busca una pregunta motriz a la que el trabajo pretende dar respuesta. Aquí se puede hablar
+del estado del arte o antecedentes de dicho problema.
+Indica si el proyecto se ha desarrollado para resolver un problema específico empresarial, o para
+investigar en una cuestión específica del ámbito científico-técnico, y/o incluye de innovación.
+
+1.3 Objetivos del proyecto
+Incluye aquí solo un resumen de objetivos. En el capítulo correspondiente a objetivos se detallan
+tanto el general como los específicos.
+
+1.4 Resultados obtenidos
+Incluye el resumen de los resultados obtenidos al final de tu proyecto. En el capítulo
+correspondiente a resultados se detallan estos resultados.
+
+1.5 Estructura de la memoria
+Describe muy brevemente los capítulos y su contenido, con tus propias palabras.
+
+
+
+
+                                                15
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Capítulo 2. ANTECEDENTES / ESTADO DEL ARTE
+Aquí se pone en contexto tu proyecto y se enumerarán todos aquellos aspectos necesarios para
+la comprensión de las alternativas estudiadas.
+
+2.1 Estado del arte
+Una frase inicial que describa de forma general el planteamiento del problema.
+Presentar la literatura / estado del arte analizado en relación al problema.
+
+2.2 Contexto y justificación
+Aquí se describe la motivación y/o justificación de acometer este proyecto. Si fuera necesario,
+se añade una descripción de contexto, en línea con el planteamiento del problema.
+Describe qué va a aportar tu proyecto al campo de estudio que has analizado.
+Por ejemplo:
+En proyectos cuyo objetivo general está ligado al desarrollo de un producto o prototipo, se
+puede incluir como información de contexto la aplicabilidad pensada de dicho producto.
+Si fuera el caso que el proyecto se desarrolla en colaboración con o a petición de una empresa,
+se puede incluir la descripción del caso de uso en el que se enmarca el resultado del proyecto
+(siempre se debe respetar la confidencialidad de la información que utilizáis. En caso de duda,
+consultad con la empresa).
+En proyectos cuyo foco está en la investigación, el contexto es aportar conocimiento nuevo en
+el tema desarrollado en el proyecto.
+
+2.3 Planteamiento del problema
+El planteamiento del problema es un nexo de unión entre el estado del arte y los objetivos de
+tu trabajo. Este apartado es la consecuencia lógica de analizar el estado del arte y detectar una
+necesidad.
+Debes contextualizar tu trabajo dentro de la problemática descrita. En base al análisis del estado
+del arte, el planteamiento del problema debe abordar la falta de conocimiento (para trabajos
+con orientación de investigación) o falta de solución (para trabajos con una orientación a
+desarrollo de soluciones o productos).
+
+
+
+
+                                               16
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Capítulo 3. OBJETIVOS
+En este capítulo se debe incluir la descripción detallada de los objetivos.
+Es recomendable reutilizar lo indicado en el anteproyecto.
+
+3.1 Objetivos generales
+Objetivo global, está relacionado con el título del proyecto y explica que hará el proyecto de
+manera general sin entrar en detalles.
+Intenta expresar en una frase lo que pretendes hacer en este trabajo.
+Se incluyen a continuación algunos ejemplos como referencia:
+Para proyectos con una orientación de investigación:
+    -   “El objetivo general del presente trabajo consiste en ampliar el conocimiento actual
+        sobre la fisiología del sistema somato-sensorial en la representación de las
+        extremidades.”
+    -   “El objetivo general del presente trabajo consiste en ampliar el conocimiento y proponer
+        soluciones, a la problemática de la gestión del tráfico en ciudades mediante el
+        paradigma Smart City”
+Para proyectos con una orientación de desarrollo de producto:
+    -   “El objetivo del presente trabajo final de grado es analizar un rasomware siguiendo una
+        metodología enfocada al mundo profesional.”
+    -   “El objetivo principal del proyecto es crear un sistema conversacional que sea capaz de
+        adaptarse al estado emocional del usuario.”
+
+3.2 Objetivos específicos
+Describe los objetivos concretos, relacionados con el objetivo general, y relacionados con las
+conclusiones y resultados del proyecto. Si observas los ejemplos, verás que empiezan con un
+verbo.
+Ejemplos:
+    -   “Analizar los aspectos temporales del código neural mediante el análisis de información
+        de registros electrofisiológicos, y la aplicación de experimentos computacionales.”
+    -   “Implementar un sistema de clasificación que detecte en un texto la emoción de un
+        usuario.”
+    -   “Testear el sistema conversacional con un conjunto pequeño de usuarios (5-10) para
+        verificar su capacidad de adaptación y empática.”
+    -   “Estudiar de las alternativas de algoritmos de sistemas recomendadores, y de las
+        técnicas de cálculo de similitudes que pueden llevar a la solución.”
+    -   “Estudiar los distintos estándares que existen actualmente en la gestión de datos de
+        dispositivos M2M en sectores comerciales profesionales.”
+
+
+                                                17
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+3.3 Beneficios del proyecto
+Incluye una descripción del beneficio que aporta tu proyecto, en relación a los objetivos.
+
+
+
+
+                                               18
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Capítulo 4. DESARROLLO DEL PROYECTO
+4.1 Planificación del proyecto
+Incluye un cronograma y una breve descripción de todas las actividades reales y su esfuerzo, que
+se han realizado en el proyecto. Algunos ejemplos de actividades son: estudio del arte, análisis
+de alterativas actuales, estudio de informes previos, análisis técnico de interfaces con sistemas
+externos, diseño del sistema, diseño de la validación y/o de pruebas, desarrollo de Software,
+realización de entrevistas, visualización de videos relacionados con el tema, reuniones
+mantenidas con personas de empresa y otras entidades, etc.
+Puedes reutilizar el formato del plan indicado en tu anteproyecto.
+
+4.2 Descripción de la solución, metodologías y herramientas empleadas
+Para un proyecto cuyo foco sea el ámbito científico y de investigación, aquí se describen las
+metodologías utilizadas para la realización del proyecto, incluye herramientas tecnológicas,
+programas de cálculo, dispositivos utilizados, modelos aplicados para el desarrollo del proyecto,
+descripción del análisis de datos cuyos resultados se presentarán en la sección de resultados,
+etc.
+Para un proyecto cuyo foco sea el desarrollo de producto, aquí se describe la solución, modelos
+analizados, diseños realizados, algoritmos aplicados, desarrollos implementados, etc. incluye
+herramientas tecnológicas, programas de cálculo, dispositivos utilizados, modelos aplicados
+para el desarrollo del proyecto, descripción del análisis de datos cuyos resultados se presentarán
+en la sección de resultados, etc.
+Puedes añadir una estructura en subsecciones si facilita la organización de esta sección.
+
+4.3 Recursos requeridos
+En este apartado debes enumerar los recursos que has utilizado para la ejecución del proyecto
+(recursos técnicos, dispositivos, material de laboratorio, asistencia de expertos, etc.). Si bien, en
+la sección donde se describe Metodología y Herramientas empleadas, se describen en detalle
+las mismas, en esta sección, únicamente debes enumerarlas.
+
+4.4 Presupuesto
+El Presupuesto supone la evaluación económica total del proyecto.
+No olvides que tu tiempo también vale dinero, no sólo hay que incluir el coste de los materiales
+empleados.
+A continuación, se muestra un ejemplo de resumen de presupuesto. Puedes añadir entradas a
+esta tabla si lo necesitas, conforme a la naturaleza de tu trabajo. Todos los recursos requeridos
+indicados en el apartado anterior deberían estar recogidos en la tabla de costes, aunque hayan
+tenido coste cero.
+
+
+
+                                                 19
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+ Tipo de coste                 Valor                    Comentarios
+
+                                 [Número de horas Añade entradas para otras personas que
+ Horas de trabajo en el
+                                  que has invertido hayan participado en tu proyecto para
+ proyecto
+                                            totales] contabilizar sus horas aproximadas.
+
+                                                      Si el equipo no lo has tenido que adquirir,
+                                                      indica su valor aproximado en el mercado
+ Equipo técnico utilizado                           € si lo tuvieras que adquirir nuevo. Utiliza
+                                                      una entrada en la tabla por cada equipo
+                                                      (desktop, servidor, etc.)
+
+                                                      Si el Software no lo has tenido que
+                                                      adquirir, indica su valor aproximado en el
+                                                      mercado si lo tuvieras que adquirir. Indica
+                                                      coste 0€ si es Software que no requiere
+ Software utilizado                                 € pagar precio por licencia.
+
+                                                        Ejemplos: IDE de desarrollo, herramienta
+                                                        de análisis de datos, programa de diseño
+                                                        gráfico, etc.
+
+                                                      Si has tenido que adquirir algún informe de
+ Estudios e informes                                € consultora o de revista de investigación,
+                                                      indica el coste.
+
+                                                        P. ej.: material de laboratorio, sensores,
+ Materiales empleados                               €
+                                                        etc.
+
+
+4.5 Viabilidad
+Este apartado es opcional, pero es interesante que incluyas un breve análisis de viabilidad
+económica del proyecto (relación coste / beneficio), y un análisis de sostenibilidad a futuro del
+resultado de tu proyecto.
+
+4.6 Resultados del proyecto
+Conforme a los objetivos específicos, describe los resultados finales obtenidos.
+Para proyectos con un enfoque de desarrollo de producto, debes incluir el resultado de tu plan
+de pruebas.
+Puedes añadir una descripción de cambios durante el proyecto respecto a los objetivos iniciales,
+y comentarios que quieras incluir de cómo has desarrollado las distintas actividades.
+
+
+                                               20
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Capítulo 5. DISCUSIÓN
+Esta sección es más habitual en trabajos de tipo "científico" o de "investigación", donde uno
+presenta brevemente los resultados principales y los discute, pero también puede utilizarse en
+otro tipo de trabajos.
+Puedes incluir secciones específicas para discutir cuestiones como: limitaciones del estudio,
+limitaciones de la tecnología empleada, cambios respecto a objetivos planteados inicialmente.
+Puedes incluir respuestas a preguntas del tipo: ¿la metodología inicialmente pensada ha sido
+útil?, ¿he tenido que adaptarme a cambios a lo largo del proyecto?, ¿qué cambios han sido y
+cómo he adaptado el proyecto para poder manejar esos cambios?, ¿qué impacto ha tenido el
+resultado de mi proyecto?
+
+
+
+
+                                             21
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Capítulo 6. CONCLUSIONES
+6.1 Conclusiones del trabajo
+Breve descripción objetiva del resultado en relación al objetivo general de tu proyecto.
+
+
+6.2 Conclusiones personales
+Describe tus impresiones y experiencia personal durante el desarrollo del proyecto, o destacar
+la importancia que tiene el tema para ti, lo que has aprendido, o la trascendencia que ha tenido
+para ti o para otros este proyecto.
+
+
+
+
+                                               22
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Capítulo 7. FUTURAS LÍNEAS DE TRABAJO
+Es importante destacar en este apartado las líneas con las que se podría continuar tu trabajo.
+Indica todo lo que has anotado como futuro trabajos durante el desarrollo del proyecto, o
+aquellos aspectos que estaban fuera del alcance, pero que son interesantes para desarrollar a
+futuro el valor de los resultados de tu trabajo.
+
+
+
+
+                                             23
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Capítulo 8. REFERENCIAS
+En este apartado figurará el conjunto de libros, revistas u otros textos que el autor considere de
+interés para justificar las soluciones adoptadas en el Proyecto. Cita todas las fuentes que has
+utilizado como consulta para elaborar el trabajo.
+Sigue el estilo de cita que te indiquen las normas de estilo y respétalo a lo largo de todo el
+proyecto. Recuerda que has de citar todas las fuentes que hayas usado. Los estilos de cita más
+comunes son:
+     • ISO
+     • IEEE
+     • APPA
+     • Etc.
+
+En ingeniería se suele usar el ISO o el IEEE.
+Si puedes usar un gestor de citas bibliográficas te será más fácil. Si no tendrás que recurrir a las
+páginas web de las bibliotecas para saber cómo citar adecuadamente. Por ejemplo, lo
+encuentras en:
+http://biblioteca.uem.es/es/aprendizaje-y-formacion/citas-bibliograficas-documentos
+
+Referencias usadas en este manual de estilo:
+
+AENOR. 2010. AEN/CTN 157 - PROYECTOS. Normas y Publicaciones. [En línea] 2010. [Citado el:
+25 de abril de 2013.]
+http://www.aenor.es/aenor/normas/ctn/fichactn.asp?codigonorm=AEN/CTN%20157.
+Miró Julià, José. 2010. Recursos para aprender a escribir. [En línea] 2010.
+http://bioinfo.uib.es/~joemiro/RecEscr/manual.pdf.
+UNE 157001. 2002. Criterios generales para la elaboración de proyectos. Escuela Universitaria
+de Ingeniería de Vitoria. [En línea] 2002. [Citado el: 25 de abril de 2013.]
+http://www.coiib.es/coiib/documentos/DocumentosContenidos/Gu%C3%ADa%20de%20elabo
+raci%C3%B3n%20de%20proyectos/2-Electricidad/5_PNE_157701_Criterios.pdf.
+
+
+
+
+                                                24
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+Capítulo 9. ANEXOS
+Sirven para incluir documentación complementaria (planos, circuitos, código, ficheros de
+configuración, especificaciones técnicas y hojas de características, fichas explicativas, resultado
+de encuestas, reglamentación y normativas requeridas, etc.).
+
+
+
+
+                                                25
+Título Proyecto
+Nombre Apellido1 Apellido2
+
+
+
+
+                      [PÁGINA INTENCIONADAMENTE EN BLANCO]
+
+
+
+
+                                       26
+

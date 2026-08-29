@@ -1,0 +1,18 @@
+[package]
+name = "llore_editor"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Componente de edición de texto para Llore Editor"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+llore_core = { path = "../llore_core" }
+llore_buffer = { path = "../llore_buffer" }
+llore_language = { path = "../llore_language" }
+llore_util = { path = "../llore_util" }
+
+# Utilities
+parking_lot = "0.12"
