@@ -167,7 +167,7 @@ reindexa el proyecto entero: se toma **lo que cambió en ese momento**, se
 localizan las unidades afectadas y se actualizan solo sus vectores, bajo el
 identificador de proyecto que les corresponde.
 
-Modificar `crates/llore_ui/src/display.rs` actualiza las unidades de
+Modificar `crates/llore_editor/src/display.rs` actualiza las unidades de
 `display.rs`, y ninguna más.
 
 Ese trabajo continuo se reparte entre dos piezas que conviene no confundir,
@@ -295,38 +295,3 @@ Lo que no cambia, aunque el esquema crezca:
 - Una salida de la red obrera que no valida contra el esquema queda descartada y
   registrada.
 - Suprimir una unidad la retira de las proyecciones y la conserva en el registro.
-
-## Estado medido (10 de julio de 2026)
-
-Construido y verificado:
-
-| Pieza | Estado |
-| --- | --- |
-| Registro encadenado (Blake3) | `valid: true`, 5028 eventos |
-| Corrección sin borrado (`supersedes`, `retracted_by`) | implementada |
-| Estados de promoción | implementados |
-| Puertas `indexes_semantic` / `projects_to_neo4j` | implementadas |
-| Índice vectorial | 4236 puntos: 3392 candidatos, 844 promovidos |
-| Grafo | 1055 nodos |
-| Conversaciones en el índice vectorial | 0 — la política ya las excluye |
-
-Sin construir, o construido y apagado:
-
-- **La red obrera.** Los procesos de destilación y enriquecimiento existen y
-  están desactivados por configuración.
-- **El alias de identidad.** El editor ya resuelve `<proyecto>/.llore/project.id`
-  y envía ese ULID. El registro guarda nombres heredados (`quiron`). Falta el
-  evento `ProjectAliased` y su resolución en el filtro; hasta entonces, filtrar
-  por el ULID no encuentra nada.
-- **El aislamiento del grafo.** La consulta al grafo usa el proyecto como campo
-  de texto donde buscar, no como filtro. Un proyecto puede ver a otro.
-- **La conversación efímera.** La recuperación combina cinco fuentes, y una de
-  ellas busca por palabras clave sobre el registro, de donde reaparecen las
-  conversaciones anteriores.
-- **El índice de código.** El registro contiene eventos, no unidades de tipo
-  Archivo, Lógica y Cambio. Ver `ARQUITECTURA_INDICE.md`.
-
-Durante meses el binario se compiló sin sus funcionalidades opcionales
-(`default = []` en el manifiesto), de modo que la recuperación no consultaba ni
-el índice ni el grafo. Ambos existían y nadie los leía. El arranque debe fijar
-`--features full`.

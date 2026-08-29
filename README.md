@@ -17,7 +17,7 @@ existe, porque el índice se la pone delante.
 - **`Quirón/vertex-gateway`** — salida hacia los modelos de lenguaje, con
   backends intercambiables.
 
-## Objetivo de este mes: la red obrera y los mundos por proyecto
+## Los mundos por proyecto y la red obrera
 
 Cada proyecto debe tener su propio mundo. Al abrir la carpeta de Quirón, el
 contexto es el de Quirón. Al abrir Templaris, el de Templaris. Ningún fragmento
@@ -33,9 +33,9 @@ Hay además dos defectos medidos que nada tienen que ver con el campo `project`:
 - El identificador que envía el editor es la **ruta canónica** del proyecto
   (`/home/kssose/Quirón`), mientras que los eventos lo guardan como **nombre**
   (`quiron`). Dos vocabularios para la misma cosa.
-- La colección mezcla el índice con **1652 puntos de memoria personal del agente
-  y restos de pruebas**, de ámbito `global`. No pertenecen al índice de código y
-  deben vivir aparte.
+- La colección mezcla el índice con **memoria personal del agente y restos de
+  pruebas**, de ámbito `global`. No pertenecen al índice de código y deben vivir
+  aparte.
 
 Un mundo contaminado no es un mundo.
 
@@ -203,38 +203,8 @@ Configuración en una única fuente de verdad:
 ### Limitación conocida
 
 El gateway lee el testigo de acceso sin renovarlo, aunque el fichero de
-credenciales contiene un testigo de refresco que no se utiliza. Cuando caduca
-—el actual, el **18 de julio de 2026**— las peticiones fallan hasta iniciar
-sesión de nuevo con Codex.
-
-## Estado medido (10 de julio de 2026)
-
-Operativo:
-
-- `quiron-brain` en `:8766`, servicio de usuario de systemd. `/health` → 200.
-- `semantic-ia-local` en `:8091`: `bge-m3` (1024 dimensiones) y
-  `bge-reranker-v2-m3`.
-- `vertex-gateway` en modo `codex_direct` con `gpt-5.6-sol`. Verificado.
-- Qdrant en `:6333` y `:6334`. Neo4j en `:7687`.
-- `llore_editor` compila e integrado en el escritorio con icono propio.
-- Confinamiento del editor a la carpeta del proyecto, con 19 pruebas.
-
-Sin construir:
-
-- **El índice de código.** La única colección de Qdrant es `quiron_events`:
-  4223 puntos, todos de tipo `Action`. No hay unidades Archivo, Lógica ni Cambio.
-- **El grafo de dependencias.** Neo4j contiene 844 nodos `Event`, 32 `Tag`,
-  10 `File`, 6 `Module` y 1 `Symbol`, con relaciones `TAGGED`, `MENTIONS` e
-  `IN_MODULE`. Ninguna relación de dependencia ni de llamada.
-- **El aislamiento entre mundos.** La búsqueda vectorial no filtra por proyecto;
-  descarta después. Y 1652 puntos de memoria personal, ajenos al índice, dominan
-  el vecindario de cualquier consulta.
-- **El worker de recuperación.** Qdrant y Neo4j duplican eventos en vez de
-  complementarse.
-- **La red obrera.**
-
-Lo construido es la infraestructura y una memoria de eventos. El índice que da
-nombre al proyecto está por hacer.
+credenciales contiene un testigo de refresco que no se utiliza. Cuando el
+testigo caduca, las peticiones fallan hasta iniciar sesión de nuevo con Codex.
 
 ## Arranque
 
@@ -254,5 +224,3 @@ la interfaz local antes de exponer la máquina a una red no confiable.
   efímera. Es el modelo; léase primero.
 - `docs/ARQUITECTURA_INDICE.md` — contrato del índice, del grafo, del
   worker de recuperación y de la red obrera.
-
-El material retirado se conserva bajo `historico/` y no forma parte del runtime.

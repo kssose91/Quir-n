@@ -15,11 +15,13 @@ editor no contiene credenciales ni llama directamente a proveedores externos.
 
 ## Crates principales
 
-- `llore_core`: estructuras de datos fundamentales.
-- `llore_util`: utilidades compartidas.
-- `llore_ui`: estado, componentes y render de interfaz.
-- `llore_editor`: edición de texto.
-- `llore_workspace`: gestión de proyectos.
+- `llore_core`: estructuras de datos fundamentales (rope, reloj).
+- `llore_util`: utilidades compartidas (rutas, cadenas, resultados).
+- `llore_buffer`: buffer de edición, historial y deshacer.
+- `llore_editor`: edición de texto, cursor y selección.
+- `llore_language`: registro de lenguajes y resaltado sintáctico.
+- `llore_ui`: estado, componentes, render de interfaz y guardia de rutas.
+- `llore_brain`: cliente de la API local, registro y recuperación de contexto.
 
 ## Construcción y pruebas
 

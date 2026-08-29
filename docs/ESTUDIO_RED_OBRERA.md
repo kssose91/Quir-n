@@ -1,7 +1,7 @@
 # Estudio: la matemática de la red obrera de Quirón
 
 **Algoritmos y ecuaciones de los LLM recientes, y cómo reutilizarlos en nuestro worker**
-**TFM Quirón · para la tutoría · 10 de julio de 2026**
+**TFM Quirón · Anexo A de la memoria · 10 de julio de 2026**
 
 Este documento extrae **la matemática** de los mecanismos con los que se han
 construido los LLM recientes —no compara modelos— y explica, para cada uno:
@@ -403,28 +403,6 @@ Combinando **solo lo reutilizable**, una **única red pequeña** con esta forma:
   MLA/MoE **no está medida** en fuentes primarias: hay que probarlo nosotros.
 - **Fidelidad anti-alucinación** de resúmenes *code-to-text* pequeños: no hay
   evidencia primaria; se medirá con un conjunto etiquetado propio.
-
----
-
-# Preguntas para el tutor
-
-**Sobre el diseño (de la matemática):**
-
-1. **Destilación viable:** confirmamos que, sin logits del profesor, **solo
-   Sequence-Level KD** es aplicable (reverse-KL/GKD quedan fuera). ¿Acepta esta
-   restricción como marco, o valora conseguir un profesor local que sí exponga
-   logits para poder usar KD con temperatura?
-2. **Arquitectura:** ¿le convence un **backbone híbrido lineal + atención completa
-   esporádica** como columna del worker, frente a un *encoder* clásico pequeño?
-3. **Embeddings:** ¿validamos **Matryoshka a 1024-dim** para no duplicar índices en
-   Qdrant, midiendo la pérdida al truncar?
-
-**Sobre la entrega** (dato: el editor `llore` es un **binario Rust nativo** —`winit`
-+ `softbuffer` + `cosmic-text`, ni web ni Tauri):
-
-4. ¿Basta entregar el **repositorio que se compila** (`cargo build --release
-   --features full`), o el TFM espera un **instalable de Windows** (`.exe`/`.msi`,
-   con *cross-compile*) para el tribunal?
 
 ---
 

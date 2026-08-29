@@ -1,7 +1,8 @@
 # Servicio semántico local
 
-Servicio Rust aislado para calcular embeddings y reranking. Es una pieza
-temporal del índice vectorial mientras se diseña y evalúa la red neuronal propia.
+Servicio Rust aislado para calcular embeddings y reranking del índice vectorial.
+No debe confundirse con la red obrera: el reranker solo ordena resultados, y la
+red obrera no lo sustituye.
 
 ## API
 

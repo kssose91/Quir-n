@@ -248,8 +248,7 @@ La herramienta informa; nunca elimina ni fusiona código automáticamente.
 
 ## Red neuronal obrera
 
-Objetivo principal del mes. Es una red neuronal pequeña y propia, entrenada sobre
-las unidades del índice.
+Es una red neuronal pequeña y propia, entrenada sobre las unidades del índice.
 
 No confundirla con el reranker (`bge-reranker-v2-m3`), que es un modelo
 preentrenado de terceros y solo ordena resultados; ni con el worker de
@@ -289,60 +288,3 @@ corpus de proyectos reales y métricas, no por estimación previa.
 - Renombrar la carpeta de un proyecto no crea un mundo nuevo.
 - Toda salida de la red obrera que no valida contra el esquema queda descartada
   y registrada.
-
-## Estado medido (10 de julio de 2026)
-
-Este documento describe el objetivo. Lo construido hoy es la infraestructura:
-
-| Componente | Estado |
-| --- | --- |
-| Embeddings `bge-m3` (1024 dim) y reranker | operativos en `:8091` |
-| API HTTP en `:8766`, con `/v1/messages` | operativa |
-| `vertex-gateway` (`codex_direct`, `gpt-5.6-sol`) | operativo y verificado |
-| Editor `llore_ui` (17 691 líneas, nativo) | compila; integrado en el escritorio (`app_id=llore`) |
-| Qdrant | operativo; una colección, `quiron_events`, 4223 puntos, todos `kind=Action` |
-| Neo4j | operativo; 844 `Event`, 32 `Tag`, 10 `File`, 6 `Module`, 1 `Symbol` |
-| Relaciones del grafo | `TAGGED`, `MENTIONS`, `IN_MODULE`. Ninguna de dependencia |
-| Unidades Archivo / Lógica / Cambio | no existen |
-| Aislamiento por proyecto | el filtro se aplica después de la búsqueda, no en Qdrant |
-| Identificador de proyecto | incoherente: ruta en el editor, nombre en los eventos |
-| Worker de recuperación | no existe; los dos almacenes duplican eventos |
-| Red obrera | no existe |
-
-Reparto real de los 4223 puntos por `memory_scope`: 2571 de ámbito `project`
-—`quantum-llore-hub` 2036, `quiron` 445, y unos 90 repartidos— y **1652 de
-ámbito `global`**, que son memoria personal del agente y restos de pruebas.
-
-Mientras el grafo no contenga relaciones de dependencia, los requisitos
-«dependencias entrantes y salientes» y «llamadas» de este documento no se
-cumplen, y la detección de lógica duplicada carece de su segunda señal.
-
-La recuperación falla por causas medidas, y ninguna es que falte el campo
-`project`:
-
-1. **El binario se compilaba sin sus funcionalidades.** `default = []` en el
-   manifiesto: sin `--features full`, los bloques `#[cfg(feature = "semantic")]`
-   y `#[cfg(feature = "neo4j")]` desaparecen. `recall_async` no consultaba ni el
-   almacén vectorial ni el grafo; recuperaba solo por palabras clave. Los 4223
-   vectores y los 1055 nodos existían y nadie los leía.
-2. **El identificador de proyecto no es el mismo en los dos extremos.** El
-   editor envía la ruta canónica (`/home/kssose/Quirón`); los eventos guardan un
-   nombre (`quiron`). El filtro compara cadenas y nunca coinciden.
-3. **El filtro se aplica después de la búsqueda.** `SearchPointsBuilder` se
-   invoca sin `filter`, y Qdrant carece de índice de carga útil sobre `project`.
-   Funciona, pero recupera candidatos que después descarta.
-4. **El chat se alimenta de sí mismo, pero no por la vía vectorial.** El índice
-   no contiene ninguna conversación: la política de promoción ya las excluye. Se
-   reinyectan porque la recuperación combina cinco fuentes, y una de ellas es una
-   búsqueda por palabras clave directamente sobre el registro de eventos. Una
-   pregunta repetida recupera su propia respuesta anterior.
-
-Se comprobó, por el contrario, que las memorias de ámbito global **no** desplazan
-a las del proyecto: ante consultas reales, los veinticinco candidatos más
-próximos pertenecen todos al proyecto consultado. La hipótesis de que formaban un
-sumidero vectorial se midió y resultó falsa; procedía de sondear el índice con
-vectores aleatorios, que gravitan hacia el grupo más denso.
-
-Las correcciones son deterministas y preceden a la red obrera: compilar con sus
-funcionalidades, unificar el identificador de proyecto, filtrar dentro de Qdrant,
-y trasladar la memoria personal y las conversaciones fuera del índice de código.
