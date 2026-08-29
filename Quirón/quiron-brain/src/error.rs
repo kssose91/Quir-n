@@ -36,6 +36,9 @@ pub enum BrainError {
 
     #[error("Internal error: {0}")]
     Internal(#[from] anyhow::Error),
+
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, BrainError>;

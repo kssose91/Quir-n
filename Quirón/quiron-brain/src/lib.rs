@@ -16,6 +16,7 @@ pub mod enrichment_worker;
 pub mod error;
 pub mod evaluator;
 pub mod graph;
+pub mod index;
 pub mod invariants;
 pub mod keyword_search;
 pub mod ledger;

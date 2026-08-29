@@ -74,6 +74,14 @@ pub enum NodeKind {
     /// A text chunk for semantic search.
     Chunk,
 
+    // === Índice de código (unidades derivadas del árbol sintáctico) ===
+    /// Unidad Archivo: un fichero fuente del proyecto.
+    FileUnit,
+    /// Unidad Lógica: una función, método, struct, enum, trait o impl.
+    LogicUnit,
+    /// Unidad Cambio: la transición de hash de un archivo o símbolo.
+    ChangeUnit,
+
     // === Verification ===
     /// A test/build run.
     Run,

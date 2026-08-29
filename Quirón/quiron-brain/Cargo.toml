@@ -38,6 +38,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Crypto/Hashing
 blake3 = "1.5"
 
+# Índice de código: análisis sintáctico para extraer unidades Lógica.
+tree-sitter = "0.26"
+tree-sitter-rust = "0.24"
+
 # Error handling
 thiserror = "1.0"
 anyhow = "1.0"
