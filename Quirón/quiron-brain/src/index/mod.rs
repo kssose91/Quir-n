@@ -10,6 +10,9 @@ pub mod extract;
 pub mod unit;
 pub mod walk;
 
+#[cfg(feature = "semantic")]
+pub mod vectorize;
+
 pub use unit::{ChangeReason, ChangeUnit, FileUnit, LogicKind, LogicUnit};
 
 use crate::graph::GraphBuilder;
@@ -30,6 +33,26 @@ pub struct IndexStats {
     pub skipped: usize,
 }
 
+/// Las unidades de un barrido, antes de persistir. La extracción es
+/// determinista; la persistencia al grafo y la vectorización son pasos
+/// separados que consumen esto.
+#[derive(Debug, Default)]
+pub struct CollectedUnits {
+    pub files: Vec<FileUnit>,
+    pub logic: Vec<LogicUnit>,
+    pub skipped: usize,
+}
+
+impl CollectedUnits {
+    pub fn stats(&self) -> IndexStats {
+        IndexStats {
+            files: self.files.len(),
+            logic_units: self.logic.len(),
+            skipped: self.skipped,
+        }
+    }
+}
+
 /// El indexador: proyecta el árbol sintáctico del proyecto al grafo interno.
 ///
 /// Escribe unidades Archivo y Lógica como nodos con identificador estable, y
@@ -45,41 +68,59 @@ impl Indexer {
         Self { graph: GraphBuilder::new(storage) }
     }
 
-    /// Barre el proyecto `root` bajo el identificador `project_id`.
-    ///
-    /// `max_bytes` descarta ficheros anómalamente grandes. Todas las unidades
-    /// llevan el proyecto; ninguna queda sin mundo.
+    /// Recoge las unidades del proyecto sin persistir. Paso determinista puro:
+    /// walk + extract. No toca ningún almacén.
+    pub fn collect_units(
+        &self,
+        root: &Path,
+        project_id: &str,
+        max_bytes: u64,
+    ) -> Result<CollectedUnits> {
+        let files = walk::walk(root, max_bytes)?;
+        let mut out = CollectedUnits::default();
+        for wf in files {
+            match extract::extract(project_id, &wf.rel_path, &wf.content) {
+                Some((file_unit, mut logic_units)) => {
+                    out.files.push(file_unit);
+                    out.logic.append(&mut logic_units);
+                }
+                None => out.skipped += 1,
+            }
+        }
+        Ok(out)
+    }
+
+    /// Persiste las unidades al grafo interno: cada unidad es un nodo con
+    /// identificador estable, y cada Lógica cuelga de su Archivo por `PartOf`.
+    /// Idempotente: reindexar sustituye en lugar de duplicar.
+    pub fn persist_to_graph(&self, units: &CollectedUnits) -> Result<()> {
+        // Un único evento identifica este barrido como origen de las unidades.
+        let event_id = EventId::new();
+        for f in &units.files {
+            self.graph.add_node(&f.to_node(event_id))?;
+        }
+        for l in &units.logic {
+            self.graph.add_node(&l.to_node(event_id))?;
+            // La lógica es parte de su archivo (definida en él). El id del
+            // archivo se deriva de su identidad, sin necesidad de emparejar.
+            let file_id = unit::stable_id(&l.project_id, &l.path, "");
+            let edge = Edge::deterministic(EdgeKind::PartOf, l.id, file_id, event_id);
+            self.graph.add_edge(&edge)?;
+        }
+        Ok(())
+    }
+
+    /// Barre el proyecto `root` bajo el identificador `project_id` y lo persiste
+    /// al grafo. `max_bytes` descarta ficheros anómalamente grandes. Todas las
+    /// unidades llevan el proyecto; ninguna queda sin mundo.
     pub fn index_repo(
         &self,
         root: &Path,
         project_id: &str,
         max_bytes: u64,
     ) -> Result<IndexStats> {
-        let files = walk::walk(root, max_bytes)?;
-        // Un único evento identifica este barrido como origen de las unidades.
-        let event_id = EventId::new();
-        let mut stats = IndexStats::default();
-
-        for wf in files {
-            let Some((file_unit, logic_units)) =
-                extract::extract(project_id, &wf.rel_path, &wf.content)
-            else {
-                stats.skipped += 1;
-                continue;
-            };
-
-            self.graph.add_node(&file_unit.to_node(event_id))?;
-            stats.files += 1;
-
-            for lu in &logic_units {
-                self.graph.add_node(&lu.to_node(event_id))?;
-                // La lógica es parte de su archivo (definida en él).
-                let edge = Edge::deterministic(EdgeKind::PartOf, lu.id, file_unit.id, event_id);
-                self.graph.add_edge(&edge)?;
-                stats.logic_units += 1;
-            }
-        }
-
-        Ok(stats)
+        let units = self.collect_units(root, project_id, max_bytes)?;
+        self.persist_to_graph(&units)?;
+        Ok(units.stats())
     }
 }

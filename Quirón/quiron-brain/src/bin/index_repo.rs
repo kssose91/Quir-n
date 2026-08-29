@@ -1,4 +1,4 @@
-//! Barre un proyecto y proyecta su índice de código al grafo interno.
+//! Barre un proyecto y proyecta su índice de código.
 //!
 //! Uso:
 //!   index_repo <ruta_raíz> [project_id]
@@ -7,10 +7,12 @@
 //! `<raíz>/.llore/project.id` (el ULID que fija el editor al conceder acceso),
 //! o del nombre de la carpeta como último recurso.
 //!
-//! Por defecto escribe en un almacén temporal (`QUIRON_INDEX_DATA`, por defecto
-//! `./data/index-verify`) para no colisionar con el RocksDB del servicio, que
-//! mantiene un cerrojo exclusivo. Para poblar el índice que usa el servicio,
-//! párese el servicio y apúntese `QUIRON_INDEX_DATA` a `QUIRON_DATA`.
+//! Escribe las unidades al grafo interno en `QUIRON_INDEX_DATA` (por defecto un
+//! almacén temporal, para no colisionar con el cerrojo de RocksDB del servicio).
+//!
+//! Con `QUIRON_INDEX_VECTORIZE=1` vectoriza además las unidades a Qdrant
+//! (colección `quiron_code`), usando el servicio semántico configurado. Esto
+//! requiere Qdrant y `semantic-ia-local` en marcha.
 
 use quiron_brain::graph::GraphBuilder;
 use quiron_brain::index::Indexer;
@@ -18,7 +20,8 @@ use quiron_brain::storage::Storage;
 use quiron_brain::types::node::NodeKind;
 use std::path::Path;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     let root = args.get(1).map(|s| s.as_str()).unwrap_or(".");
     let root_path = std::fs::canonicalize(root)?;
@@ -40,23 +43,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(512 * 1024);
+    let do_vectorize = std::env::var("QUIRON_INDEX_VECTORIZE")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
 
     println!("Raíz:      {}", root_path.display());
     println!("Proyecto:  {project_id}");
     println!("Almacén:   {data_path}");
+    println!("Vectoriza: {}", if do_vectorize { "sí (quiron_code)" } else { "no" });
     println!();
 
     let storage = Storage::open(&data_path)?;
     let indexer = Indexer::new(storage.clone());
-    let stats = indexer.index_repo(&root_path, &project_id, max_bytes)?;
+
+    // 1) Recoger las unidades (determinista) y persistirlas al grafo.
+    let units = indexer.collect_units(&root_path, &project_id, max_bytes)?;
+    indexer.persist_to_graph(&units)?;
+    let stats = units.stats();
 
     println!("== Barrido ==");
     println!("  Archivos indexados: {}", stats.files);
     println!("  Unidades Lógica:    {}", stats.logic_units);
     println!("  Ficheros omitidos:  {} (lenguaje no soportado)", stats.skipped);
 
-    // Releer del grafo confirma que la persistencia es real, y verifica los
-    // invariantes: ninguna unidad sin proyecto, identidad estable.
+    // 2) Confirmar la persistencia releyendo del grafo, y los invariantes.
     let graph = GraphBuilder::new(storage);
     let nodes = graph.all_nodes()?;
     let files = nodes.iter().filter(|n| n.kind == NodeKind::FileUnit).count();
@@ -75,14 +85,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Nodos LogicUnit: {logic}");
     println!("  Sin proyecto:    {sin_proyecto} (debe ser 0)");
 
-    println!();
-    println!("== Muestra de unidades Lógica ==");
-    for n in nodes
-        .iter()
-        .filter(|n| n.kind == NodeKind::LogicUnit)
-        .take(8)
-    {
-        println!("  {} · {}", n.name, n.description.as_deref().unwrap_or("").lines().next().unwrap_or(""));
+    // 3) Vectorizar a Qdrant, si se pide.
+    #[cfg(feature = "semantic")]
+    if do_vectorize {
+        use quiron_brain::index::vectorize::CodeVectorizer;
+        println!();
+        println!("== Vectorización a Qdrant (quiron_code) ==");
+        let vectorizer = CodeVectorizer::connect().await?;
+        if !vectorizer.health().await {
+            eprintln!("  Aviso: el servicio semántico o Qdrant no responden; se omite.");
+        } else {
+            let n = vectorizer.vectorize(&units.files, &units.logic).await?;
+            println!("  Puntos escritos: {n}");
+        }
+    }
+    #[cfg(not(feature = "semantic"))]
+    if do_vectorize {
+        eprintln!("Vectorización pedida pero el binario se compiló sin la feature 'semantic'.");
     }
 
     Ok(())
@@ -90,5 +109,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn read_project_id(root: &Path) -> Option<String> {
     let p = root.join(".llore/project.id");
-    std::fs::read_to_string(p).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    std::fs::read_to_string(p)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }

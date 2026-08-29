@@ -110,6 +110,29 @@ impl SemanticClient {
         self.upsert_event_with_envelope(event, None).await
     }
 
+    /// Vectoriza un texto y sube un punto arbitrario a la colección configurada.
+    ///
+    /// Genérico y ajeno a los eventos: lo usa el índice de código, que corre
+    /// sobre su propia colección (`quiron_code`) para no mezclarse con la
+    /// memoria de eventos. El `point_id` estable hace el upsert idempotente.
+    pub async fn upsert_text_point(
+        &self,
+        point_id: impl Into<qdrant_client::qdrant::PointId>,
+        text: &str,
+        payload: HashMap<String, qdrant_client::qdrant::Value>,
+    ) -> Result<()> {
+        let vector = self
+            .embed_passage(text)
+            .await
+            .context("Failed to embed code unit text")?;
+        let point = PointStruct::new(point_id, vector, payload);
+        self.qdrant
+            .upsert_points(UpsertPointsBuilder::new(&self.config.collection, vec![point]))
+            .await
+            .context("Failed to upsert code unit point")?;
+        Ok(())
+    }
+
     pub async fn upsert_event_with_envelope(
         &self,
         event: &Event,
