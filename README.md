@@ -60,14 +60,17 @@ no ejecuta.
 Su tamaño y arquitectura se deciden midiendo sobre un corpus de proyectos
 reales, no por estimación previa.
 
-No confundirla con el reranker (`bge-reranker-v2-m3`), que ya existe y solo
-ordena resultados, ni con el worker de recuperación, que es determinista.
+Es un vectorizador con sentido: el mismo backbone etiqueta y vectoriza, de modo
+que el vector de una unidad es el estado del último token del resumen que ella
+misma ha escrito. Ficha y embedding salen alineados de una sola pasada.
+
+No confundirla con el reranker (`bge-reranker-v2-m3`), que solo ordena
+resultados, ni con el worker de recuperación, que es determinista.
 
 ## El índice
 
-Tres tipos de unidad, definidos en `docs/ARQUITECTURA_INDICE.md`:
-**Archivo**, **Lógica** y **Cambio**. Cada unidad tiene identificador estable,
-hash y proyecto.
+Tres tipos de unidad, definidos en la memoria (§4.2.2): **Archivo**, **Lógica**
+y **Cambio**. Cada unidad tiene identificador estable, hash y proyecto.
 
 - **Qdrant** almacena los vectores y el texto semántico. Responde a «qué se
   parece a esto».
@@ -219,8 +222,10 @@ la interfaz local antes de exponer la máquina a una red no confiable.
 
 ## Documentos
 
-- `docs/ARQUITECTURA_MEMORIA.md` — el registro inmutable, las dos
-  proyecciones derivadas de él, la identidad de proyecto y la conversación
-  efímera. Es el modelo; léase primero.
-- `docs/ARQUITECTURA_INDICE.md` — contrato del índice, del grafo, del
-  worker de recuperación y de la red obrera.
+- `memoria/borrador-memoria-tfm.md` — la memoria del TFM. Es la única fuente
+  de verdad del proyecto: arquitectura, objetivos, plan y resultados. Léase
+  primero.
+- `docs/ESTUDIO_RED_OBRERA.md` — Anexo A: la matemática de la red obrera,
+  con etiquetas de evidencia y verificación adversarial.
+- `docs/ciclo-worker.html` — recorrido visual del ciclo: de conceder acceso a
+  una carpeta a la rotación continua del worker.

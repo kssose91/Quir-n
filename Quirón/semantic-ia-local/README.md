@@ -1,8 +1,10 @@
 # Servicio semántico local
 
 Servicio Rust aislado para calcular embeddings y reranking del índice vectorial.
-No debe confundirse con la red obrera: el reranker solo ordena resultados, y la
-red obrera no lo sustituye.
+
+La mitad de embeddings es transitoria: la red obrera se diseña para producir los
+vectores de código de 1024 dimensiones que pueblan Qdrant (Anexo A, §4.3–4.5).
+El reranker, en cambio, permanece: es el paso 4 del worker de recuperación.
 
 ## API
 

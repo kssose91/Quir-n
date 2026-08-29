@@ -68,7 +68,10 @@ tokio-test = "0.4"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
-default = []
+# `full` por defecto: sin él, los bloques #[cfg(feature = "semantic")] y
+# #[cfg(feature = "neo4j")] desaparecen y la recuperación deja de consultar
+# el índice y el grafo en silencio. Fue la causa raíz del diagnóstico de julio.
+default = ["full"]
 hash-chain = []
 neo4j = ["neo4rs"]
 semantic = ["qdrant-client", "fastembed"]

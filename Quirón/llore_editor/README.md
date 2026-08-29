@@ -30,6 +30,6 @@ cargo build --release
 cargo test --locked
 ```
 
-La red neuronal de mantenimiento del índice no forma parte todavía del editor.
-Se incorporará después de estabilizar la interfaz, el chat y el contrato del
-índice vectorial.
+La red obrera no vive en el editor y no se incorporará a él: es un daemon
+continuo dentro de `quiron-brain`. El editor la alcanza, como a todo lo demás,
+por la API local en `127.0.0.1:8766` — nunca habla con Qdrant ni con Neo4j.
