@@ -211,14 +211,36 @@ testigo caduca, las peticiones fallan hasta iniciar sesión de nuevo con Codex.
 
 ## Arranque
 
+Los almacenes viven con la aplicación, no antes. Qdrant y Neo4j no arrancan al
+encender la máquina: los levanta el servicio del cerebro justo antes de sí mismo,
+y los para justo después. El editor, al abrirse, pide ese arranque.
+
 ```sh
-scripts/arranque_unificado_quiron.sh     # servicios y contenedores
-systemctl --user status quiron-brain     # cerebro y API
+# Instalar el servicio (una vez):
+cp deploy/quiron-brain.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+# No se habilita al boot (unidad `static`): se activa a demanda.
+
+systemctl --user start quiron-brain      # levanta almacenes + cerebro
+systemctl --user status quiron-brain     # estado
+systemctl --user stop  quiron-brain      # para cerebro + almacenes
 ```
 
-Qdrant y Neo4j corren como contenedores `quiron-qdrant` y `quiron-neo4j`. Hoy
-escuchan en `0.0.0.0` y Qdrant carece de autenticación; conviene restringirlos a
-la interfaz local antes de exponer la máquina a una red no confiable.
+El servicio (`deploy/quiron-brain.service`) invoca `scripts/quiron-stores.sh up`
+en `ExecStartPre` y `... down` en `ExecStopPost`. Ese script descubre los
+contenedores por puerto, los arranca (o los crea con `--restart no`) y espera a
+que respondan antes de ceder el paso al cerebro.
+
+Docker es *rootful* en esta máquina: el usuario debe pertenecer al grupo
+`docker` (`sudo usermod -aG docker $USER` y reiniciar sesión) para que el
+servicio gestione los contenedores sin `sudo`. Si un contenedor heredó una
+política de reinicio automático, se corrige una sola vez con
+`docker update --restart no <contenedor>` para que no reviva al arrancar la
+máquina.
+
+Qdrant y Neo4j escuchan hoy en `0.0.0.0`, y Qdrant carece de autenticación;
+conviene restringirlos a la interfaz local antes de exponer la máquina a una red
+no confiable.
 
 ## Documentos
 

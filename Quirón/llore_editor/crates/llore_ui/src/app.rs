@@ -1971,6 +1971,12 @@ impl AppState {
         // Crear runtime de tokio
         let runtime = Runtime::new().expect("Failed to create tokio runtime");
 
+        // Los almacenes viven con la aplicación: al abrir el editor se pide a
+        // systemd que arranque el cerebro, cuyo ExecStartPre levanta Qdrant y
+        // Neo4j. No se bloquea la interfaz: el health task reconecta cuando el
+        // servicio termina de estar listo.
+        Self::ensure_brain_service();
+
         // Crear Quiron (conexión a quiron-brain, configurable desde entorno en modo seguro)
         let (quiron, quiron_brain_url, quiron_secure_mode, quiron_auth_source, startup_status) =
             Self::build_quiron_from_env(&workspace_root);
@@ -2127,6 +2133,19 @@ impl AppState {
         );
         state.recent_projects.clear();
         state
+    }
+
+    /// Pide a systemd (--user) que arranque el servicio del cerebro, que a su
+    /// vez levanta los almacenes. Best-effort e idempotente: si systemd no está,
+    /// el servicio no existe o ya corre, no pasa nada y el editor conecta igual.
+    /// No espera: `systemctl start` bloquearía mientras Neo4j se inicializa, así
+    /// que se lanza y se deja al health task reintentar la conexión.
+    fn ensure_brain_service() {
+        let _ = std::process::Command::new("systemctl")
+            .args(["--user", "start", "quiron-brain.service"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
     }
 
     fn build_quiron_from_env(
