@@ -24,7 +24,6 @@ const WELCOME_COLUMN_WIDTH: f32 = 420.0;
 const WELCOME_ROW_HEIGHT: f32 = 26.0;
 
 /// Tamaño de los iconos de la barra de actividad.
-const ACTIVITY_ICON_SIZE: f32 = 16.0;
 /// Tamaño de los iconos de acción del explorador.
 const CONTROL_ICON_SIZE: f32 = 12.0;
 /// Tamaño del icono que identifica a quien habla en el chat.
@@ -46,9 +45,6 @@ const SEARCH_RESULTS_ROW_HEIGHT_BASE: f32 = 16.0;
 const SEARCH_RESULTS_HEADER_HEIGHT_BASE: f32 = 16.0;
 const SEARCH_RESULTS_PANEL_PADDING_TOP_BASE: f32 = 4.0;
 const SEARCH_RESULTS_PANEL_PADDING_BOTTOM_BASE: f32 = 4.0;
-const ACTIVITY_BAR_WIDTH: f32 = 40.0;
-const ACTIVITY_BUTTON_HEIGHT_BASE: f32 = 24.0;
-const ACTIVITY_BUTTON_GAP_BASE: f32 = 5.0;
 
 fn theme_hex(palette: &ThemePalette, dark: u32, light: u32) -> Color {
     if palette.is_light {
@@ -81,7 +77,7 @@ fn syntax_color(class: SyntaxClass, palette: &ThemePalette) -> Color {
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║                    LLORE EDITOR GUI                          ║");
+    println!("║                          QUIRÓN                              ║");
     println!("║              Editor local y chat de proyecto                 ║");
     println!("╠══════════════════════════════════════════════════════════════╣");
     println!("║  Conectando al gateway local...                              ║");
@@ -98,7 +94,7 @@ fn main() {
     let _enter = rt.enter();
 
     // Ejecutar aplicación
-    run("Llore Editor", 1280, 720, |window, state| {
+    run("Quirón", 1280, 720, |window, state| {
         render_app(window, state);
     });
 }
@@ -120,8 +116,6 @@ fn render_app(window: &mut Window, state: &mut AppState) {
 
     let palette = state.theme_palette();
     let density_scale = state.ui_density_scale();
-    let activity_button_height = (ACTIVITY_BUTTON_HEIGHT_BASE * density_scale).clamp(20.0, 34.0);
-    let activity_button_gap = (ACTIVITY_BUTTON_GAP_BASE * density_scale).clamp(4.0, 12.0);
     let explorer_row_h = (16.0 * density_scale).clamp(14.0, 22.0);
 
     // Fondo base
@@ -134,13 +128,23 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         Color::from_hex(palette.surface),
     );
 
-    let status_height = 22.0;
+    // La maqueta no tiene barra de estado inferior: sus indicadores viven en la
+    // cabecera. Se conserva la variable a cero porque una docena de cálculos de
+    // alto la restan; poniéndola a cero el contenido crece hasta el borde sin
+    // tocar ninguno de ellos.
+    let status_height = 0.0;
 
-    // Sidebar izquierda (resizable)
-    let max_sidebar = (bounds.width * 0.45).max(200.0);
-    let sidebar_width = state.sidebar_width.clamp(180.0, max_sidebar.max(180.0));
+    // Sidebar izquierda (resizable). El techo sale del menor entre el máximo de
+    // la maqueta y el 45 % de la ventana: en pantallas estrechas manda la
+    // ventana, en anchas manda el diseño.
+    let max_sidebar = (bounds.width * 0.45).min(llore_ui::app::MAX_SIDEBAR_WIDTH).max(llore_ui::app::MIN_SIDEBAR_WIDTH);
+    let sidebar_width = state.sidebar_width.clamp(llore_ui::app::MIN_SIDEBAR_WIDTH, max_sidebar);
     state.sidebar_width = sidebar_width;
-    let activity_bar_width = ACTIVITY_BAR_WIDTH.min((sidebar_width - 120.0).max(32.0));
+    // La maqueta no tiene tira de iconos: los siete paneles se abren desde la
+    // paleta de comandos (`command_palette_reaches_every_sidebar_panel` lo
+    // garantiza). Se conserva la variable a cero porque el resto del layout la
+    // suma y la resta; a cero, la lateral se queda esos 40 px de ancho.
+    let activity_bar_width = 0.0_f32;
     let sidebar_region_x = match state.explorer_dock {
         PanelDock::Left => 0.0,
         PanelDock::Right => bounds.width - sidebar_width,
@@ -155,15 +159,6 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     };
     let sidebar_content_x = sidebar_panel_x + 10.0;
     let sidebar_content_width = (sidebar_width - activity_bar_width - 18.0).max(80.0);
-    canvas.fill_rect(
-        Bounds::new(
-            activity_bar_x,
-            header_height,
-            activity_bar_width,
-            bounds.height - header_height - status_height,
-        ),
-        Color::from_hex(palette.background),
-    );
     canvas.fill_rect(
         Bounds::new(
             sidebar_panel_x,
@@ -211,17 +206,6 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         },
     );
 
-    // Status bar inferior
-    canvas.fill_rect(
-        Bounds::new(
-            0.0,
-            bounds.height - status_height,
-            bounds.width,
-            status_height,
-        ),
-        Color::from_hex(palette.surface),
-    );
-
     // === Layout general ===
     let main_x = match state.explorer_dock {
         PanelDock::Left => sidebar_width,
@@ -231,13 +215,34 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     let main_width = (bounds.width - sidebar_width).max(240.0);
     let content_height = (bounds.height - header_height - status_height).max(120.0);
 
-    let split_gap = 4.0;
+    // El editor deja de ser la columna base. La base es el chat, y el editor se
+    // monta a su lado solo si caben los mínimos de ambos —la regla que la
+    // maqueta escribe como `cabeElEditor`—. Cuando no cabe no se estrujan los
+    // dos: el editor no aparece y el chat se queda el centro entero.
+    // Dos condiciones, como la maqueta: `!!s.editor && cabeElEditor()`. Esa
+    // columna es para archivos. Si no hay ninguno abierto no se monta, y el
+    // chat se queda la fila entera.
+    let editor_montado = state.hay_archivo_abierto() && state.cabe_el_editor(main_width);
+    let split_gap = if editor_montado {
+        llore_ui::app::COLUMN_GAP
+    } else {
+        0.0
+    };
     let split_available = (main_width - split_gap).max(220.0);
-    let panel_min = 180.0_f32.min((split_available - 40.0).max(80.0));
-    let max_editor = (split_available - panel_min).max(panel_min);
-    let editor_width = (split_available * state.editor_split_ratio).clamp(panel_min, max_editor);
-    let chat_width = (split_available - editor_width).max(panel_min);
-    state.editor_split_ratio = (editor_width / split_available).clamp(0.1, 0.9);
+    let (editor_width, chat_width) = if editor_montado {
+        let max_editor = (split_available - llore_ui::app::MIN_CHAT_WIDTH)
+            .max(llore_ui::app::MIN_EDITOR_WIDTH)
+            .min(llore_ui::app::MAX_EDITOR_WIDTH);
+        let editor_width = (split_available * state.editor_split_ratio)
+            .clamp(llore_ui::app::MIN_EDITOR_WIDTH, max_editor);
+        state.editor_split_ratio = (editor_width / split_available).clamp(0.1, 0.9);
+        (
+            editor_width,
+            (split_available - editor_width).max(llore_ui::app::MIN_CHAT_WIDTH),
+        )
+    } else {
+        (0.0, split_available)
+    };
 
     let (editor_region_bounds, chat_bounds) = match state.chat_dock {
         PanelDock::Left => (
@@ -259,11 +264,27 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             ),
         ),
     };
+    // Bandeja de escritura flotante. Medida sobre la maqueta: 40 px de margen
+    // lateral, 28 del fondo. Estaba pegada al borde con 8 px, que es lo que la
+    // hacía leerse como una barra y no como una bandeja.
+    let bandeja_lado = design::space::XXL + design::space::SM;
+    let bandeja_fondo = design::space::XL + design::space::XS;
+    let bandeja_alto = 76.0;
+    // Mientras no haya conversación la bandeja se queda en el centro de la
+    // columna, como al entrar en Cursor: una columna vacía con la entrada
+    // pegada al fondo se lee como un formulario abandonado. En cuanto el
+    // usuario escribe, baja a su sitio y el hilo crece hacia arriba.
+    let conversacion_vacia = !state.messages.iter().any(|m| m.is_user);
+    let bandeja_y = if conversacion_vacia {
+        chat_bounds.y + (chat_bounds.height - bandeja_alto) * 0.5
+    } else {
+        chat_bounds.y + chat_bounds.height - bandeja_fondo - bandeja_alto
+    };
     let input_bounds = Bounds::new(
-        chat_bounds.x + 8.0,
-        chat_bounds.y + chat_bounds.height - 46.0,
-        (chat_bounds.width - 16.0).max(80.0),
-        38.0,
+        chat_bounds.x + bandeja_lado,
+        bandeja_y,
+        (chat_bounds.width - bandeja_lado * 2.0).max(120.0),
+        bandeja_alto,
     );
 
     state.set_input_bounds(input_bounds);
@@ -317,10 +338,27 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     state.clear_search_results_bounds();
 
     // === Paneles ===
-    let editor_bg = Color::from_hex(palette.surface);
-    let chat_bg = Color::from_hex(palette.surface);
-    canvas.fill_rect(editor_region_bounds, editor_bg);
-    canvas.fill_rect(chat_bounds, chat_bg);
+    //
+    // El editor es una tarjeta que flota sobre el suelo, como en la maqueta:
+    // blanca en claro, con esquinas y sombra. Los 12 px de hueco con el chat
+    // ya le dan sitio a la sombra, así que se dibuja a la medida de la región
+    // sin encoger nada: el contenido sigue usando las mismas coordenadas.
+    if editor_montado {
+        let tarjeta_bg = if palette.is_light {
+            Color::new(255, 255, 255)
+        } else {
+            Color::from_hex(palette.surface)
+        };
+        canvas.drop_shadow(
+            editor_region_bounds,
+            design::radius::LG,
+            3.0,
+            10.0,
+            Color::from_hex(0x2D2B2B).with_alpha(41),
+        );
+        canvas.fill_rounded_rect(editor_region_bounds, design::radius::LG, tarjeta_bg);
+    }
+    canvas.fill_rect(chat_bounds, Color::from_hex(palette.surface));
 
     // We remove the hard 1.0px strokes around all primary/secondary panes and the chat pane
     // to give a clean, borderless Antigravity look.
@@ -354,58 +392,83 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         );
     }
 
-    // Input chat (modern pill shape)
-    let input_bg = if state.input_focused {
-        Color::from_hex(palette.surface)
+    // La bandeja flota: primero la sombra, después la superficie. En claro es
+    // blanco puro sobre el fondo cálido —así es como la maqueta la despega del
+    // hilo—; en oscuro no hay blanco que valga y se usa la superficie.
+    let bandeja_bg = if palette.is_light {
+        Color::new(255, 255, 255)
     } else {
-        Color::from_hex(palette.background)
+        Color::from_hex(palette.surface)
     };
-    canvas.fill_rounded_rect(input_bounds, 8.0, input_bg);
+    canvas.drop_shadow(
+        input_bounds,
+        design::radius::LG,
+        3.0,
+        10.0,
+        Color::from_hex(0x2D2B2B).with_alpha(41),
+    );
+    canvas.fill_rounded_rect(input_bounds, design::radius::LG, bandeja_bg);
     if state.input_focused {
         canvas.stroke_rect(input_bounds, Color::from_hex(palette.accent), 1.0);
     }
 
-    // === Menú superior estilo editor ===
-    let menu_row_y = 10.0;
-    let menu_row_h = 24.0;
-    let menu_items = [
-        TopMenuKind::File,
-        TopMenuKind::Edit,
-        TopMenuKind::View,
-        TopMenuKind::Go,
-        TopMenuKind::Project,
-        TopMenuKind::Help,
-    ];
-    let mut menu_x = 12.0;
-    let mut menu_layout: Vec<(TopMenuKind, Bounds)> = Vec::new();
-    for menu in menu_items {
-        let label = menu.label();
-        let item_w = (label.chars().count() as f32 * 8.5 + 16.0).clamp(40.0, 90.0);
-        let item_bounds = Bounds::new(menu_x, menu_row_y, item_w, menu_row_h);
-        let active = state.top_menu_open() == Some(menu);
-        if active {
-            canvas.fill_rounded_rect(
-                item_bounds,
-                4.0,
-                Color::from_hex(palette.selection).with_alpha(150),
-            );
-        }
-        let item_buf = state.text_system.create_line_buffer(label, design::type_scale::SM, item_w - 8.0);
-        state.text_system.draw_buffer(
-            canvas,
-            &item_buf,
-            menu_x + 5.0,
-            menu_row_y + 12.0,
-            if active {
-                Color::from_hex(palette.text)
-            } else {
-                Color::from_hex(palette.text_muted)
-            },
-        );
-        state.add_click_target(item_bounds, ClickTargetAction::TopMenuToggle(menu));
-        menu_layout.push((menu, item_bounds));
-        menu_x += item_w + 5.0;
-    }
+    // === Cabecera: la ficha de identidad de la maqueta ===
+    //
+    // La barra de menús (File/Edit/View/Go/Project/Help) desaparece: sus 35
+    // acciones ya viven en la paleta de comandos, incluida `Open Folder...`,
+    // que era la única que faltaba y se añadió al retirarla. En su sitio va lo
+    // que el diseño pone ahí: la marca y el proyecto abierto.
+    let brand_h = 22.0;
+    let brand_y = (header_height - brand_h) * 0.5;
+    let logo_bounds = Bounds::new(design::space::MD, brand_y, brand_h, brand_h);
+    canvas.fill_rounded_rect(
+        logo_bounds,
+        design::radius::SM,
+        Color::from_hex(palette.accent),
+    );
+    let logo_buf = state
+        .text_system
+        .create_heading_buffer("Q", design::type_scale::SM, brand_h);
+    state.text_system.draw_buffer(
+        canvas,
+        &logo_buf,
+        logo_bounds.x + 7.0,
+        brand_y + brand_h * 0.5 + design::type_scale::SM * 0.36,
+        Color::from_hex(palette.background),
+    );
+
+    let marca_x = logo_bounds.x + brand_h + design::space::SM;
+    let marca_buf = state
+        .text_system
+        .create_heading_buffer("Quirón", design::type_scale::MD, 120.0);
+    state.text_system.draw_buffer(
+        canvas,
+        &marca_buf,
+        marca_x,
+        brand_y + brand_h * 0.5 + design::type_scale::MD * 0.36,
+        Color::from_hex(palette.text),
+    );
+
+    // El proyecto abierto, en monoespaciada y apagado, como en la maqueta.
+    let proyecto = state
+        .workspace_root
+        .file_name()
+        .and_then(|v| v.to_str())
+        .unwrap_or("sin proyecto");
+    let proyecto_buf =
+        state
+            .text_system
+            .create_code_buffer(proyecto, design::type_scale::XS, 260.0);
+    state.text_system.draw_buffer(
+        canvas,
+        &proyecto_buf,
+        marca_x + 62.0,
+        brand_y + brand_h * 0.5 + design::type_scale::XS * 0.36,
+        Color::from_hex(palette.text_muted),
+    );
+
+    // Los menús ya no existen; el desplegable se queda sin nada que abrir.
+    let menu_layout: Vec<(TopMenuKind, Bounds)> = Vec::new();
 
     // === Título central discreto ===
     let ws_name = state
@@ -413,7 +476,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         .file_name()
         .and_then(|v| v.to_str())
         .unwrap_or("Sin proyecto");
-    let window_title = format!("{} — Llore", ws_name);
+    let window_title = format!("{} — Quirón", ws_name);
     let title_width = 240.0;
     let workspace_buf = state
         .text_system
@@ -426,110 +489,96 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         Color::from_hex(palette.text_muted),
     );
 
+    // === Cabeza de la lateral ===
+    //
+    // La maqueta abre la columna con la acción primaria y la búsqueda, antes de
+    // ninguna lista. Entre ellas y el árbol va su sección SESIONES, que aquí no
+    // se dibuja: Llore no guarda conversaciones, así que no hay nada que
+    // listar. Inventarse cuatro filas de ejemplo sería mentir sobre lo que la
+    // aplicación sabe.
+    let boton_h = 38.0;
+    let boton_y = header_height + design::space::MD;
+    let boton_bounds = Bounds::new(sidebar_content_x, boton_y, sidebar_content_width, boton_h);
+    canvas.fill_rounded_rect(
+        boton_bounds,
+        design::radius::MD,
+        Color::from_hex(palette.accent),
+    );
+    let boton_buf = state.text_system.create_heading_buffer(
+        "+   Nuevo chat",
+        design::type_scale::SM,
+        sidebar_content_width - 20.0,
+    );
+    state.text_system.draw_buffer(
+        canvas,
+        &boton_buf,
+        boton_bounds.x + 14.0,
+        boton_y + boton_h * 0.5 + design::type_scale::SM * 0.36,
+        Color::from_hex(palette.background),
+    );
+    state.add_click_target(boton_bounds, ClickTargetAction::NewChat);
+
+    // Fila de búsqueda. En la maqueta el atajo es ⌘P; aquí es Ctrl+P, que es el
+    // que realmente funciona en esta máquina.
+    let buscar_h = 26.0;
+    let buscar_y = boton_y + boton_h + design::space::SM;
+    let buscar_bounds = Bounds::new(sidebar_content_x, buscar_y, sidebar_content_width, buscar_h);
+    let buscar_base = buscar_y + buscar_h * 0.5 + design::type_scale::SM * 0.36;
+    let lupa = state.text_system.create_icon_buffer(icons::SEARCH, 12.0);
+    state.text_system.draw_buffer(
+        canvas,
+        &lupa,
+        buscar_bounds.x + 2.0,
+        buscar_base,
+        Color::from_hex(palette.text_muted),
+    );
+    let buscar_buf =
+        state
+            .text_system
+            .create_line_buffer("Buscar", design::type_scale::SM, sidebar_content_width - 60.0);
+    state.text_system.draw_buffer(
+        canvas,
+        &buscar_buf,
+        buscar_bounds.x + 22.0,
+        buscar_base,
+        Color::from_hex(palette.text_muted),
+    );
+    let atajo_buf = state
+        .text_system
+        .create_code_buffer("Ctrl+P", design::type_scale::XS, 60.0);
+    state.text_system.draw_buffer(
+        canvas,
+        &atajo_buf,
+        buscar_bounds.x + sidebar_content_width - 44.0,
+        buscar_base,
+        Color::from_hex(palette.text_muted),
+    );
+    state.add_click_target(buscar_bounds, ClickTargetAction::ActivityQuickOpen);
+
+    // Rótulos en castellano, como la maqueta.
     let sidebar_title_label = match state.sidebar_panel {
-        SidebarPanel::Explorer => "EXPLORER",
-        SidebarPanel::Search => "SEARCH",
-        SidebarPanel::Git => "SOURCE CONTROL",
-        SidebarPanel::Problems => "PROBLEMS",
-        SidebarPanel::Outline => "OUTLINE",
-        SidebarPanel::Appearance => "APPEARANCE",
-        SidebarPanel::Security => "SECURITY",
+        SidebarPanel::Explorer => "ARCHIVOS",
+        SidebarPanel::Search => "BUSCAR",
+        SidebarPanel::Git => "CONTROL DE VERSIONES",
+        SidebarPanel::Problems => "PROBLEMAS",
+        SidebarPanel::Outline => "ESQUEMA",
+        SidebarPanel::Appearance => "APARIENCIA",
+        SidebarPanel::Security => "SEGURIDAD",
     };
     let sidebar_title =
         state
             .text_system
-            .create_line_buffer(sidebar_title_label, design::type_scale::SM, sidebar_content_width);
+            .create_line_buffer(sidebar_title_label, design::type_scale::XS, sidebar_content_width);
 
-    let activity_items = vec![
-        (
-            icons::EXPLORER,
-            state.sidebar_panel == SidebarPanel::Explorer,
-            ClickTargetAction::ActivityFocusExplorer,
-        ),
-        (
-            icons::SEARCH,
-            state.sidebar_panel == SidebarPanel::Search,
-            ClickTargetAction::ActivitySidebarSearch,
-        ),
-        (
-            icons::GIT,
-            state.sidebar_panel == SidebarPanel::Git,
-            ClickTargetAction::ActivitySidebarGit,
-        ),
-        (
-            icons::PROBLEMS,
-            state.sidebar_panel == SidebarPanel::Problems,
-            ClickTargetAction::ActivitySidebarProblems,
-        ),
-        (
-            icons::OUTLINE,
-            state.sidebar_panel == SidebarPanel::Outline,
-            ClickTargetAction::ActivitySidebarOutline,
-        ),
-        (
-            icons::APPEARANCE,
-            state.sidebar_panel == SidebarPanel::Appearance,
-            ClickTargetAction::ActivitySidebarAppearance,
-        ),
-        (
-            icons::SECURITY,
-            state.sidebar_panel == SidebarPanel::Security,
-            ClickTargetAction::ActivitySidebarSecurity,
-        ),
-        (
-            icons::FOLDER_OPEN,
-            state.overlay_mode == Some(OverlayMode::QuickOpen),
-            ClickTargetAction::ActivityQuickOpen,
-        ),
-        (
-            icons::COMMANDS,
-            state.overlay_mode == Some(OverlayMode::CommandPalette),
-            ClickTargetAction::ActivityCommandPalette,
-        ),
-    ];
-    for (idx, (icon, active, action)) in activity_items.into_iter().enumerate() {
-        let btn_y =
-            header_height + 12.0 + idx as f32 * (activity_button_height + activity_button_gap);
-        let btn_bounds = Bounds::new(
-            activity_bar_x + 6.0,
-            btn_y,
-            activity_bar_width - 12.0,
-            activity_button_height,
-        );
-        if active {
-            canvas.fill_rounded_rect(btn_bounds, 5.0, Color::from_hex(palette.selection));
-            canvas.draw_line(
-                btn_bounds.x,
-                btn_bounds.y + 4.0,
-                btn_bounds.x,
-                btn_bounds.y + btn_bounds.height - 4.0,
-                Color::from_hex(palette.accent),
-                2.0,
-            );
-        }
-        let icon_buffer = state.text_system.create_icon_buffer(icon, ACTIVITY_ICON_SIZE);
-        state.text_system.draw_buffer(
-            canvas,
-            &icon_buffer,
-            btn_bounds.x + (btn_bounds.width - ACTIVITY_ICON_SIZE) * 0.5,
-            btn_bounds.y + (btn_bounds.height + ACTIVITY_ICON_SIZE) * 0.5 - 1.0,
-            if active {
-                Color::from_hex(palette.text)
-            } else {
-                Color::from_hex(palette.text_muted)
-            },
-        );
-        state.add_click_target(btn_bounds, action);
-    }
+    let titulo_base = buscar_y + buscar_h + design::space::XL;
     state.text_system.draw_buffer(
         canvas,
         &sidebar_title,
         sidebar_content_x,
-        header_height + 24.0,
+        titulo_base,
         Color::from_hex(palette.text_muted),
     );
-    // La barra vertical ya selecciona la vista; evitamos una segunda navegación duplicada.
-    let explorer_start_y = header_height + 38.0;
+    let explorer_start_y = titulo_base + design::space::MD;
     let explorer_end_y = bounds.height - status_height - 8.0;
     match state.sidebar_panel {
         SidebarPanel::Explorer => {
@@ -1005,6 +1054,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 ("Quiron Dark", UiTheme::QuironDark),
                 ("Graphite Dark", UiTheme::GraphiteDark),
                 ("Copper Light", UiTheme::CopperLight),
+                ("Modernist Light", UiTheme::ModernistLight),
             ];
             for (label, theme) in theme_rows {
                 let row_bounds = Bounds::new(sidebar_content_x, y, sidebar_content_width, row_h);
@@ -1506,13 +1556,13 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     }
 
     // === Editor ===
-    if state.workspace_is_open() {
+    // Sin sitio no hay columna: ni editor ni bienvenida. El chat, que ya ocupa
+    // toda la fila, es lo único que se pinta.
+    if editor_montado {
         render_editor_pane(canvas, state, primary_editor_bounds, EditorPane::Primary);
         if let Some(secondary_bounds) = secondary_editor_bounds {
             render_editor_pane(canvas, state, secondary_bounds, EditorPane::Secondary);
         }
-    } else {
-        render_welcome(canvas, state, editor_region_bounds, &palette);
     }
 
     // === Chat ===
@@ -1526,9 +1576,11 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         chat_bounds.y + 20.0,
         Color::from_hex(palette.text_muted),
     );
+    // El modelo y el «+ contexto» viven dentro de la bandeja, en su fila
+    // inferior, no sueltos en la cabecera del panel.
     let model_bounds = Bounds::new(
-        chat_bounds.x + chat_bounds.width - 102.0,
-        chat_bounds.y + 6.0,
+        input_bounds.x + 46.0,
+        input_bounds.y + input_bounds.height - 28.0,
         94.0,
         20.0,
     );
@@ -1549,7 +1601,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         Color::from_hex(palette.accent),
     );
     state.add_click_target(model_bounds, ClickTargetAction::ActivityCycleAiModel);
-    let add_ctx_bounds = Bounds::new(model_bounds.x - 28.0, chat_bounds.y + 6.0, 24.0, 20.0);
+    let add_ctx_bounds = Bounds::new(input_bounds.x + 14.0, model_bounds.y, 24.0, 20.0);
     canvas.fill_rounded_rect(
         add_ctx_bounds,
         4.0,
@@ -1595,7 +1647,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             (chat_bounds.width - 16.0).max(140.0),
             panel_height,
         );
-        canvas.fill_rounded_rect(panel_bounds, 6.0, Color::from_hex(palette.surface));
+        canvas.fill_rounded_rect(panel_bounds, design::radius::MD, Color::from_hex(palette.surface));
         // Eliminar stroke_rect
 
         let session_label = short_session_id(&telemetry.session_id);
@@ -1790,9 +1842,28 @@ fn render_app(window: &mut Window, state: &mut AppState) {
 
     // La altura de cada tarjeta depende de cuántas líneas ocupe su texto al
     // envolverse. Se mide antes de dibujar; suponerla fija apilaba los mensajes.
+    // Índice absoluto en `state.messages` del primero que se enseña: el
+    // plegado de los bloques de pensamiento se guarda por ese índice.
+    let primer_indice = state.messages.len().saturating_sub(messages_to_show.len());
+    let desplegados: Vec<bool> = (0..messages_to_show.len())
+        .map(|i| state.expanded_thoughts.contains(&(primer_indice + i)))
+        .collect();
+
     let measured: Vec<(ChatMessage, String, f32, f32)> = messages_to_show
         .into_iter()
-        .map(|msg| {
+        .enumerate()
+        .map(|(i, msg)| {
+            // Bloque de pensamiento: una línea de encabezado y, si está
+            // desplegado, una por cada herramienta usada. Sin tarjeta.
+            if msg.meta.as_deref() == Some("tools") {
+                let cuerpo = msg.content.lines().count().saturating_sub(1) as f32;
+                let block_h = CHAT_LINE_HEIGHT
+                    + if desplegados[i] { cuerpo * CHAT_DETAIL_LINE + design::space::XS } else { 0.0 }
+                    + design::space::SM;
+                let text = msg.content.clone();
+                return (msg, text, CHAT_LINE_HEIGHT, block_h);
+            }
+
             let text = truncate_chars(&msg.content, CHAT_MESSAGE_MAX_CHARS);
             let (_, text_h) = state.text_system.measure(&text, 12.0, msg_text_w);
             let text_h = text_h.max(CHAT_LINE_HEIGHT);
@@ -1825,13 +1896,69 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         let (msg, text, text_h, block_h) = &measured[index];
         let (msg, text, text_h, block_h) = (msg, text.as_str(), *text_h, *block_h);
 
+        // === Bloque de pensamiento ===
+        // Como en la maqueta: «› Pensó 8 s · leyó 3 archivos» en apagado, sin
+        // tarjeta, y al abrirlo el detalle en monoespaciada. El encabezado es
+        // la primera línea del contenido; lo escribe la ruta de envío.
+        if msg.meta.as_deref() == Some("tools") {
+            let indice_abs = primer_indice + index;
+            let abierto = desplegados[index];
+            let mut lineas = text.lines();
+            let encabezado = lineas.next().unwrap_or("");
+            let cabecera_bounds = Bounds::new(msg_card_x, msg_y, msg_card_w, CHAT_LINE_HEIGHT + 4.0);
+            let base = msg_y + CHAT_LINE_HEIGHT;
+            let chevron = state
+                .text_system
+                .create_line_buffer(if abierto { "⌄" } else { "›" }, design::type_scale::SM, 16.0);
+            state.text_system.draw_buffer(
+                canvas,
+                &chevron,
+                msg_card_x + 10.0,
+                base,
+                Color::from_hex(palette.text_muted),
+            );
+            let enc_buf = state.text_system.create_line_buffer(
+                encabezado,
+                design::type_scale::SM,
+                msg_card_w - 34.0,
+            );
+            state.text_system.draw_buffer(
+                canvas,
+                &enc_buf,
+                msg_card_x + 26.0,
+                base,
+                Color::from_hex(palette.text_muted),
+            );
+            state.add_click_target(cabecera_bounds, ClickTargetAction::ToggleThought(indice_abs));
+
+            if abierto {
+                let mut y = base + design::space::XS + CHAT_DETAIL_LINE;
+                for linea in lineas {
+                    let l_buf = state.text_system.create_code_buffer(
+                        &truncate_chars(linea, 110),
+                        design::type_scale::XS,
+                        msg_card_w - 40.0,
+                    );
+                    state.text_system.draw_buffer(
+                        canvas,
+                        &l_buf,
+                        msg_card_x + 30.0,
+                        y,
+                        Color::from_hex(palette.text_muted),
+                    );
+                    y += CHAT_DETAIL_LINE;
+                }
+            }
+            continue;
+        }
+
         let card_bounds = Bounds::new(msg_card_x, msg_y, msg_card_w, block_h);
         let card_bg = if msg.is_user {
             Color::from_hex(palette.selection).with_alpha(40)
         } else {
             Color::from_hex(palette.surface).with_alpha(200)
         };
-        canvas.fill_rounded_rect(card_bounds, 12.0, card_bg);
+        canvas.fill_rounded_rect(card_bounds, design::radius::LG, card_bg);
 
         let role_bounds = Bounds::new(card_bounds.x + 8.0, card_bounds.y + 8.0, 16.0, 16.0);
         canvas.fill_rounded_rect(
@@ -2071,30 +2198,56 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         ));
     }
 
-    let mut chip_x = 8.0;
-    let chip_y = bounds.height - status_height + 4.0;
-    let chip_h = (status_height - 8.0).max(14.0);
+    // Los indicadores se dibujan en la cabecera y de derecha a izquierda, de
+    // modo que el primero de la lista —el más importante— queda pegado al
+    // borde. Se detienen antes de llegar al menú superior.
+    let chip_h = (header_height - 14.0).max(16.0);
+    let chip_y = (header_height - chip_h) * 0.5;
+    let mut chip_right = bounds.width - design::space::SM;
     for (label, bg, fg, border, action) in status_chips {
-        let chip_w = (label.chars().count() as f32 * 6.4 + 14.0).clamp(44.0, bounds.width * 0.58);
-        if chip_x + chip_w > bounds.width - 8.0 {
+        let chip_w = (label.chars().count() as f32 * 6.4 + 14.0).clamp(44.0, bounds.width * 0.34);
+        if chip_right - chip_w < bounds.width * 0.45 {
             break;
         }
-        let chip_bounds = Bounds::new(chip_x, chip_y, chip_w, chip_h);
-        canvas.fill_rect(chip_bounds, bg);
+        let chip_bounds = Bounds::new(chip_right - chip_w, chip_y, chip_w, chip_h);
+        canvas.fill_rounded_rect(chip_bounds, design::radius::SM, bg);
         if border != bg {
             canvas.stroke_rect(chip_bounds, border, 1.0);
         }
-        let chip_buf = state.text_system.create_line_buffer(&label, design::type_scale::SM, chip_w - 10.0);
-        state
-            .text_system
-            .draw_buffer(canvas, &chip_buf, chip_x + 6.0, chip_y + 12.0, fg);
+        let chip_buf =
+            state
+                .text_system
+                .create_line_buffer(&label, design::type_scale::XS, chip_w - 10.0);
+        state.text_system.draw_buffer(
+            canvas,
+            &chip_buf,
+            chip_bounds.x + 6.0,
+            chip_y + chip_h * 0.5 + design::type_scale::XS * 0.36,
+            fg,
+        );
         if let Some(action) = action {
             state.add_click_target(chip_bounds, action);
         }
-        chip_x += chip_w + 2.0;
+        chip_right -= chip_w + design::space::XS;
     }
 
     render_top_menu_dropdown(canvas, state, palette, &menu_layout);
+
+    // === Pantalla de inicio ===
+    //
+    // Sin proyecto abierto no hay banco de trabajo que enseñar: la bienvenida
+    // ocupa la ventana entera, como el `pantalla: "inicio"` de la maqueta.
+    // Antes se dibujaba dentro de la columna del editor —que es donde van los
+    // archivos al abrirlos—, y ahí no pintaba nada.
+    //
+    // Va la última a propósito: `action_at` recorre los objetivos de clic al
+    // revés, así que dibujarla al final es lo que hace que «Abrir carpeta…» y
+    // los recientes ganen a lo que haya debajo.
+    if !state.workspace_is_open() {
+        let pantalla = Bounds::new(0.0, header_height, bounds.width, content_height);
+        canvas.fill_rect(pantalla, Color::from_hex(palette.background));
+        render_welcome(canvas, state, pantalla, &palette);
+    }
 
     // === Overlay (Quick Open / Command Palette / Symbols) ===
     if let Some(mode) = state.overlay_mode {
@@ -2335,11 +2488,15 @@ fn render_welcome(
     let x = bounds.x + (bounds.width - column_width) * 0.5;
     let mut y = bounds.y + (bounds.height * 0.22).max(48.0);
 
-    let title = state.text_system.create_line_buffer("Llore", design::type_scale::XL, column_width);
+    let title = state
+        .text_system
+        .create_heading_buffer("Quirón", design::type_scale::XL, column_width);
     state
         .text_system
         .draw_buffer(canvas, &title, x, y, Color::from_hex(palette.text));
-    y += 34.0;
+    // El avance sale de la escala, no de un literal: con el titular a 42 px el
+    // 34 de antes —medido para 28— dejaba el subtítulo pegado a la base.
+    y += design::type_scale::XL * 1.12;
 
     let subtitle = state.text_system.create_buffer(
         "Editor con índice de código y grafo de dependencias", design::type_scale::MD,
@@ -2348,11 +2505,11 @@ fn render_welcome(
     state
         .text_system
         .draw_buffer(canvas, &subtitle, x, y, Color::from_hex(palette.text_muted));
-    y += 40.0;
+    y += design::space::XXL;
 
     // --- Acción principal ---
-    let button = Bounds::new(x, y, 168.0, 34.0);
-    canvas.fill_rounded_rect(button, 8.0, Color::from_hex(palette.accent).with_alpha(38));
+    let button = Bounds::new(x, y, 168.0, 38.0);
+    canvas.fill_rounded_rect(button, design::radius::MD, Color::from_hex(palette.accent).with_alpha(38));
     canvas.stroke_rect(button, Color::from_hex(palette.accent).with_alpha(90), 1.0);
 
     let folder_icon = state
@@ -2526,16 +2683,9 @@ fn render_editor_pane(
         .as_deref()
         .and_then(|language_name| syntax_diagnostic(Some(language_name), &editor_text));
 
+    // La barra de pestañas va sobre el blanco de la tarjeta, sin tinte: en la
+    // maqueta las pestañas y el código comparten fondo.
     let tab_bar_h = EDITOR_TAB_BAR_HEIGHT;
-    canvas.fill_rect(
-        Bounds::new(
-            editor_bounds.x + 1.0,
-            editor_bounds.y + 1.0,
-            editor_bounds.width - 2.0,
-            tab_bar_h,
-        ),
-        Color::from_hex(palette.surface).with_alpha(100),
-    );
 
     let tab_h = tab_bar_h - 3.0;
     let mut tab_x = editor_bounds.x + 8.0;
@@ -2547,23 +2697,16 @@ fn render_editor_pane(
         }
 
         let tab_bounds = Bounds::new(tab_x, editor_bounds.y + 2.0, width, tab_h);
-        canvas.fill_rect(
-            tab_bounds,
-            if tab.active {
-                Color::from_hex(palette.surface)
-            } else {
-                Color::from_hex(palette.background)
-            },
-        );
-        canvas.stroke_rect(
-            tab_bounds,
-            if tab.active {
-                Color::from_hex(palette.accent)
-            } else {
-                Color::from_hex(palette.border)
-            },
-            1.0,
-        );
+        // Como en la maqueta: la activa es una píldora sobre la superficie y
+        // las demás son solo texto apagado. Sin cajas ni bordes de un píxel,
+        // que era lo que hacía que la barra pareciera un formulario.
+        if tab.active {
+            canvas.fill_rounded_rect(
+                tab_bounds,
+                design::radius::SM,
+                Color::from_hex(palette.surface),
+            );
+        }
 
         let tab_label = truncate_chars(&tab.title, 26);
         let tab_label_buf = state

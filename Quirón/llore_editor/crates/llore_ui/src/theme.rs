@@ -8,6 +8,7 @@ pub enum UiTheme {
     QuironDark,
     GraphiteDark,
     CopperLight,
+    ModernistLight,
 }
 
 impl UiTheme {
@@ -16,6 +17,7 @@ impl UiTheme {
             UiTheme::QuironDark => "quiron_dark",
             UiTheme::GraphiteDark => "graphite_dark",
             UiTheme::CopperLight => "copper_light",
+            UiTheme::ModernistLight => "modernist_light",
         }
     }
 
@@ -24,6 +26,7 @@ impl UiTheme {
             "quiron_dark" => Some(UiTheme::QuironDark),
             "graphite_dark" => Some(UiTheme::GraphiteDark),
             "copper_light" => Some(UiTheme::CopperLight),
+            "modernist_light" => Some(UiTheme::ModernistLight),
             _ => None,
         }
     }
@@ -33,6 +36,7 @@ impl UiTheme {
             UiTheme::QuironDark => "Quiron Dark",
             UiTheme::GraphiteDark => "Graphite Dark",
             UiTheme::CopperLight => "Copper Light",
+            UiTheme::ModernistLight => "Modernist Light",
         }
     }
 
@@ -40,15 +44,17 @@ impl UiTheme {
         match self {
             UiTheme::QuironDark => UiTheme::GraphiteDark,
             UiTheme::GraphiteDark => UiTheme::CopperLight,
-            UiTheme::CopperLight => UiTheme::QuironDark,
+            UiTheme::CopperLight => UiTheme::ModernistLight,
+            UiTheme::ModernistLight => UiTheme::QuironDark,
         }
     }
 
     pub fn previous(self) -> Self {
         match self {
-            UiTheme::QuironDark => UiTheme::CopperLight,
+            UiTheme::QuironDark => UiTheme::ModernistLight,
             UiTheme::GraphiteDark => UiTheme::QuironDark,
             UiTheme::CopperLight => UiTheme::GraphiteDark,
+            UiTheme::ModernistLight => UiTheme::CopperLight,
         }
     }
 }
@@ -122,11 +128,36 @@ const COPPER_LIGHT_PALETTE: ThemePalette = ThemePalette {
     line_highlight: 0xF4F4F5,
 };
 
+// Rediseño «Modernist» (Claude Design, 4-sep-2026). Los seis primeros valores
+// están muestreados de la maqueta, no estimados: fondo cálido, superficie un
+// paso más oscura, tinta casi negra y acento azul marino. El coral queda de
+// acento secundario, que en la maqueta marca lo que está vivo ahora mismo.
+//
+// La maqueta no define error, aviso ni éxito. Los tres de aquí abajo son
+// elección nuestra, colocados en la misma banda de luminosidad que el resto de
+// la rampa para que no canten al lado de los muestreados.
+const MODERNIST_LIGHT_PALETTE: ThemePalette = ThemePalette {
+    is_light: true,
+    background: 0xF3F2F2,  // suelo cálido de la maqueta
+    surface: 0xEAE7E7,     // tarjetas de chat, pestaña activa, herramientas
+    text: 0x201E1D,        // tinta
+    text_muted: 0x605D5D,  // neutral-700: comentarios y metadatos
+    accent: 0x2A4B8D,      // azul marino: botón primario, foco
+    accent_alt: 0xE15B47,  // coral: «ahora», duraciones, lo que está vivo
+    error: 0xAE1800,       // accent-700 de la rampa del sistema
+    warning: 0x9E5A00,     // ámbar profundo, banda de accent-700
+    success: 0x2F6B3F,     // verde profundo, banda de accent-700
+    border: 0xD7D3D3,      // neutral-300
+    selection: 0xFFF2EF,   // accent-100: el rubor cálido de la fila activa
+    line_highlight: 0xF8F4F4, // neutral-100
+};
+
 pub fn palette(theme: UiTheme) -> &'static ThemePalette {
     match theme {
         UiTheme::QuironDark => &QUIRON_DARK_PALETTE,
         UiTheme::GraphiteDark => &GRAPHITE_DARK_PALETTE,
         UiTheme::CopperLight => &COPPER_LIGHT_PALETTE,
+        UiTheme::ModernistLight => &MODERNIST_LIGHT_PALETTE,
     }
 }
 

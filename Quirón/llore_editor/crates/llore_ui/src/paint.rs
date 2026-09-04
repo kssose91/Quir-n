@@ -284,6 +284,47 @@ impl Canvas {
     }
 
     /// Dibuja el borde de un rectángulo
+    /// Sombra suave bajo un rectángulo redondeado.
+    ///
+    /// El rediseño «Modernist» apoya su jerarquía en tarjetas que flotan: la
+    /// bandeja de escritura, el editor, los paneles. Sin sombra, «flotar» no se
+    /// distingue de «estar pegado», y todo vuelve a leerse plano.
+    ///
+    /// tiny-skia no trae desenfoque, así que se aproxima apilando capas: varias
+    /// siluetas concéntricas, cada una un poco mayor y muy transparente. Con
+    /// ocho capas el degradado ya no se ve escalonado a los tamaños que usa la
+    /// interfaz, y sale mucho más barato que desenfocar un mapa de bits.
+    ///
+    /// `blur` es el radio de difuminado y `offset_y` cuánto cae la sombra, en
+    /// las mismas unidades que CSS: una sombra `0 3px 10px` se pide con
+    /// `offset_y = 3.0` y `blur = 10.0`.
+    pub fn drop_shadow(
+        &mut self,
+        bounds: Bounds,
+        radius: f32,
+        offset_y: f32,
+        blur: f32,
+        color: Color,
+    ) {
+        const CAPAS: usize = 8;
+        if blur <= 0.0 || color.a == 0 {
+            return;
+        }
+        // El alfa se reparte entre las capas. Como se superponen, el centro
+        // acumula casi el color entero y el borde se apaga: eso es la sombra.
+        let alfa = (color.a as f32 / CAPAS as f32).max(1.0) as u8;
+        for capa in (0..CAPAS).rev() {
+            let crece = blur * (capa as f32 + 1.0) / CAPAS as f32;
+            let silueta = Bounds::new(
+                bounds.x - crece,
+                bounds.y - crece + offset_y,
+                bounds.width + crece * 2.0,
+                bounds.height + crece * 2.0,
+            );
+            self.fill_rounded_rect(silueta, radius + crece, color.with_alpha(alfa));
+        }
+    }
+
     pub fn stroke_rect(&mut self, bounds: Bounds, color: Color, width: f32) {
         let Some(rect) = Rect::from_xywh(bounds.x, bounds.y, bounds.width, bounds.height) else {
             return;

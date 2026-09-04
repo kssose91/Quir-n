@@ -97,7 +97,33 @@ pub const SESSION_SNAPSHOT_RELATIVE_PATH: &str = ".llore/state/session.txt";
 /// Ruta relativa del snapshot de layout de paneles.
 pub const LAYOUT_SNAPSHOT_RELATIVE_PATH: &str = ".llore/state/layout.txt";
 /// Valor por defecto del ancho de sidebar.
-pub const DEFAULT_SIDEBAR_WIDTH: f32 = 220.0;
+pub const DEFAULT_SIDEBAR_WIDTH: f32 = 252.0;
+
+// Límites de columna del rediseño «Modernist» (`diseño/Llore Rediseño.dc.html`,
+// `LIMITES = { izq: [172, 420], editor: [340, 780], fondo: [252, 520] }`, con el
+// chat reservando 320). No son adorno: una columna por debajo de su mínimo deja
+// de servir para trabajar, que es justo lo que permitía el 180 anterior —el
+// mismo suelo para el explorador, el editor y el chat.
+/// Ancho mínimo de la barra lateral.
+pub const MIN_SIDEBAR_WIDTH: f32 = 172.0;
+/// Ancho máximo de la barra lateral.
+pub const MAX_SIDEBAR_WIDTH: f32 = 420.0;
+/// Ancho mínimo del editor.
+pub const MIN_EDITOR_WIDTH: f32 = 340.0;
+/// Ancho mínimo del panel de chat.
+pub const MIN_CHAT_WIDTH: f32 = 320.0;
+/// Ancho máximo del editor.
+pub const MAX_EDITOR_WIDTH: f32 = 780.0;
+/// Ancho de partida del editor.
+pub const DEFAULT_EDITOR_WIDTH: f32 = 532.0;
+/// Ancho mínimo del panel de segundo plano.
+pub const MIN_BACKGROUND_WIDTH: f32 = 252.0;
+/// Ancho máximo del panel de segundo plano.
+pub const MAX_BACKGROUND_WIDTH: f32 = 520.0;
+/// Ancho de partida del panel de segundo plano.
+pub const DEFAULT_BACKGROUND_WIDTH: f32 = 360.0;
+/// Separación entre columnas.
+pub const COLUMN_GAP: f32 = 12.0;
 /// Valor por defecto del split editor/chat.
 pub const DEFAULT_EDITOR_SPLIT_RATIO: f32 = 0.58;
 /// Valor por defecto del split interno entre panel editor primario/secundario.
@@ -287,6 +313,10 @@ pub enum ClickTargetAction {
     OverlayItemSelect(usize),
     ActivityFocusExplorer,
     ActivityQuickOpen,
+    /// Vacía el hilo y empieza una conversación limpia.
+    NewChat,
+    /// Pliega o despliega el bloque de pensamiento del mensaje dado.
+    ToggleThought(usize),
     ActivityCommandPalette,
     ActivityToggleTelemetry,
     ActivityCycleTheme,
@@ -602,6 +632,11 @@ pub enum CommandPaletteAction {
     ShowProblemsTelemetry,
     ShowProblemsRuntime,
     ShowAppearancePanel,
+    ShowExplorerPanel,
+    ShowSearchPanel,
+    ShowGitPanel,
+    ShowOutlinePanel,
+    ShowSecurityPanel,
     NextProblem,
     PreviousProblem,
     OpenToSide,
@@ -633,6 +668,8 @@ pub enum CommandPaletteAction {
     SetThemeQuironDark,
     SetThemeGraphiteDark,
     SetThemeCopperLight,
+    SetThemeModernistLight,
+    NewChat,
     CycleThemeNext,
     CycleThemePrevious,
     SetDensityCompact,
@@ -997,6 +1034,39 @@ const COMMAND_DESCRIPTORS: &[CommandDescriptor] = &[
         detail: "Open sidebar appearance controls",
         keywords: "show appearance panel sidebar theme density font",
     },
+    // Hasta aquí, la barra de actividad era la única puerta a estos cinco
+    // paneles: ni el menú View ni la paleta los ofrecían. Al retirar esa barra
+    // habrían quedado inalcanzables, así que la paleta pasa a ser su entrada.
+    CommandDescriptor {
+        action: CommandPaletteAction::ShowExplorerPanel,
+        label: "Show Explorer Panel",
+        detail: "Open sidebar file explorer",
+        keywords: "show explorer panel sidebar files tree folder",
+    },
+    CommandDescriptor {
+        action: CommandPaletteAction::ShowSearchPanel,
+        label: "Show Search Panel",
+        detail: "Open sidebar workspace search",
+        keywords: "show search panel sidebar find grep workspace",
+    },
+    CommandDescriptor {
+        action: CommandPaletteAction::ShowGitPanel,
+        label: "Show Git Panel",
+        detail: "Open sidebar source control",
+        keywords: "show git panel sidebar source control status diff",
+    },
+    CommandDescriptor {
+        action: CommandPaletteAction::ShowOutlinePanel,
+        label: "Show Outline Panel",
+        detail: "Open sidebar symbol outline",
+        keywords: "show outline panel sidebar symbols structure",
+    },
+    CommandDescriptor {
+        action: CommandPaletteAction::ShowSecurityPanel,
+        label: "Show Security Panel",
+        detail: "Open sidebar workspace confinement status",
+        keywords: "show security panel sidebar workspace guard confinement",
+    },
     CommandDescriptor {
         action: CommandPaletteAction::NextProblem,
         label: "Next Problem",
@@ -1165,6 +1235,21 @@ const COMMAND_DESCRIPTORS: &[CommandDescriptor] = &[
         detail: "Cycle to previous tab",
         keywords: "previous tab cycle",
     },
+    // Era la única de las 35 acciones de los menús superiores que la paleta no
+    // ofrecía. Sin ella, retirar la barra de menús dejaría al usuario sin forma
+    // de abrir una carpeta.
+    CommandDescriptor {
+        action: CommandPaletteAction::NewChat,
+        label: "New Chat",
+        detail: "Clear the conversation and start fresh",
+        keywords: "new chat clear conversation nuevo limpiar",
+    },
+    CommandDescriptor {
+        action: CommandPaletteAction::OpenFolderPicker,
+        label: "Open Folder...",
+        detail: "Choose a project folder to open",
+        keywords: "open folder project workspace abrir carpeta",
+    },
     CommandDescriptor {
         action: CommandPaletteAction::SetThemeQuironDark,
         label: "Theme: Quiron Dark",
@@ -1182,6 +1267,12 @@ const COMMAND_DESCRIPTORS: &[CommandDescriptor] = &[
         label: "Theme: Copper Light",
         detail: "Set warm light palette",
         keywords: "theme copper light appearance",
+    },
+    CommandDescriptor {
+        action: CommandPaletteAction::SetThemeModernistLight,
+        label: "Theme: Modernist Light",
+        detail: "Set warm light palette with navy accent",
+        keywords: "theme modernist light navy redesign appearance",
     },
     CommandDescriptor {
         action: CommandPaletteAction::CycleThemeNext,
@@ -1618,6 +1709,18 @@ pub struct AppState {
     pub main_content_bounds: Option<Bounds>,
     /// Gap horizontal entre panel editor y chat.
     pub main_split_gap: f32,
+    /// Panel de segundo plano visible.
+    ///
+    /// La maqueta arranca con él abierto (`fondo: true`), pero aquí nace
+    /// cerrado porque la columna todavía no se dibuja: si estuviera a `true`,
+    /// `cabe_el_editor` reservaría sus 252 px más el hueco para algo que no
+    /// ocupa nada, y el editor no llegaría a montarse en una ventana de 1280.
+    /// Pasa a `true` cuando la columna exista.
+    pub background_panel_visible: bool,
+    /// Bloques de pensamiento desplegados, por índice del mensaje en `messages`.
+    /// Nacen plegados, como el `pensado: false` de la maqueta: el encabezado
+    /// ya dice cuánto tardó y qué tocó; el detalle se abre a demanda.
+    pub expanded_thoughts: HashSet<usize>,
     /// Bounds del handle de resize de sidebar.
     pub sidebar_resizer_bounds: Option<Bounds>,
     /// Bounds del handle de resize editor/chat.
@@ -2035,7 +2138,10 @@ impl AppState {
             recents_file: recents::recents_path(),
             quiron_last_health_poll: Instant::now() - QUIRON_HEALTH_POLL_INTERVAL,
             quiron_health_task: None,
-            ui_theme: UiTheme::QuironDark,
+            // El rediseño «Modernist» es el aspecto de la aplicación, no un
+            // tema alternativo: arranca puesto. Los tres anteriores siguen en la
+            // paleta de comandos para quien los quiera.
+            ui_theme: UiTheme::ModernistLight,
             ui_density: UiDensity::Normal,
             editor_font_scale: DEFAULT_EDITOR_FONT_SCALE,
             editor_horizontal_padding: DEFAULT_EDITOR_HORIZONTAL_PADDING,
@@ -2050,9 +2156,14 @@ impl AppState {
             sidebar_bounds: None,
             sidebar_panel: SidebarPanel::Explorer,
             explorer_dock: PanelDock::Left,
-            chat_dock: PanelDock::Right,
+            // La maqueta pone el chat en el centro, justo tras la lateral, y el
+            // editor a su derecha. Acoplado a la derecha quedaba en el borde y el
+            // centro se lo llevaba el editor: al revés de lo que pide el diseño.
+            chat_dock: PanelDock::Left,
             main_content_bounds: None,
-            main_split_gap: 12.0,
+            main_split_gap: COLUMN_GAP,
+            background_panel_visible: false,
+            expanded_thoughts: HashSet::new(),
             sidebar_resizer_bounds: None,
             editor_resizer_bounds: None,
             editor_pane_resizer_bounds: None,
@@ -2882,7 +2993,7 @@ impl AppState {
         }
 
         if let Some(value) = sidebar {
-            self.sidebar_width = value.clamp(180.0, 420.0);
+            self.sidebar_width = value.clamp(MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH);
         }
         if let Some(value) = ratio {
             self.editor_split_ratio = value.clamp(0.1, 0.9);
@@ -3124,6 +3235,40 @@ impl AppState {
     }
 
     /// Actualiza bounds del área principal (split editor/chat) y su gap.
+    /// ¿Cabe el editor en la fila?
+    ///
+    /// Regla de la maqueta, literal: «el editor solo cabe si queda sitio para
+    /// el chat y para el lateral derecho; si no, no se monta». Es decir, el
+    /// editor no se cuela a costa de dejar el chat inservible — más vale un
+    /// chat legible ocupando el centro que dos columnas estranguladas.
+    ///
+    /// De aquí sale el comportamiento que se ve al estrechar la ventana: el
+    /// editor desaparece y el chat vuelve al centro, en vez de repartirse un
+    /// espacio en el que ninguno de los dos sirve.
+    /// ¿Hay algún archivo abierto?
+    ///
+    /// Es la otra mitad de la regla de la maqueta, su `!!s.editor`: la columna
+    /// del editor existe cuando hay un archivo que enseñar, no siempre. Llore
+    /// arranca con una pestaña sin título, que no cuenta: una pestaña vacía no
+    /// es un archivo abierto.
+    pub fn hay_archivo_abierto(&self) -> bool {
+        self.open_tabs.iter().any(|tab| tab.path.is_some())
+    }
+
+    pub fn cabe_el_editor(&self, ancho_fila: f32) -> bool {
+        let necesario = self.sidebar_width
+            + COLUMN_GAP
+            + MIN_CHAT_WIDTH
+            + COLUMN_GAP
+            + MIN_EDITOR_WIDTH
+            + if self.background_panel_visible {
+                COLUMN_GAP + MIN_BACKGROUND_WIDTH
+            } else {
+                0.0
+            };
+        ancho_fila >= necesario
+    }
+
     pub fn set_main_content_bounds(&mut self, bounds: Bounds, split_gap: f32) {
         self.main_content_bounds = Some(bounds);
         self.main_split_gap = split_gap.max(0.0);
@@ -3200,7 +3345,7 @@ impl AppState {
                 PanelDock::Left => x,
                 PanelDock::Right => self.window_width as f32 - x,
             };
-            let next_width = measured_width.clamp(180.0, 420.0);
+            let next_width = measured_width.clamp(MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH);
             if (next_width - self.sidebar_width).abs() >= 0.5 {
                 self.sidebar_width = next_width;
                 changed = true;
@@ -3210,15 +3355,26 @@ impl AppState {
         if self.dragging_editor_resizer {
             if let Some(main_bounds) = self.main_content_bounds.as_ref() {
                 let available = (main_bounds.width - self.main_split_gap).max(220.0);
-                let min_panel = 180.0_f32.min((available - 40.0).max(80.0));
-                let max_editor = (available - min_panel).max(min_panel);
+                // El editor y el chat no comparten suelo: la maqueta pide 340
+                // para el editor y reserva 320 para el chat. Cuando la ventana
+                // no da para ambos se reparten a partes iguales, que es peor
+                // que respetar los mínimos pero mejor que dejar una columna de
+                // cuarenta píxeles.
+                let (min_editor, min_chat) = if available >= MIN_EDITOR_WIDTH + MIN_CHAT_WIDTH {
+                    (MIN_EDITOR_WIDTH, MIN_CHAT_WIDTH)
+                } else {
+                    let mitad = (available * 0.5).max(80.0);
+                    (mitad, mitad)
+                };
+                let max_editor = (available - min_chat).max(min_editor);
                 let target_left = (x - main_bounds.x).max(0.0);
                 let target_editor = match self.chat_dock {
                     PanelDock::Left => available - target_left,
                     PanelDock::Right => target_left,
                 };
-                let next_editor = target_editor.clamp(min_panel, max_editor);
-                let next_ratio = (next_editor / available).clamp(0.1, 0.9);
+                let next_editor = target_editor.clamp(min_editor, max_editor);
+                let next_ratio =
+                    (next_editor / available).clamp(min_editor / available, 1.0 - min_chat / available);
                 if (next_ratio - self.editor_split_ratio).abs() >= 0.002 {
                     self.editor_split_ratio = next_ratio;
                     changed = true;
@@ -4449,6 +4605,23 @@ impl AppState {
     }
 
     /// Abre overlay de quick open con indexación local del workspace.
+    /// Empieza una conversación limpia.
+    ///
+    /// Vacía el hilo, nada más. La maqueta enseña además una lista de sesiones
+    /// anteriores, pero eso no existe todavía: Llore no guarda conversaciones,
+    /// así que un chat nuevo no archiva el viejo, lo descarta. Cuando haya
+    /// persistencia de sesiones, aquí es donde se archivará antes de vaciar.
+    pub fn new_chat(&mut self) {
+        if self.messages.is_empty() {
+            self.status_text = "chat: ya estaba vacío".to_string();
+        } else {
+            self.messages.clear();
+            self.expanded_thoughts.clear();
+            self.status_text = "chat: conversación nueva".to_string();
+        }
+        self.needs_render = true;
+    }
+
     pub fn begin_quick_open(&mut self) {
         self.overlay_mode = Some(OverlayMode::QuickOpen);
         self.overlay_query.clear();
@@ -4625,7 +4798,7 @@ impl AppState {
 
     /// Restaura apariencia completa a valores por defecto.
     pub fn reset_ui_appearance(&mut self) {
-        self.ui_theme = UiTheme::QuironDark;
+        self.ui_theme = UiTheme::ModernistLight;
         self.ui_density = UiDensity::Normal;
         self.editor_font_scale = DEFAULT_EDITOR_FONT_SCALE;
         self.editor_horizontal_padding = DEFAULT_EDITOR_HORIZONTAL_PADDING;
@@ -7043,6 +7216,7 @@ impl AppState {
             CommandPaletteAction::NewWindow => self.open_new_window(),
             CommandPaletteAction::OpenFilePicker => self.open_file_picker(),
             CommandPaletteAction::OpenFolderPicker => self.open_folder_picker(),
+            CommandPaletteAction::NewChat => self.new_chat(),
             CommandPaletteAction::QuickOpen => self.begin_quick_open(),
             CommandPaletteAction::GoToLine => self.begin_go_to_line_overlay(),
             CommandPaletteAction::FindInWorkspace => self.begin_workspace_text_search_overlay(),
@@ -7064,6 +7238,15 @@ impl AppState {
             }
             CommandPaletteAction::ShowAppearancePanel => {
                 self.set_sidebar_panel(SidebarPanel::Appearance)
+            }
+            CommandPaletteAction::ShowExplorerPanel => {
+                self.set_sidebar_panel(SidebarPanel::Explorer)
+            }
+            CommandPaletteAction::ShowSearchPanel => self.set_sidebar_panel(SidebarPanel::Search),
+            CommandPaletteAction::ShowGitPanel => self.set_sidebar_panel(SidebarPanel::Git),
+            CommandPaletteAction::ShowOutlinePanel => self.set_sidebar_panel(SidebarPanel::Outline),
+            CommandPaletteAction::ShowSecurityPanel => {
+                self.set_sidebar_panel(SidebarPanel::Security)
             }
             CommandPaletteAction::NextProblem => {
                 let _ = self.navigate_problem(1);
@@ -7118,6 +7301,9 @@ impl AppState {
             CommandPaletteAction::SetThemeQuironDark => self.set_ui_theme(UiTheme::QuironDark),
             CommandPaletteAction::SetThemeGraphiteDark => self.set_ui_theme(UiTheme::GraphiteDark),
             CommandPaletteAction::SetThemeCopperLight => self.set_ui_theme(UiTheme::CopperLight),
+            CommandPaletteAction::SetThemeModernistLight => {
+                self.set_ui_theme(UiTheme::ModernistLight)
+            }
             CommandPaletteAction::CycleThemeNext => self.cycle_ui_theme_next(),
             CommandPaletteAction::CycleThemePrevious => self.cycle_ui_theme_previous(),
             CommandPaletteAction::SetDensityCompact => self.set_ui_density(UiDensity::Compact),
@@ -9190,6 +9376,13 @@ impl AppState {
                 self.set_sidebar_panel(SidebarPanel::Explorer);
                 self.set_focus(FocusTarget::EditorPrimary);
             }
+            ClickTargetAction::NewChat => self.new_chat(),
+            ClickTargetAction::ToggleThought(indice) => {
+                if !self.expanded_thoughts.remove(&indice) {
+                    self.expanded_thoughts.insert(indice);
+                }
+                self.needs_render = true;
+            }
             ClickTargetAction::ActivityQuickOpen => {
                 if self.overlay_mode == Some(OverlayMode::QuickOpen) {
                     self.close_overlay();
@@ -9534,6 +9727,7 @@ impl AppState {
         // (ver nota en TOOLS_CHAT_MODEL), elija lo que elija el selector.
         let model = chat_tools::TOOLS_CHAT_MODEL.to_string();
 
+        let empezo = Instant::now();
         let result = self.runtime.block_on(async {
             let q = quiron.lock().await;
             let tools = chat_tools::tool_catalog()
@@ -9564,6 +9758,7 @@ impl AppState {
             .await
         });
 
+        let pensado = empezo.elapsed();
         let (response_text, response_meta, tool_trace) = match result {
             Ok(outcome) => (outcome.text, None, outcome.tool_trace),
             Err(err) => (
@@ -9574,8 +9769,47 @@ impl AppState {
         };
 
         // Las manos usadas se enseñan antes de la respuesta: qué se leyó y
-        // qué negó el arnés son parte de la contestación.
+        // qué negó el arnés son parte de la contestación. Va como bloque de
+        // pensamiento: la primera línea es el encabezado —cuánto tardó y qué
+        // tocó—, y el resto el detalle, que el render pliega por defecto.
+        //
+        // Solo se cuenta lo que es verdad. El razonamiento del modelo no viaja
+        // en la respuesta y la consulta a la memoria vectorial no existe aún en
+        // esta ruta: cuando existan, entran aquí como líneas más del detalle.
         if !tool_trace.is_empty() {
+            let leidos = tool_trace
+                .iter()
+                .filter(|e| !e.is_error && e.summary.starts_with("read_file"))
+                .count();
+            let busquedas = tool_trace
+                .iter()
+                .filter(|e| !e.is_error && !e.summary.starts_with("read_file"))
+                .count();
+            let negadas = tool_trace.iter().filter(|e| e.is_error).count();
+            let mut partes = Vec::new();
+            if leidos > 0 {
+                partes.push(format!(
+                    "leyó {leidos} archivo{}",
+                    if leidos == 1 { "" } else { "s" }
+                ));
+            }
+            if busquedas > 0 {
+                partes.push(format!(
+                    "{busquedas} búsqueda{}",
+                    if busquedas == 1 { "" } else { "s" }
+                ));
+            }
+            if negadas > 0 {
+                partes.push(format!(
+                    "{negadas} negada{}",
+                    if negadas == 1 { "" } else { "s" }
+                ));
+            }
+            let encabezado = format!(
+                "Pensó {:.1} s · {}",
+                pensado.as_secs_f32(),
+                partes.join(", ")
+            );
             let detalle = tool_trace
                 .iter()
                 .map(|entry| {
@@ -9586,7 +9820,7 @@ impl AppState {
                 .join("\n");
             self.messages.push(ChatMessage {
                 is_user: false,
-                content: detalle,
+                content: format!("{encabezado}\n{detalle}"),
                 meta: Some("tools".to_string()),
                 citations: vec![],
             });
@@ -11267,21 +11501,237 @@ mod tests {
         assert!(state.status_text.contains("theme: Graphite Dark"));
     }
 
+    /// Una pestaña sin título no es un archivo abierto. Llore arranca con una,
+    /// así que sin esta distinción la columna del editor se montaría siempre y
+    /// volvería a comerse el centro sin tener nada que enseñar.
+    #[test]
+    fn una_pestana_sin_titulo_no_cuenta_como_archivo_abierto() {
+        let workspace = TestWorkspace::new("hay_archivo_abierto");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+
+        // Abrir un proyecto abre su README: eso sí es un archivo abierto, y el
+        // editor debe montarse.
+        assert!(!state.open_tabs.is_empty(), "arranca con una pestaña");
+        assert!(
+            state.hay_archivo_abierto(),
+            "el arranque abre el README del proyecto"
+        );
+
+        // Sin proyecto la pestaña nace sin título, y eso no es un archivo: el
+        // editor no debe montarse y el chat se queda la fila.
+        for tab in &mut state.open_tabs {
+            tab.path = None;
+        }
+        assert!(
+            !state.hay_archivo_abierto(),
+            "una pestaña sin título no es un archivo abierto"
+        );
+    }
+
+    /// La regla de montaje del editor, contra los números de la maqueta.
+    ///
+    /// Con la lateral en su ancho de partida (252) hacen falta 936 px de fila
+    /// para montar el editor, y 1200 si además está abierto el panel de segundo
+    /// plano. Por debajo de eso el editor no aparece y el chat se queda el
+    /// centro, que es el comportamiento que se ve al estrechar la ventana.
+    #[test]
+    fn el_editor_solo_se_monta_si_cabe() {
+        let workspace = TestWorkspace::new("cabe_el_editor");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        assert_eq!(state.sidebar_width, DEFAULT_SIDEBAR_WIDTH);
+
+        // Con el panel de segundo plano abierto: 252+12+320+12+340+12+252.
+        state.background_panel_visible = true;
+        assert!(!state.cabe_el_editor(1199.0), "no debería caber en 1199");
+        assert!(state.cabe_el_editor(1200.0), "debería caber justo en 1200");
+        assert!(state.cabe_el_editor(1416.0), "1440 de ventana menos su margen");
+
+        // Al cerrar el panel de segundo plano, el editor cabe mucho antes.
+        state.background_panel_visible = false;
+        assert!(!state.cabe_el_editor(935.0), "no debería caber en 935");
+        assert!(state.cabe_el_editor(936.0), "debería caber justo en 936");
+
+        // Y una lateral más ancha empuja el umbral hacia arriba.
+        state.sidebar_width = MAX_SIDEBAR_WIDTH;
+        assert!(!state.cabe_el_editor(936.0), "con la lateral a 420 ya no cabe");
+    }
+
+    /// Los mínimos de columna de la maqueta: por mucho que se arrastre el asa,
+    /// ni el editor baja de 340 ni el chat de 320. Antes ambos compartían un
+    /// suelo de 180, con lo que se podía dejar cualquiera de los dos en una
+    /// tira inservible.
+    #[test]
+    fn el_arrastre_respeta_los_minimos_de_columna() {
+        let workspace = TestWorkspace::new("resize_min_columnas");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+
+        // Fila de 1200 px de contenido: da de sobra para ambos mínimos.
+        let fila = Bounds::new(0.0, 0.0, 1200.0, 800.0);
+        state.set_main_content_bounds(fila, 12.0);
+        state.chat_dock = PanelDock::Right;
+        state.dragging_editor_resizer = true;
+        let disponible = 1200.0 - 12.0;
+
+        // Arrastre al extremo izquierdo: el editor querría quedarse en nada.
+        state.update_layout_resize_from_point(-500.0, 0.0);
+        let editor = state.editor_split_ratio * disponible;
+        assert!(
+            editor >= MIN_EDITOR_WIDTH - 0.5,
+            "el editor bajó a {editor}, por debajo de {MIN_EDITOR_WIDTH}"
+        );
+
+        // Y al extremo derecho: ahora es el chat el que querría desaparecer.
+        state.update_layout_resize_from_point(5000.0, 0.0);
+        let chat = disponible - state.editor_split_ratio * disponible;
+        assert!(
+            chat >= MIN_CHAT_WIDTH - 0.5,
+            "el chat bajó a {chat}, por debajo de {MIN_CHAT_WIDTH}"
+        );
+    }
+
+    /// El bloque de pensamiento nace plegado y se abre y cierra por clic sobre
+    /// su encabezado. Un chat nuevo olvida qué estaba abierto: los índices de
+    /// un hilo vaciado no significan nada en el siguiente.
+    #[test]
+    fn el_bloque_de_pensamiento_se_pliega_y_despliega_por_clic() {
+        let workspace = TestWorkspace::new("toggle_thought");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        assert!(state.expanded_thoughts.is_empty(), "nace plegado");
+
+        let cabecera = Bounds::new(0.0, 0.0, 200.0, 18.0);
+        state.clear_click_targets();
+        state.add_click_target(cabecera, ClickTargetAction::ToggleThought(3));
+
+        state.handle_click(10.0, 9.0);
+        assert!(state.expanded_thoughts.contains(&3), "un clic lo abre");
+
+        state.clear_click_targets();
+        state.add_click_target(cabecera, ClickTargetAction::ToggleThought(3));
+        state.handle_click(10.0, 9.0);
+        assert!(!state.expanded_thoughts.contains(&3), "otro clic lo cierra");
+
+        state.expanded_thoughts.insert(7);
+        state.new_chat();
+        assert!(state.expanded_thoughts.is_empty(), "el chat nuevo lo olvida");
+    }
+
+    /// «Nuevo chat» vacía el hilo, tanto desde el botón de la lateral como desde
+    /// la paleta. Y avisa cuando no había nada que vaciar, en vez de fingir que
+    /// ha hecho algo.
+    #[test]
+    fn nuevo_chat_vacia_el_hilo() {
+        let workspace = TestWorkspace::new("nuevo_chat");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+
+        // El arranque trae un mensaje de bienvenida, así que el hilo no nace
+        // vacío: la primera pasada sí tiene algo que descartar.
+        assert!(!state.messages.is_empty());
+        state.new_chat();
+        assert!(state.messages.is_empty());
+        assert!(state.status_text.contains("conversación nueva"));
+
+        // Y sobre un hilo ya vacío, lo dice en vez de fingir que hizo algo.
+        state.new_chat();
+        assert!(state.status_text.contains("ya estaba vacío"));
+
+        state.messages.push(ChatMessage {
+            is_user: true,
+            content: "hola".to_string(),
+            meta: None,
+            citations: Vec::new(),
+        });
+        assert_eq!(state.messages.len(), 1);
+
+        state.execute_command_palette_action(CommandPaletteAction::NewChat);
+        assert!(state.messages.is_empty(), "el hilo debería quedar vacío");
+        assert!(state.status_text.contains("conversación nueva"));
+    }
+
+    /// Al retirar la barra de menús superior, la paleta de comandos quedó como
+    /// única entrada a sus acciones. Este test lo sostiene: si alguien añade una
+    /// entrada de menú sin darle su descriptor, aquí se entera.
+    ///
+    /// Fue así como apareció `OpenFolderPicker`, la única de las treinta y cinco
+    /// que no estaba en la paleta —y sin la cual no habría forma de abrir una
+    /// carpeta una vez quitada la barra.
+    #[test]
+    fn cada_accion_de_menu_vive_tambien_en_la_paleta() {
+        for menu in [
+            TopMenuKind::File,
+            TopMenuKind::Edit,
+            TopMenuKind::View,
+            TopMenuKind::Go,
+            TopMenuKind::Project,
+            TopMenuKind::Help,
+        ] {
+            for entrada in top_menu_entries(menu) {
+                assert!(
+                    COMMAND_DESCRIPTORS
+                        .iter()
+                        .any(|d| d.action == entrada.action),
+                    "{:?} está en el menú {:?} pero no en la paleta",
+                    entrada.action,
+                    menu
+                );
+            }
+        }
+    }
+
+    /// La barra de actividad era la única entrada a cinco de estos paneles.
+    /// Al retirarla, la paleta pasa a ser la única que queda: si este test cae,
+    /// hay paneles que el usuario no puede abrir por ningún camino.
+    #[test]
+    fn command_palette_reaches_every_sidebar_panel() {
+        let workspace = TestWorkspace::new("palette_sidebar_panels");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+
+        for (accion, esperado) in [
+            (
+                CommandPaletteAction::ShowExplorerPanel,
+                SidebarPanel::Explorer,
+            ),
+            (CommandPaletteAction::ShowSearchPanel, SidebarPanel::Search),
+            (CommandPaletteAction::ShowGitPanel, SidebarPanel::Git),
+            (CommandPaletteAction::ShowOutlinePanel, SidebarPanel::Outline),
+            (
+                CommandPaletteAction::ShowAppearancePanel,
+                SidebarPanel::Appearance,
+            ),
+            (
+                CommandPaletteAction::ShowSecurityPanel,
+                SidebarPanel::Security,
+            ),
+        ] {
+            state.execute_command_palette_action(accion);
+            assert_eq!(
+                state.sidebar_panel, esperado,
+                "{accion:?} no abre {esperado:?}"
+            );
+        }
+    }
+
     #[test]
     fn command_palette_theme_cycle_actions_rotate_with_wrap() {
         let workspace = TestWorkspace::new("palette_theme_cycle_state");
         let mut state = AppState::new_for_tests(workspace.root_path());
 
-        assert_eq!(state.ui_theme(), UiTheme::QuironDark);
-        state.execute_command_palette_action(CommandPaletteAction::CycleThemeNext);
-        assert_eq!(state.ui_theme(), UiTheme::GraphiteDark);
-        state.execute_command_palette_action(CommandPaletteAction::CycleThemeNext);
-        assert_eq!(state.ui_theme(), UiTheme::CopperLight);
-        state.execute_command_palette_action(CommandPaletteAction::CycleThemeNext);
-        assert_eq!(state.ui_theme(), UiTheme::QuironDark);
-
-        state.execute_command_palette_action(CommandPaletteAction::CycleThemePrevious);
-        assert_eq!(state.ui_theme(), UiTheme::CopperLight);
+        // El anillo arranca en Modernist Light, que es el aspecto por defecto.
+        let anillo = [
+            UiTheme::ModernistLight,
+            UiTheme::QuironDark,
+            UiTheme::GraphiteDark,
+            UiTheme::CopperLight,
+        ];
+        assert_eq!(state.ui_theme(), anillo[0]);
+        for esperado in anillo.iter().skip(1).chain(std::iter::once(&anillo[0])) {
+            state.execute_command_palette_action(CommandPaletteAction::CycleThemeNext);
+            assert_eq!(state.ui_theme(), *esperado);
+        }
+        // `rev()` ya termina en el tema de arranque: encadenar otro lo pasaría.
+        for esperado in anillo.iter().rev() {
+            state.execute_command_palette_action(CommandPaletteAction::CycleThemePrevious);
+            assert_eq!(state.ui_theme(), *esperado);
+        }
     }
 
     #[test]
@@ -11350,7 +11800,7 @@ mod tests {
         state.set_editor_font_scale(1.25);
         state.execute_command_palette_action(CommandPaletteAction::ResetAppearance);
 
-        assert_eq!(state.ui_theme(), UiTheme::QuironDark);
+        assert_eq!(state.ui_theme(), UiTheme::ModernistLight);
         assert_eq!(state.ui_density(), UiDensity::Normal);
         assert!((state.editor_font_scale() - DEFAULT_EDITOR_FONT_SCALE).abs() < 0.0001);
     }
@@ -11676,7 +12126,7 @@ mod tests {
             ClickTargetAction::ActivityResetAppearance,
         );
         state.handle_click(10.0, 10.0);
-        assert_eq!(state.ui_theme(), UiTheme::QuironDark);
+        assert_eq!(state.ui_theme(), UiTheme::ModernistLight);
         assert_eq!(state.ui_density(), UiDensity::Normal);
         assert!((state.editor_font_scale() - DEFAULT_EDITOR_FONT_SCALE).abs() < 0.0001);
     }

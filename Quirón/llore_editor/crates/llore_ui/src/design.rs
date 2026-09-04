@@ -15,17 +15,23 @@
 ///
 /// Los valores son tamaños lógicos: el factor de escala los multiplica al
 /// dibujar.
+/// Los cinco pasos están muestreados del rediseño «Modernist» (`diseño/Llore
+/// Rediseño.dc.html`, 4-sep-2026), no elegidos a ojo: se leyeron del DOM
+/// renderizado de la maqueta. La escala anterior venía de la maqueta vieja y
+/// se quedaba corta —el cuerpo de la interfaz iba a 12 px cuando VS Code usa
+/// 13 y la maqueta pide 13—, que es de donde salía buena parte de la sensación
+/// de interfaz apretada.
 pub mod type_scale {
     /// Etiquetas secundarias: meta de un mensaje, rutas, contadores.
-    pub const XS: f32 = 11.0;
+    pub const XS: f32 = 11.5;
     /// Cuerpo de la interfaz: menús, pestañas, explorador, barra de estado.
-    pub const SM: f32 = 12.0;
+    pub const SM: f32 = 13.0;
     /// Texto principal: mensajes del chat y su entrada.
-    pub const MD: f32 = 13.0;
+    pub const MD: f32 = 14.5;
     /// Títulos de panel y encabezados.
-    pub const LG: f32 = 16.0;
+    pub const LG: f32 = 20.0;
     /// Título de la pantalla de bienvenida.
-    pub const XL: f32 = 28.0;
+    pub const XL: f32 = 42.0;
 }
 
 /// Rejilla de espaciado. Todo múltiplo de cuatro.
@@ -36,6 +42,21 @@ pub mod space {
     pub const LG: f32 = 16.0;
     pub const XL: f32 = 24.0;
     pub const XXL: f32 = 32.0;
+}
+
+/// Radio de las esquinas. Tres pasos, muestreados de la maqueta.
+///
+/// Antes de existir este módulo el render tenía dieciocho radios literales
+/// entre 3 y 12 px, elegidos uno a uno. La maqueta es más decidida: 10 en los
+/// botones y campos, 16 en las tarjetas. Esa timidez era buena parte de lo que
+/// hacía que la interfaz se viera tosca.
+pub mod radius {
+    /// Fichas, píldoras y controles pequeños.
+    pub const SM: f32 = 6.0;
+    /// Botones y campos de entrada.
+    pub const MD: f32 = 10.0;
+    /// Tarjetas y paneles.
+    pub const LG: f32 = 16.0;
 }
 
 /// Escala mínima de la interfaz.

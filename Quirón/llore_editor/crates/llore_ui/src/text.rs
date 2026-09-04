@@ -4,12 +4,19 @@
 
 use crate::{Canvas, Color};
 use cosmic_text::{
-    Attrs, Buffer, Family, FontSystem, Metrics, Shaping, SwashCache, SwashContent, Wrap,
+    Attrs, Buffer, Family, FontSystem, Metrics, Shaping, SwashCache, SwashContent, Weight, Wrap,
 };
 
-/// Interfaz: Inter, SIL Open Font License 1.1.
-const INTER_REGULAR: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
-const INTER_MEDIUM: &[u8] = include_bytes!("../assets/fonts/Inter-Medium.ttf");
+/// Interfaz: Archivo, SIL Open Font License 1.1.
+///
+/// Sustituye a Inter (4-sep-2026). El rediseño «Modernist» apoya su carácter en
+/// una grotesca con más personalidad que Inter y, sobre todo, en el peso 800 de
+/// los titulares: Inter solo viajaba en Regular y Medium, de modo que no había
+/// con qué escribirlos. Los ficheros de Inter siguen en `assets/fonts/` por si
+/// hay que volver, pero ya no se empotran.
+const ARCHIVO_REGULAR: &[u8] = include_bytes!("../assets/fonts/Archivo-Regular.ttf");
+const ARCHIVO_MEDIUM: &[u8] = include_bytes!("../assets/fonts/Archivo-Medium.ttf");
+const ARCHIVO_EXTRABOLD: &[u8] = include_bytes!("../assets/fonts/Archivo-ExtraBold.ttf");
 /// Código: JetBrains Mono, SIL Open Font License 1.1.
 const JETBRAINS_MONO_REGULAR: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf");
 /// Iconos: Lucide, licencia ISC.
@@ -32,14 +39,15 @@ impl TextSystem {
         // cualquier máquina, sin depender de lo que haya instalado.
         {
             let database = font_system.db_mut();
-            database.load_font_data(INTER_REGULAR.to_vec());
-            database.load_font_data(INTER_MEDIUM.to_vec());
+            database.load_font_data(ARCHIVO_REGULAR.to_vec());
+            database.load_font_data(ARCHIVO_MEDIUM.to_vec());
+            database.load_font_data(ARCHIVO_EXTRABOLD.to_vec());
             database.load_font_data(JETBRAINS_MONO_REGULAR.to_vec());
             database.load_font_data(LUCIDE.to_vec());
 
             // Al redefinir las familias genéricas, todo el código que ya pedía
             // `SansSerif` o `Monospace` adopta las nuevas sin cambiar.
-            database.set_sans_serif_family("Inter");
+            database.set_sans_serif_family("Archivo");
             database.set_monospace_family("JetBrains Mono");
         }
 
@@ -125,6 +133,30 @@ impl TextSystem {
             .layout_runs()
             .map(|run| run.line_w)
             .fold(0.0f32, f32::max)
+    }
+
+    /// Crea un buffer de titular: misma familia, peso 800.
+    ///
+    /// Las demás llamadas de dibujo no piden peso y heredan el regular; esta es
+    /// la única que sube a ExtraBold. El interlineado de 1,12 es el que fija la
+    /// maqueta para los encabezados, más apretado que el 1,2 del cuerpo: un
+    /// titular grande con interlineado de cuerpo se deshilacha.
+    pub fn create_heading_buffer(&mut self, text: &str, font_size: f32, max_width: f32) -> Buffer {
+        let metrics = Metrics::new(font_size, font_size * 1.12);
+        let mut buffer = Buffer::new(&mut self.font_system, metrics);
+
+        buffer.set_size(&mut self.font_system, Some(max_width), None);
+        buffer.set_text(
+            &mut self.font_system,
+            text,
+            Attrs::new()
+                .family(Family::SansSerif)
+                .weight(Weight::EXTRA_BOLD),
+            Shaping::Advanced,
+        );
+        buffer.shape_until_scroll(&mut self.font_system, false);
+
+        buffer
     }
 
     /// Crea un buffer con un glifo de la fuente de iconos.
@@ -307,7 +339,7 @@ mod tests {
             .flat_map(|face| face.families.iter().map(|(name, _)| name.clone()))
             .collect();
 
-        for esperada in ["Inter", "JetBrains Mono", ICON_FAMILY] {
+        for esperada in ["Archivo", "JetBrains Mono", ICON_FAMILY] {
             assert!(
                 familias.iter().any(|nombre| nombre == esperada),
                 "falta la familia empotrada {esperada}"

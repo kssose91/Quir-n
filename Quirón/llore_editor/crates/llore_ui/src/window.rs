@@ -16,7 +16,11 @@ use crate::{Bounds, Canvas, Size};
 /// Debe coincidir con el nombre del fichero `llore.desktop` para que el
 /// escritorio asocie icono y ventana. Wayland lo lee como `app_id`; X11, como
 /// la parte general de `WM_CLASS`.
-const APP_ID: &str = "llore";
+// El producto es Quirón; el crate conserva el nombre `llore_*` por herencia
+// del prototipo. Lo que ve el usuario —ventana, barra de tareas, escritorio—
+// dice Quirón. Las rutas de estado en disco (`.llore/`) no se tocan: son la
+// identidad del proyecto y renombrarlas rompería los proyectos existentes.
+const APP_ID: &str = "quiron";
 
 /// Ventana de la aplicación
 pub struct Window {
