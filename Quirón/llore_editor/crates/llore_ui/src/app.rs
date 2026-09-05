@@ -300,6 +300,8 @@ pub enum ClickTargetAction {
     WelcomeOpenFolder,
     /// Abrir un proyecto reciente desde la pantalla de bienvenida.
     WelcomeOpenRecent(PathBuf),
+    /// «Empezar»: entra al programa sin abrir carpeta todavía.
+    WelcomeEnter,
     Citation(Citation),
     /// Abre el archivo de una ficha de código en su primera línea.
     CodeSource(CodeHint),
@@ -1748,6 +1750,11 @@ pub struct AppState {
     pub chat_scroll: f32,
     /// Tope del desplazamiento, calculado al pintar (contenido menos hueco).
     pub chat_scroll_max: f32,
+    /// La bienvenida se cerró con «Empezar» sin abrir proyecto: se entra al
+    /// programa, y abrir carpeta o un reciente queda en el explorador.
+    pub welcome_dismissed: bool,
+    /// Reloj del holograma de la bienvenida.
+    pub welcome_clock: Instant,
     /// Bounds de la columna sidebar (explorer)
     pub sidebar_bounds: Option<Bounds>,
     /// Panel activo del sidebar (explorer/search/git).
@@ -2221,6 +2228,8 @@ impl AppState {
             chat_bounds: None,
             chat_scroll: 0.0,
             chat_scroll_max: 0.0,
+            welcome_dismissed: false,
+            welcome_clock: Instant::now(),
             sidebar_bounds: None,
             sidebar_panel: SidebarPanel::Explorer,
             explorer_dock: PanelDock::Left,
@@ -7874,6 +7883,20 @@ impl AppState {
     }
 
     /// Ajusta scroll contextual según panel activo del sidebar.
+    /// La bienvenida se enseña sin proyecto y hasta que se pulsa «Empezar».
+    pub fn welcome_visible(&self) -> bool {
+        !self.workspace_is_open() && !self.welcome_dismissed
+    }
+
+    /// «Empezar»: al programa, con el foco en el chat. Abrir carpeta o un
+    /// reciente queda en el explorador, que es donde se espera encontrarlo.
+    pub fn enter_program(&mut self) {
+        self.welcome_dismissed = true;
+        self.set_focus(FocusTarget::ChatInput);
+        self.status_text = "abre una carpeta desde Archivos o con Ctrl+O".to_string();
+        self.needs_render = true;
+    }
+
     /// Desplaza el hilo del chat: la rueda hacia arriba (delta negativo)
     /// enseña mensajes anteriores. Paso: el alto de línea del cuerpo, 14,4 px.
     pub fn scroll_chat_lines(&mut self, delta_lines: i32) {
@@ -9617,6 +9640,7 @@ impl AppState {
             ClickTargetAction::WelcomeOpenFolder => {
                 self.open_folder_picker();
             }
+            ClickTargetAction::WelcomeEnter => self.enter_program(),
             ClickTargetAction::WelcomeOpenRecent(path) => {
                 if path.is_dir() {
                     self.open_workspace(path);
@@ -10223,6 +10247,16 @@ where
                     let ctrl = self.state.modifiers.control_key();
                     let shift = self.state.modifiers.shift_key();
                     let alt = self.state.modifiers.alt_key();
+                    // En la bienvenida, Intro equivale a «Empezar».
+                    if self.state.welcome_visible()
+                        && event.logical_key == Key::Named(NamedKey::Enter)
+                    {
+                        self.state.enter_program();
+                        if let Some(window) = &self.window {
+                            window.request_redraw();
+                        }
+                        return;
+                    }
                     if self
                         .state
                         .handle_top_menu_key(&event.logical_key, shift, alt)
@@ -10859,9 +10893,17 @@ where
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        // Progreso y monitores deben avanzar aunque no se mueva el ratón.
-        event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(250)));
-        let mut should_redraw = false;
+        // Progreso y monitores deben avanzar aunque no se mueva el ratón. Con
+        // la bienvenida a la vista, el holograma se anima: fotograma cada 33 ms.
+        let animando = self.state.welcome_visible();
+        let intervalo = if animando { 33 } else { 250 };
+        event_loop.set_control_flow(ControlFlow::WaitUntil(
+            Instant::now() + Duration::from_millis(intervalo),
+        ));
+        let mut should_redraw = animando;
+        if animando {
+            self.state.needs_render = true;
+        }
         if self.state.poll_workspace_changes() {
             should_redraw = true;
         }
@@ -11557,6 +11599,16 @@ mod tests {
         state.chat_scroll = 60.0;
         state.new_chat();
         assert_eq!(state.chat_scroll, 0.0);
+    }
+
+    #[test]
+    fn empezar_entra_al_programa_sin_abrir_carpeta() {
+        let mut state = AppState::new_for_tests(PathBuf::new());
+        assert!(state.welcome_visible());
+        state.enter_program();
+        assert!(!state.welcome_visible());
+        assert!(!state.workspace_is_open());
+        assert!(state.input_focused);
     }
 
     #[test]

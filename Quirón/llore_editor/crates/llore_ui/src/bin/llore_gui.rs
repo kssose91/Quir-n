@@ -18,8 +18,6 @@ use llore_ui::theme::{ThemePalette, UiTheme};
 use llore_ui::{Bounds, Canvas, Color, Window};
 use std::path::{Path, PathBuf};
 
-/// Alto de cada fila de estado o de proyecto reciente.
-const WELCOME_ROW_HEIGHT: f32 = 26.0;
 
 /// Tamaño de los iconos de la barra de actividad.
 /// Tamaño de los iconos de acción del explorador.
@@ -644,6 +642,76 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             let max_visible_entries = ((explorer_end_y - list_start_y) / explorer_row_h)
                 .floor()
                 .max(0.0) as usize;
+
+            // Sin proyecto, el explorador es la puerta: abrir carpeta y recientes.
+            if !state.workspace_is_open() {
+                let boton = Bounds::new(sidebar_content_x, list_start_y, sidebar_content_width, 30.0);
+                canvas.fill_rounded_rect(
+                    boton,
+                    design::radius::MD,
+                    Color::from_hex(palette.accent).with_alpha(38),
+                );
+                canvas.stroke_rect(boton, Color::from_hex(palette.accent).with_alpha(90), 1.0);
+                let icono = state.text_system.create_icon_buffer(icons::FOLDER_OPEN, 13.0);
+                state.text_system.draw_buffer(
+                    canvas,
+                    &icono,
+                    boton.x + 10.0,
+                    boton.y + 20.0,
+                    Color::from_hex(palette.accent),
+                );
+                let etiqueta = state.text_system.create_line_buffer(
+                    "Abrir carpeta…",
+                    design::type_scale::SM,
+                    boton.width - 40.0,
+                );
+                state.text_system.draw_buffer(
+                    canvas,
+                    &etiqueta,
+                    boton.x + 30.0,
+                    boton.y + 20.0,
+                    Color::from_hex(palette.text),
+                );
+                state.add_click_target(boton, ClickTargetAction::WelcomeOpenFolder);
+
+                let recientes: Vec<_> = state.recent_projects.iter().take(6).cloned().collect();
+                if !recientes.is_empty() {
+                    let mut y = boton.y + boton.height + 18.0;
+                    let rotulo = state.text_system.create_line_buffer(
+                        "RECIENTES",
+                        design::type_scale::XS,
+                        sidebar_content_width,
+                    );
+                    state.text_system.draw_buffer(
+                        canvas,
+                        &rotulo,
+                        sidebar_content_x,
+                        y,
+                        Color::from_hex(palette.text_muted),
+                    );
+                    y += 8.0;
+                    for project in &recientes {
+                        if y + explorer_row_h > explorer_end_y {
+                            break;
+                        }
+                        let fila = Bounds::new(sidebar_content_x, y, sidebar_content_width, explorer_row_h);
+                        let nombre = state.text_system.create_line_buffer(
+                            &llore_ui::recents::display_name(project),
+                            design::type_scale::SM,
+                            sidebar_content_width,
+                        );
+                        state.text_system.draw_buffer(
+                            canvas,
+                            &nombre,
+                            sidebar_content_x,
+                            y + explorer_row_h * 0.5 + design::type_scale::SM * 0.36,
+                            Color::from_hex(palette.accent),
+                        );
+                        state.add_click_target(fila, ClickTargetAction::WelcomeOpenRecent(project.clone()));
+                        y += explorer_row_h;
+                    }
+                }
+            }
             let start_idx = state.explorer_scroll.min(state.explorer_entries.len());
             let end_idx = (start_idx + max_visible_entries).min(state.explorer_entries.len());
 
@@ -2657,7 +2725,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     // Va la última a propósito: `action_at` recorre los objetivos de clic al
     // revés, así que dibujarla al final es lo que hace que «Abrir carpeta…» y
     // los recientes ganen a lo que haya debajo.
-    if !state.workspace_is_open() {
+    if state.welcome_visible() {
         let pantalla = Bounds::new(0.0, header_height, bounds.width, content_height);
         canvas.fill_rect(pantalla, Color::from_hex(palette.background));
         render_welcome(canvas, state, pantalla, &palette);
@@ -2898,14 +2966,13 @@ fn render_welcome(
     bounds: Bounds,
     palette: &ThemePalette,
 ) {
-    // Como en la maqueta «Modernist»: el titular abajo a la izquierda, el
-    // cerebro de puntos arriba a la derecha y una sola acción. La columna se
-    // compone desde el borde inferior para que quepa también en ventanas bajas.
+    // Como en la maqueta «Modernist», y limpia: marca, titular, subtítulo y una
+    // sola acción. Abrir carpeta y los recientes viven en el explorador, que es
+    // donde se buscan una vez dentro del programa.
     let margen = (bounds.width * 0.05).clamp(32.0, 80.0);
     let x = bounds.x + margen;
     let columna = (bounds.width * 0.46).clamp(260.0, 620.0);
 
-    // Versión y lenguaje, en monoespaciada apagada, arriba a la izquierda.
     let chip = state.text_system.create_code_buffer(
         concat!("v", env!("CARGO_PKG_VERSION"), " · rust"),
         design::type_scale::XS,
@@ -2919,92 +2986,27 @@ fn render_welcome(
         Color::from_hex(palette.text_muted),
     );
 
-    // Cerebro de puntos en la mitad derecha, centrado en su tercio superior.
+    // El holograma, algo a la derecha del centro y en el tercio superior, para
+    // repartir la pantalla con el titular, que va abajo a la izquierda.
     let lado = (bounds.width * 0.30)
-        .clamp(200.0, 420.0)
-        .min(bounds.height * 0.62);
-    let cx = bounds.x + bounds.width * 0.66;
-    let cy = bounds.y + (bounds.height * 0.36).max(lado * 0.5 + 24.0);
-    draw_brain_cloud(
+        .clamp(240.0, 520.0)
+        .min(bounds.height * 0.64);
+    let cx = bounds.x + bounds.width * 0.55;
+    let cy = bounds.y + (bounds.height * 0.40).max(lado * 0.5 + 24.0);
+    draw_brain_hologram(
         canvas,
         cx,
         cy,
         lado,
+        state.welcome_clock.elapsed().as_secs_f32(),
         Color::from_hex(palette.accent),
         Color::from_hex(palette.text_muted),
     );
 
     // --- Columna izquierda, de abajo arriba ---
-    let recientes: Vec<_> = state.recent_projects.iter().take(4).cloned().collect();
-    let estado = match &state.quiron_index_health {
-        Some(h) => format!(
-            "quiron-brain · {} · {} eventos · {} nodos",
-            h.status, h.event_count, h.node_count
-        ),
-        None => "quiron-brain · sin respuesta".to_string(),
-    };
-    let pie_y = bounds.y + bounds.height - (bounds.height * 0.07).clamp(26.0, 56.0);
-    let pie = state
-        .text_system
-        .create_code_buffer(&estado, design::type_scale::XS, columna);
-    state
-        .text_system
-        .draw_buffer(canvas, &pie, x, pie_y, Color::from_hex(palette.text_muted));
-
-    let recientes_alto = if recientes.is_empty() {
-        0.0
-    } else {
-        20.0 + recientes.len() as f32 * WELCOME_ROW_HEIGHT
-    };
-    let recientes_top = pie_y - 26.0 - recientes_alto;
-    if !recientes.is_empty() {
-        let mut y = recientes_top;
-        let heading = state
-            .text_system
-            .create_line_buffer("RECIENTES", design::type_scale::XS, columna);
-        state
-            .text_system
-            .draw_buffer(canvas, &heading, x, y + 8.0, Color::from_hex(palette.text_muted));
-        y += 20.0;
-        for project in &recientes {
-            let row_bounds = Bounds::new(x - 6.0, y, columna + 12.0, WELCOME_ROW_HEIGHT);
-            let name = llore_ui::recents::display_name(project);
-            let name_buffer =
-                state.text_system.create_line_buffer(&name, design::type_scale::MD, 180.0);
-            state.text_system.draw_buffer(
-                canvas,
-                &name_buffer,
-                x,
-                y + 15.0,
-                Color::from_hex(palette.accent),
-            );
-            let location = project
-                .parent()
-                .map(|parent| parent.display().to_string())
-                .unwrap_or_default();
-            let location_buffer = state.text_system.create_line_buffer(
-                &location,
-                design::type_scale::SM,
-                (columna - 190.0).max(60.0),
-            );
-            state.text_system.draw_buffer(
-                canvas,
-                &location_buffer,
-                x + 186.0,
-                y + 15.0,
-                Color::from_hex(palette.text_muted),
-            );
-            state.add_click_target(
-                row_bounds,
-                ClickTargetAction::WelcomeOpenRecent(project.clone()),
-            );
-            y += WELCOME_ROW_HEIGHT;
-        }
-    }
-
-    // Acción principal y su pista, sobre los recientes.
-    let boton_alto = 46.0;
-    let boton = Bounds::new(x, recientes_top - 28.0 - boton_alto, 138.0, boton_alto);
+    let fondo = bounds.y + bounds.height - (bounds.height * 0.12).clamp(40.0, 96.0);
+    let boton_alto = 48.0;
+    let boton = Bounds::new(x, fondo - boton_alto, 148.0, boton_alto);
     canvas.fill_rounded_rect(boton, design::radius::MD, Color::from_hex(palette.accent));
     let etiqueta = state.text_system.create_line_buffer(
         "Empezar  →",
@@ -3014,32 +3016,19 @@ fn render_welcome(
     state.text_system.draw_buffer(
         canvas,
         &etiqueta,
-        boton.x + 24.0,
-        boton.y + 28.0,
+        boton.x + 28.0,
+        boton.y + 29.0,
         Color::from_hex(0xffffff),
     );
-    state.add_click_target(boton, ClickTargetAction::WelcomeOpenFolder);
-    let pista = state.text_system.create_code_buffer(
-        "o abre una carpeta · Ctrl+O",
-        design::type_scale::XS,
-        320.0,
-    );
-    state.text_system.draw_buffer(
-        canvas,
-        &pista,
-        boton.x + boton.width + 20.0,
-        boton.y + 28.0,
-        Color::from_hex(palette.text_muted),
-    );
+    state.add_click_target(boton, ClickTargetAction::WelcomeEnter);
 
-    // Subtítulo y titular, medidos para apilarlos hacia arriba.
     let subtitulo = "Un editor con mente propia: lee tu proyecto entero, piensa en segundo \
                      plano y te dice qué está mirando mientras lo hace.";
     let ancho_sub = columna.min(520.0);
     let (_, alto_sub) = state
         .text_system
         .measure(subtitulo, design::type_scale::MD, ancho_sub);
-    let sub_top = boton.y - 34.0 - alto_sub;
+    let sub_top = boton.y - 36.0 - alto_sub;
     let sub_buf = state
         .text_system
         .create_buffer(subtitulo, design::type_scale::MD, ancho_sub);
@@ -3067,74 +3056,121 @@ fn render_welcome(
     );
 }
 
-/// Cerebro de puntos de la bienvenida. El lienzo no pinta imágenes: es una
-/// nube determinista (semilla fija, así no parpadea entre fotogramas) de
-/// puntos dentro de una silueta —hemisferio, cerebelo y tronco— con trazos
-/// finos entre vecinos, en el acento y en el gris apagado del tema.
-fn draw_brain_cloud(canvas: &mut Canvas, cx: f32, cy: f32, lado: f32, acento: Color, apagado: Color) {
-    let escala = lado / 400.0;
-    let dentro = |x: f32, y: f32| -> bool {
-        let elipse = |ox: f32, oy: f32, rx: f32, ry: f32| {
-            ((x - ox) / rx).powi(2) + ((y - oy) / ry).powi(2) <= 1.0
+/// Holograma de la bienvenida: nube de puntos en tres dimensiones dentro de
+/// una silueta de cerebro —hemisferio, cerebelo y tronco— que gira despacio
+/// sobre su eje, con perspectiva y profundidad (lo cercano, más grande y más
+/// opaco) y trazos finos entre vecinos. Es determinista (semilla fija): entre
+/// fotogramas solo cambia el ángulo. El lienzo no pinta imágenes; esto se dibuja.
+fn draw_brain_hologram(
+    canvas: &mut Canvas,
+    cx: f32,
+    cy: f32,
+    lado: f32,
+    t: f32,
+    acento: Color,
+    apagado: Color,
+) {
+    let escala = lado / 420.0;
+    let dentro = |x: f32, y: f32, z: f32| -> bool {
+        let elipsoide = |ox: f32, oy: f32, oz: f32, rx: f32, ry: f32, rz: f32| {
+            ((x - ox) / rx).powi(2) + ((y - oy) / ry).powi(2) + ((z - oz) / rz).powi(2) <= 1.0
         };
-        elipse(0.0, -20.0, 195.0, 140.0)   // hemisferio
-            || elipse(75.0, 108.0, 68.0, 44.0) // cerebelo
-            || elipse(42.0, 165.0, 15.0, 42.0) // tronco
+        // Dos hemisferios separados por la cisura y dos lóbulos de cerebelo:
+        // de lado dibujan la silueta de la maqueta y de frente siguen siendo
+        // un cerebro, no una bola.
+        elipsoide(0.0, -20.0, -64.0, 195.0, 140.0, 86.0)
+            || elipsoide(0.0, -20.0, 64.0, 195.0, 140.0, 86.0)
+            || elipsoide(75.0, 108.0, -36.0, 68.0, 44.0, 40.0)
+            || elipsoide(75.0, 108.0, 36.0, 68.0, 44.0, 40.0)
+            || elipsoide(42.0, 165.0, 0.0, 15.0, 42.0, 15.0) // tronco
     };
     let mut semilla: u32 = 0x9E37_79B9;
     let mut azar = move || {
         semilla = semilla.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
         (semilla >> 8) as f32 / (1u32 << 24) as f32
     };
-    let mut puntos: Vec<(f32, f32, bool)> = Vec::with_capacity(1500);
+    let mut puntos: Vec<(f32, f32, f32, bool)> = Vec::with_capacity(1500);
     let mut intentos = 0;
-    while puntos.len() < 1300 && intentos < 30_000 {
+    while puntos.len() < 1300 && intentos < 40_000 {
         intentos += 1;
         let x = azar() * 430.0 - 215.0;
         let y = azar() * 410.0 - 190.0;
-        if dentro(x, y) {
-            puntos.push((x, y, azar() < 0.4));
+        let z = azar() * 320.0 - 160.0;
+        if dentro(x, y, z) {
+            puntos.push((x, y, z, azar() < 0.4));
         }
     }
     // El cerebelo va más denso, como en la maqueta.
-    while puntos.len() < 1500 && intentos < 40_000 {
+    while puntos.len() < 1500 && intentos < 60_000 {
         intentos += 1;
         let x = 75.0 + (azar() * 2.0 - 1.0) * 68.0;
         let y = 108.0 + (azar() * 2.0 - 1.0) * 44.0;
-        if dentro(x, y) {
-            puntos.push((x, y, azar() < 0.55));
+        let z = (azar() * 2.0 - 1.0) * 70.0;
+        if dentro(x, y, z) {
+            puntos.push((x, y, z, azar() < 0.55));
         }
     }
-    let trazo = apagado.with_alpha(46);
-    for (i, &(x, y, fuerte)) in puntos.iter().enumerate() {
+
+    // Giro lento sobre el eje vertical y una inclinación fija hacia la cámara.
+    let (sa, ca) = (t * 0.45).sin_cos();
+    let (st, ct) = 0.26_f32.sin_cos();
+    let proyectar = |x: f32, y: f32, z: f32| -> (f32, f32, f32) {
+        let xr = x * ca + z * sa;
+        let zr = -x * sa + z * ca;
+        let yr = y * ct - zr * st;
+        let zf = y * st + zr * ct;
+        let f = 900.0 / (900.0 + zf);
+        (cx + xr * f * escala, cy + yr * f * escala, zf)
+    };
+    // Cercanía en [0, 1]: 1 lo más próximo a la cámara.
+    let cercania = |zf: f32| ((170.0 - zf) / 340.0).clamp(0.0, 1.0);
+
+    let proyectados: Vec<(f32, f32, f32, bool)> = puntos
+        .iter()
+        .map(|&(x, y, z, fuerte)| {
+            let (sx, sy, zf) = proyectar(x, y, z);
+            (sx, sy, zf, fuerte)
+        })
+        .collect();
+
+    // Trazos: cada punto acentuado (uno de cada dos) con su vecino más cercano
+    // en el espacio, buscado entre los sesenta siguientes de la lista.
+    for (i, &(x, y, z, fuerte)) in puntos.iter().enumerate() {
         if !fuerte || i % 2 != 0 {
             continue;
         }
-        let mut mejor: Option<(f32, f32, f32)> = None;
-        for &(ox, oy, _) in puntos.iter().skip(i + 1).take(60) {
-            let d = (ox - x).powi(2) + (oy - y).powi(2);
-            if d < 30.0 * 30.0 && mejor.map_or(true, |(_, _, md)| d < md) {
-                mejor = Some((ox, oy, d));
+        let mut mejor: Option<(usize, f32)> = None;
+        for (j, &(ox, oy, oz, _)) in puntos.iter().enumerate().skip(i + 1).take(60) {
+            let d = (ox - x).powi(2) + (oy - y).powi(2) + (oz - z).powi(2);
+            if d < 32.0 * 32.0 && mejor.map_or(true, |(_, md)| d < md) {
+                mejor = Some((j, d));
             }
         }
-        if let Some((ox, oy, _)) = mejor {
-            canvas.draw_line(
-                cx + x * escala,
-                cy + y * escala,
-                cx + ox * escala,
-                cy + oy * escala,
-                trazo,
-                1.0,
-            );
+        if let Some((j, _)) = mejor {
+            let (ax, ay, az, _) = proyectados[i];
+            let (bx, by, bz, _) = proyectados[j];
+            let alfa = 14.0 + 44.0 * cercania((az + bz) * 0.5);
+            canvas.draw_line(ax, ay, bx, by, apagado.with_alpha(alfa as u8), 1.0);
         }
     }
-    let tenue = apagado.with_alpha(110);
-    for &(x, y, fuerte) in &puntos {
-        let d = if fuerte { 2.4 } else { 1.6 } * escala.max(0.6);
-        canvas.fill_rect(
-            Bounds::new(cx + x * escala - d * 0.5, cy + y * escala - d * 0.5, d, d),
-            if fuerte { acento } else { tenue },
-        );
+
+    // Puntos de atrás hacia delante, para que lo cercano quede encima.
+    let mut orden: Vec<usize> = (0..proyectados.len()).collect();
+    orden.sort_by(|&a, &b| {
+        proyectados[b].2
+            .partial_cmp(&proyectados[a].2)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    for i in orden {
+        let (sx, sy, zf, fuerte) = proyectados[i];
+        let c = cercania(zf);
+        let d = (if fuerte { 2.6 } else { 1.7 }) * (0.65 + 0.7 * c) * escala.max(0.6);
+        let color = if fuerte {
+            acento.with_alpha((80.0 + 175.0 * c) as u8)
+        } else {
+            apagado.with_alpha((28.0 + 96.0 * c) as u8)
+        };
+        canvas.fill_rect(Bounds::new(sx - d * 0.5, sy - d * 0.5, d, d), color);
     }
 }
 

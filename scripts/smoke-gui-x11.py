@@ -13,6 +13,7 @@ parser.add_argument('--project',type=Path)
 parser.add_argument('--edit-smoke',action='store_true',help='Crear un proyecto temporal y probar abrir, editar, deshacer, guardar y reabrir')
 parser.add_argument('--chat',help='Pregunta ASCII que se teclea en el chat con el proyecto abierto; espera la respuesta y la captura')
 parser.add_argument('--stay',type=float,default=0.0,help='Segundos extra con la ventana abierta antes de capturar (p. ej. para ver el índice avanzar)')
+parser.add_argument('--enter',action='store_true',help='Pulsa Intro en la bienvenida (Empezar) y captura el programa sin proyecto')
 parser.add_argument('--output-dir',type=Path,required=True)
 args=parser.parse_args()
 if args.edit_smoke and args.project:
@@ -196,6 +197,9 @@ try:
     if args.stay > 0:
         time.sleep(args.stay)
     screenshot(window,args.output_dir/'gui-1280.png')
+    if args.enter:
+        key('Return'); time.sleep(1.0)
+        screenshot(window,args.output_dir/'gui-programa.png')
     subprocess.run(['hyprctl','dispatch','resizewindowpixel','exact 900 600,pid:'+str(p.pid)],check=True,stdout=subprocess.DEVNULL); time.sleep(.5)
     screenshot(window,args.output_dir/'gui-900.png')
     print('GUI exit:',close())
