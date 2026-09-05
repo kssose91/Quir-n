@@ -14,6 +14,8 @@ use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::process::Command;
+mod claude_cli;
+use claude_cli::process_request_claude_cli;
 
 // ============================================================================
 // CONFIGURACIÓN
@@ -25,6 +27,7 @@ enum GatewayBackend {
     OllamaNative,
     OpenClaw,
     CodexDirect,
+    ClaudeCli,
 }
 
 impl GatewayBackend {
@@ -45,12 +48,13 @@ impl GatewayBackend {
             Some("ollama") | Some("ollama_native") | Some("ollama-native") => {
                 Ok(GatewayBackend::OllamaNative)
             }
+            Some("claude_cli") | Some("claude-cli") | Some("claude") => Ok(GatewayBackend::ClaudeCli),
             Some("openclaw") => Ok(GatewayBackend::OpenClaw),
             Some("codex_direct") | Some("codex-direct") | Some("codex") => {
                 Ok(GatewayBackend::CodexDirect)
             }
             Some(other) => Err(format!(
-                "invalid QUIRON_GATEWAY_BACKEND='{}' (use openai_compatible|ollama_native|openclaw|codex_direct)",
+                "invalid QUIRON_GATEWAY_BACKEND='{}' (use openai_compatible|ollama_native|openclaw|codex_direct|claude_cli)",
                 other
             )),
         }
@@ -316,7 +320,7 @@ struct GatewayRequest {
 /// Es el mínimo común: texto por rol, la llamada que el modelo emitió en un
 /// turno anterior (se le devuelve tal cual la dijo) y el resultado que produjo
 /// el editor tras el arnés. El gateway solo lo transporta; no interpreta nada.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum GatewayInputItem {
     Message {
@@ -344,7 +348,7 @@ fn default_max_tokens() -> u32 {
 /// El gateway no ejecuta herramientas: solo las transporta hasta el modelo y
 /// devuelve las llamadas que este emite. Quien las ejecuta —tras el arnés— es el
 /// editor. `parameters` es un JSON Schema opaco para el gateway.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct ToolDef {
     name: String,
     #[serde(default)]
@@ -559,6 +563,7 @@ async fn main() {
 
     // Print Primary Setup
     match config.primary_backend {
+        GatewayBackend::ClaudeCli => eprintln!("   [Primary] Claude CLI: sesión oficial, herramientas de Quirón"),
         GatewayBackend::OpenAiCompatible => {
             let model = config.primary_model.as_deref().unwrap_or("<unset>");
             let auth = if config.primary_api_key.is_some() {
@@ -600,6 +605,7 @@ async fn main() {
 
     // Print Worker Setup
     match config.worker_backend {
+        GatewayBackend::ClaudeCli => eprintln!("   [Worker] Claude CLI: sesión oficial"),
         GatewayBackend::OpenAiCompatible => {
             let model = config.worker_model.as_deref().unwrap_or("<unset>");
             let auth = if config.worker_api_key.is_some() {
@@ -783,6 +789,7 @@ async fn process_request(req: GatewayRequest, config: &GatewayConfig) -> Gateway
     };
 
     match backend {
+        GatewayBackend::ClaudeCli => process_request_claude_cli(req, route, config).await,
         GatewayBackend::OpenAiCompatible => {
             process_request_openai_compatible(req, route, config).await
         }

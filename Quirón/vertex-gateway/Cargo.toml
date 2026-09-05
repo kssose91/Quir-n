@@ -28,13 +28,14 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # Async runtime
-tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "io-std", "process", "time"] }
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "io-std", "io-util", "process", "time"] }
 
 # Streaming (SSE parsing)
 futures-util = "0.3"
 
 # Home dir resolution
 dirs = "5"
+tempfile = "3"
 
 [profile.release]
 # Security: make the binary as small and auditable as possible
