@@ -42,8 +42,20 @@ llore_editor = { path = "crates/llore_editor", optional = true }
 [workspace.dependencies]
 
 [profile.dev]
-opt-level = 0
+# Nivel 1 para nuestro propio código: sigue siendo depurable y compila rápido,
+# pero los bucles de dibujo (el anillo de la sombra, el modelado de texto que
+# llama a cosmic-text) dejan de costar cinco veces lo que en release. Medido:
+# la sombra de la tarjeta del editor pasaba de 3 ms en release a 17 ms a nivel 0.
+opt-level = 1
 debug = true
+
+# Las dependencias se optimizan también en desarrollo. El rasterizado (tiny-skia)
+# y el modelado de texto (cosmic-text) a opt-level 0 hacen que un fotograma
+# tarde varias veces más que en release, y eso se siente como lag en cada
+# movimiento del ratón. Nuestro propio código sigue sin optimizar: compila
+# rápido y se depura igual.
+[profile.dev.package."*"]
+opt-level = 3
 
 [profile.release]
 opt-level = 3

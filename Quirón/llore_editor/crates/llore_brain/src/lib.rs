@@ -94,6 +94,9 @@ pub struct Quiron {
 pub struct ChatOutcome {
     pub text: String,
     pub tool_trace: Vec<ToolTraceEntry>,
+    /// Fichas de código que el cerebro adjuntó a la respuesta (ruta, rango y
+    /// hash vigentes al responder), para enseñar y abrir las fuentes.
+    pub code_hints: Vec<client::CodeHint>,
 }
 
 /// Una ejecución de herramienta dentro del bucle.
@@ -197,12 +200,21 @@ impl Quiron {
 
         let mut messages = vec![ChatTurnMessage::text("user", request)];
         let mut trace: Vec<ToolTraceEntry> = Vec::new();
+        // El cerebro adjunta las fichas al primer turno, el que lleva la
+        // pregunta; los turnos de resultados de herramientas no las repiten.
+        let mut code_hints: Vec<client::CodeHint> = Vec::new();
 
         for _ in 0..MAX_TOOL_TURNS {
             let response = self
                 .client
                 .send_chat_turn(messages.clone(), tools.clone(), context, system, Some(model))
                 .await?;
+
+            if code_hints.is_empty() {
+                if let Some(ctx) = &response.quiron_context {
+                    code_hints = ctx.code_hints.clone();
+                }
+            }
 
             let tool_uses: Vec<_> = response
                 .content
@@ -217,6 +229,7 @@ impl Quiron {
                 return Ok(ChatOutcome {
                     text: response.text(),
                     tool_trace: trace,
+                    code_hints,
                 });
             }
 
@@ -275,6 +288,7 @@ impl Quiron {
                  cerrar una respuesta. Reformula la pregunta o acótala."
             ),
             tool_trace: trace,
+            code_hints,
         })
     }
 
@@ -345,6 +359,9 @@ impl Quiron {
     }
 
     /// Identidad del proyecto activo, si hay alguno abierto.
+    /// Clon ligero para peticiones de fondo, sin retener el bloqueo del chat.
+    pub fn client_snapshot(&self) -> client::QuironClient { self.client.clone() }
+
     pub fn project_id(&self) -> Option<&str> {
         self.client.project_id()
     }

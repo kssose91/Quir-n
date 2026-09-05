@@ -7,7 +7,7 @@
 use llore_ui::app::{
     run, top_menu_entries, AppState, ChatMessage, ClickTargetAction, CommandPaletteAction,
     EditorPane, OverlayMode, PanelDock, SearchInputFocus, SessionTelemetryTimelineSource,
-    SidebarPanel, SidebarProblemSeverity, TelemetryTimelineFilter, TopMenuKind, UiAppearancePreset,
+    SidebarPanel, SidebarProblemSeverity, TabSnapshot, TelemetryTimelineFilter, TopMenuKind, UiAppearancePreset,
     UiDensity, EDITOR_BODY_BOTTOM_PADDING, EDITOR_BODY_TOP_PADDING, EDITOR_GUTTER_WIDTH,
     EDITOR_TAB_BAR_HEIGHT, OVERLAY_RESULTS_MAX, SEARCH_RESULTS_MAX_ROWS,
 };
@@ -26,20 +26,16 @@ const WELCOME_ROW_HEIGHT: f32 = 26.0;
 /// Tamaño de los iconos de la barra de actividad.
 /// Tamaño de los iconos de acción del explorador.
 const CONTROL_ICON_SIZE: f32 = 12.0;
-/// Tamaño del icono que identifica a quien habla en el chat.
-const ROLE_ICON_SIZE: f32 = 11.0;
 
-/// Distancia entre el borde superior de la tarjeta y la base de la primera línea.
-const CHAT_TEXT_TOP: f32 = 14.0;
 /// Alto de línea del cuerpo del mensaje (`font_size * 1.2`, con `font_size = 12`).
 const CHAT_LINE_HEIGHT: f32 = 14.4;
 /// Alto de cada línea de detalle: la meta y cada cita.
 const CHAT_DETAIL_LINE: f32 = 14.0;
-/// Aire bajo el último elemento de la tarjeta.
-const CHAT_CARD_PADDING_BOTTOM: f32 = 10.0;
-/// Recorte del cuerpo del mensaje. Antes eran 84 caracteres: cortaba la respuesta
-/// a media frase.
-const CHAT_MESSAGE_MAX_CHARS: usize = 600;
+/// Recorte del cuerpo del mensaje. Antes eran 84 caracteres, luego 600: ambos
+/// cortaban respuestas normales a media frase (una contestación con fuentes
+/// ronda los 1 000–2 000). Un mensaje que no cabe en la columna se recorta por
+/// el principio al colocarlo, no aquí.
+const CHAT_MESSAGE_MAX_CHARS: usize = 4000;
 
 const SEARCH_RESULTS_ROW_HEIGHT_BASE: f32 = 16.0;
 const SEARCH_RESULTS_HEADER_HEIGHT_BASE: f32 = 16.0;
@@ -93,8 +89,10 @@ fn main() {
 
     let _enter = rt.enter();
 
-    // Ejecutar aplicación
-    run("Quirón", 1280, 720, |window, state| {
+    // Una carpeta pasada explícitamente tiene el mismo alcance que Abrir proyecto.
+    let mut initial_project = std::env::args_os().nth(1).map(std::path::PathBuf::from);
+    run("Quirón", 1280, 720, move |window, state| {
+        if let Some(project) = initial_project.take() { state.open_workspace(project); }
         render_app(window, state);
     });
 }
@@ -116,7 +114,10 @@ fn render_app(window: &mut Window, state: &mut AppState) {
 
     let palette = state.theme_palette();
     let density_scale = state.ui_density_scale();
-    let explorer_row_h = (16.0 * density_scale).clamp(14.0, 22.0);
+    // La maqueta da a cada fila del árbol 8 px de relleno arriba y abajo
+    // sobre una línea de 13: unos 30. Con 16 la letra tocaba la fila de al
+    // lado, que era buena parte de la sensación de lista apretada.
+    let explorer_row_h = (28.0 * density_scale).clamp(22.0, 36.0);
 
     // Fondo base
     canvas.fill_rect(bounds, Color::from_hex(palette.background));
@@ -212,7 +213,35 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         PanelDock::Right => 0.0,
     };
     let main_y = header_height;
-    let main_width = (bounds.width - sidebar_width).max(240.0);
+    // Cuarta columna: Segundo plano. Se monta si está visible y, además del
+    // mínimo del chat, cabe su propio mínimo; se descuenta de la fila antes de
+    // repartir chat y editor. Sin asa todavía: nace a su ancho de partida.
+    let fila_total = (bounds.width - sidebar_width).max(240.0);
+    // El editor decide primero (su regla ya reserva el mínimo de la columna).
+    // Después la columna toma lo que sobra tras los mínimos de chat y editor,
+    // entre su mínimo y su ancho de partida. Así la regla y el dibujo cuentan
+    // lo mismo: antes la regla reservaba 252 y el dibujo se llevaba 360.
+    let editor_montado = state.hay_archivo_abierto() && state.cabe_el_editor(bounds.width);
+    let reservado = llore_ui::app::MIN_CHAT_WIDTH
+        + if editor_montado {
+            llore_ui::app::COLUMN_GAP + llore_ui::app::MIN_EDITOR_WIDTH
+        } else {
+            0.0
+        };
+    let fondo_montado = state.background_panel_visible
+        && fila_total >= reservado + llore_ui::app::COLUMN_GAP + llore_ui::app::MIN_BACKGROUND_WIDTH;
+    let fondo_width = if fondo_montado {
+        llore_ui::app::DEFAULT_BACKGROUND_WIDTH
+            .min(fila_total - reservado - llore_ui::app::COLUMN_GAP)
+            .max(llore_ui::app::MIN_BACKGROUND_WIDTH)
+    } else {
+        0.0
+    };
+    let main_width = if fondo_montado {
+        (fila_total - fondo_width - llore_ui::app::COLUMN_GAP).max(240.0)
+    } else {
+        fila_total
+    };
     let content_height = (bounds.height - header_height - status_height).max(120.0);
 
     // El editor deja de ser la columna base. La base es el chat, y el editor se
@@ -222,7 +251,6 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     // Dos condiciones, como la maqueta: `!!s.editor && cabeElEditor()`. Esa
     // columna es para archivos. Si no hay ninguno abierto no se monta, y el
     // chat se queda la fila entera.
-    let editor_montado = state.hay_archivo_abierto() && state.cabe_el_editor(main_width);
     let split_gap = if editor_montado {
         llore_ui::app::COLUMN_GAP
     } else {
@@ -629,31 +657,38 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 .cloned()
                 .collect::<Vec<_>>();
             for (idx, entry) in visible_entries.into_iter().enumerate() {
-                let y = list_start_y + idx as f32 * explorer_row_h;
+                // `y` es la línea base del texto; la fila va centrada sobre ella.
+                let top = list_start_y + idx as f32 * explorer_row_h - explorer_row_h * 0.5;
+                let y = top + explorer_row_h * 0.5 + design::type_scale::SM * 0.36;
                 let row_bounds = Bounds::new(
                     sidebar_content_x,
-                    y - 10.0,
+                    top,
                     sidebar_content_width,
                     explorer_row_h,
                 );
-                if (start_idx + idx) % 2 == 1 {
-                    canvas.fill_rect(row_bounds, Color::from_hex(palette.text).with_alpha(5));
-                }
 
                 let indent_step = state.explorer_indent_step();
                 let indent = sidebar_content_x + 6.0 + entry.depth as f32 * indent_step;
-                // Removed the vertical indent guide lines to clean up the look
-                let icon = if entry.is_dir {
-                    if state.is_dir_expanded(&entry.path) {
-                        "v"
-                    } else {
-                        ">"
-                    }
+                // Como la maqueta: chevrón para las carpetas y, para los
+                // archivos, la extensión en monoespaciada apagada delante del
+                // nombre. Sin guiones ni cebra.
+                let (marca, marca_mono) = if entry.is_dir {
+                    (
+                        if state.is_dir_expanded(&entry.path) { "⌄" } else { "›" }.to_string(),
+                        false,
+                    )
                 } else {
-                    "-"
+                    (
+                        std::path::Path::new(&entry.name)
+                            .extension()
+                            .and_then(|e| e.to_str())
+                            .map(|e| e.chars().take(4).collect::<String>())
+                            .unwrap_or_default(),
+                        true,
+                    )
                 };
-                let label = format!("{} {}", icon, entry.name);
-                let x = indent;
+                let label = entry.name.clone();
+                let x = indent + 26.0;
                 let width = (sidebar_content_x + sidebar_content_width - x - 4.0).max(28.0);
                 let is_primary_active = state
                     .file_path_for_pane(EditorPane::Primary)
@@ -670,29 +705,51 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                     .map(|p| p == &entry.path)
                     .unwrap_or(false);
 
+                // Píldora sobre la superficie para el archivo abierto, como
+                // `chat_panel.rs` en la maqueta; el seleccionado con teclado va
+                // en el rubor de la selección, más tenue.
                 if is_selected {
-                    canvas.fill_rounded_rect(row_bounds, 4.0, Color::from_hex(palette.selection));
+                    canvas.fill_rounded_rect(
+                        row_bounds,
+                        design::radius::MD,
+                        Color::from_hex(palette.selection),
+                    );
                 }
-
                 if (is_primary_active || is_secondary_active) && !entry.is_dir {
                     canvas.fill_rounded_rect(
                         row_bounds,
-                        4.0,
-                        if is_primary_active && is_secondary_active {
-                            Color::from_hex(palette.selection).with_alpha(150)
-                        } else if is_primary_active {
-                            Color::from_hex(palette.selection)
-                        } else {
-                            Color::from_hex(palette.selection).with_alpha(100)
-                        },
+                        design::radius::MD,
+                        Color::from_hex(palette.surface),
                     );
                 }
 
-                let color = if entry.is_dir {
-                    Color::from_hex(palette.text_muted)
+                if marca_mono {
+                    let m_buf = state.text_system.create_code_buffer(
+                        &marca,
+                        design::type_scale::XS,
+                        24.0,
+                    );
+                    state.text_system.draw_buffer(
+                        canvas,
+                        &m_buf,
+                        indent,
+                        y,
+                        Color::from_hex(palette.text_muted),
+                    );
                 } else {
-                    Color::from_hex(palette.text)
-                };
+                    let m_buf = state
+                        .text_system
+                        .create_line_buffer(&marca, design::type_scale::SM, 16.0);
+                    state.text_system.draw_buffer(
+                        canvas,
+                        &m_buf,
+                        indent + 2.0,
+                        y,
+                        Color::from_hex(palette.text_muted),
+                    );
+                }
+
+                let color = Color::from_hex(palette.text);
                 let text_buf = state.text_system.create_line_buffer(&label, design::type_scale::SM, width);
                 state
                     .text_system
@@ -1565,15 +1622,50 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         }
     }
 
-    // === Chat ===
-    let chat_header = state
+    // === Chat: cabecera del hilo ===
+    //
+    // La maqueta encabeza el hilo con su título en Archivo 800 a 16 px y, a su
+    // lado, el contador en monoespaciada. No hay títulos de sesión guardados,
+    // así que el título es la primera pregunta del hilo —lo que hacen Cursor y
+    // ChatGPT— y, si aún no la hay, «Conversación». El 16 y el relleno
+    // 26/40/14 son medidos, no tokens: van con su cita.
+    let titulo_hilo: String = state
+        .messages
+        .iter()
+        .find(|m| m.is_user)
+        .map(|m| truncate_chars(m.content.lines().next().unwrap_or(""), 48))
+        .unwrap_or_else(|| "Conversación".to_string());
+    let n_mensajes = state
+        .messages
+        .iter()
+        .filter(|m| m.is_user || m.meta.is_none())
+        .count();
+    let cabecera_x = chat_bounds.x + bandeja_lado;
+    let cabecera_base = chat_bounds.y + 26.0 + 16.0;
+    let titulo_w = (chat_bounds.width - bandeja_lado * 2.0 - 120.0).max(80.0);
+    let titulo_buf = state
         .text_system
-        .create_line_buffer("CHAT", design::type_scale::SM, chat_bounds.width - 16.0);
+        .create_heading_buffer(&titulo_hilo, 16.0, titulo_w);
+    let titulo_ancho = titulo_buf.layout_runs().map(|run| run.line_w).fold(0.0_f32, f32::max);
     state.text_system.draw_buffer(
         canvas,
-        &chat_header,
-        chat_bounds.x + 8.0,
-        chat_bounds.y + 20.0,
+        &titulo_buf,
+        cabecera_x,
+        cabecera_base,
+        Color::from_hex(palette.text),
+    );
+    let contador = format!(
+        "{n_mensajes} mensaje{}",
+        if n_mensajes == 1 { "" } else { "s" }
+    );
+    let contador_buf = state
+        .text_system
+        .create_code_buffer(&contador, design::type_scale::XS, 140.0);
+    state.text_system.draw_buffer(
+        canvas,
+        &contador_buf,
+        cabecera_x + titulo_ancho.min(titulo_w) + 14.0,
+        cabecera_base,
         Color::from_hex(palette.text_muted),
     );
     // El modelo y el «+ contexto» viven dentro de la bandeja, en su fila
@@ -1631,7 +1723,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         1.0,
     );
 
-    let mut messages_start_y = chat_bounds.y + 40.0;
+    let mut messages_start_y = chat_bounds.y + 26.0 + 16.0 + 14.0 + design::space::SM;
     if state.is_telemetry_panel_enabled() {
         let telemetry = state.session_telemetry_panel_info();
         let timeline_filter = state.telemetry_timeline_filter();
@@ -1835,10 +1927,12 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         .collect::<Vec<_>>();
     let messages_to_show: Vec<_> = messages_to_show.into_iter().rev().collect();
 
-    let msg_card_x = chat_bounds.x + 7.0;
-    let msg_card_w = (chat_bounds.width - 14.0).max(80.0);
-    let msg_limit_y = input_bounds.y - 8.0;
-    let msg_text_w = (msg_card_w - 34.0).max(40.0);
+    // Los mensajes comparten margen con la bandeja y no pasan de 660 px de
+    // ancho, como en la maqueta: una línea de prosa más larga cansa.
+    let msg_card_x = chat_bounds.x + bandeja_lado;
+    let msg_card_w = (chat_bounds.width - bandeja_lado * 2.0).clamp(80.0, 660.0);
+    let msg_limit_y = input_bounds.y - design::space::MD;
+    let msg_text_w = (msg_card_w - 40.0).max(40.0);
 
     // La altura de cada tarjeta depende de cuántas líneas ocupe su texto al
     // envolverse. Se mide antes de dibujar; suponerla fija apilaba los mensajes.
@@ -1849,7 +1943,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         .map(|i| state.expanded_thoughts.contains(&(primer_indice + i)))
         .collect();
 
-    let measured: Vec<(ChatMessage, String, f32, f32)> = messages_to_show
+    let mut measured: Vec<(ChatMessage, String, f32, f32)> = messages_to_show
         .into_iter()
         .enumerate()
         .map(|(i, msg)| {
@@ -1865,26 +1959,71 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             }
 
             let text = truncate_chars(&msg.content, CHAT_MESSAGE_MAX_CHARS);
-            let (_, text_h) = state.text_system.measure(&text, 12.0, msg_text_w);
+            // Se mide al mismo tamaño al que se dibuja. Medir a 12 y dibujar a
+            // 14,5 dejaba las tarjetas cortas y los mensajes se pisaban.
+            let (_, text_h) = state
+                .text_system
+                .measure(&text, design::type_scale::MD, msg_text_w);
             let text_h = text_h.max(CHAT_LINE_HEIGHT);
 
-            let mut block_h = CHAT_TEXT_TOP + text_h + CHAT_CARD_PADDING_BOTTOM;
-            if msg.meta.is_some() {
-                block_h += CHAT_DETAIL_LINE;
+            // Como la maqueta: etiqueta de rol encima y, solo para el usuario,
+            // burbuja con relleno 18/20. La respuesta de Quirón va sin burbuja.
+            let etiqueta = design::type_scale::XS + design::space::SM;
+            let relleno = if msg.is_user { 18.0 * 2.0 } else { 0.0 };
+            // `meta` es una etiqueta interna («tools», «connection_error»…):
+            // gobierna el render pero no se enseña. Solo las citas añaden alto.
+            let mut block_h = etiqueta + relleno + text_h + design::space::SM;
+            let fuentes = msg.citations.len().min(2) + msg.code_sources.len().min(4);
+            if fuentes > 0 {
+                block_h += design::space::XS + fuentes as f32 * CHAT_DETAIL_LINE;
             }
-            block_h += msg.citations.len().min(2) as f32 * CHAT_DETAIL_LINE;
 
             (msg, text, text_h, block_h)
         })
         .collect();
 
+    // La respuesta recién llegada se enseña siempre. El lienzo no recorta, y
+    // un bloque más alto que el hueco taparía el encabezado o el campo de
+    // entrada: si no cabe (columna estrecha, respuesta larga) se omiten
+    // párrafos por el principio, avisándolo, hasta que quepa.
+    if let Some(last) = measured.last_mut() {
+        let disponible = msg_limit_y - messages_start_y;
+        if last.0.meta.as_deref() != Some("tools") && last.3 > disponible {
+            let extra = last.3 - last.2;
+            let original = last.1.clone();
+            let mut parrafos: Vec<&str> = original.split('\n').collect();
+            let mut texto = original.clone();
+            let mut alto = last.2;
+            while extra + alto > disponible && parrafos.len() > 1 {
+                parrafos.remove(0);
+                texto = format!(
+                    "… (inicio omitido: amplía la columna)\n{}",
+                    parrafos.join("\n")
+                );
+                alto = state
+                    .text_system
+                    .measure(&texto, design::type_scale::MD, msg_text_w)
+                    .1
+                    .max(CHAT_LINE_HEIGHT);
+            }
+            last.1 = texto;
+            last.2 = alto;
+            last.3 = extra + alto;
+        }
+    }
+
     // Se coloca desde el último mensaje hacia arriba: la respuesta recién
-    // llegada siempre queda visible, aunque las anteriores sean largas.
+    // llegada siempre queda visible, aunque las anteriores sean largas. Un
+    // único párrafo más alto que el hueco se ancla arriba y desborda por
+    // debajo, antes que desaparecer.
     let mut placements: Vec<(usize, f32)> = Vec::new();
     let mut cursor_y = msg_limit_y;
     for (index, (_, _, _, block_h)) in measured.iter().enumerate().rev() {
         let top = cursor_y - block_h;
         if top < messages_start_y {
+            if placements.is_empty() {
+                placements.push((index, messages_start_y));
+            }
             break;
         }
         placements.push((index, top));
@@ -1953,70 +2092,62 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         }
 
         let card_bounds = Bounds::new(msg_card_x, msg_y, msg_card_w, block_h);
-        let card_bg = if msg.is_user {
-            Color::from_hex(palette.selection).with_alpha(40)
-        } else {
-            Color::from_hex(palette.surface).with_alpha(200)
-        };
-        canvas.fill_rounded_rect(card_bounds, design::radius::LG, card_bg);
 
-        let role_bounds = Bounds::new(card_bounds.x + 8.0, card_bounds.y + 8.0, 16.0, 16.0);
-        canvas.fill_rounded_rect(
-            role_bounds,
-            8.0,
-            if msg.is_user {
-                Color::from_hex(palette.accent).with_alpha(60)
-            } else {
-                Color::from_hex(palette.background)
-            },
+        // Etiqueta de rol encima, en mayúsculas, apagada — la maqueta no usa
+        // iconos redondos ni tarjetas con fondo para cada mensaje.
+        let etiqueta_buf = state.text_system.create_label_buffer(
+            if msg.is_user { "TÚ" } else { "QUIRÓN" },
+            design::type_scale::XS,
+            120.0,
         );
-        let role_icon = if msg.is_user {
-            icons::USER
-        } else {
-            icons::ASSISTANT
-        };
-        let role_buf = state.text_system.create_icon_buffer(role_icon, ROLE_ICON_SIZE);
+        let etiqueta_base = card_bounds.y + design::type_scale::XS;
         state.text_system.draw_buffer(
             canvas,
-            &role_buf,
-            role_bounds.x + (role_bounds.width - ROLE_ICON_SIZE) * 0.5,
-            role_bounds.y + (role_bounds.height + ROLE_ICON_SIZE) * 0.5 - 1.0,
-            if msg.is_user {
-                Color::from_hex(palette.text)
-            } else {
-                Color::from_hex(palette.accent)
-            },
+            &etiqueta_buf,
+            card_bounds.x,
+            etiqueta_base,
+            Color::from_hex(palette.text_muted),
         );
 
         // El cuerpo del mensaje siempre en color de texto. El acento distingue
         // el rol y las citas; usarlo para prosa larga la vuelve ilegible.
         let text_color = Color::from_hex(palette.text);
+        let cuerpo_top = etiqueta_base + design::space::SM;
+        let (texto_x, texto_top) = if msg.is_user {
+            // Burbuja del usuario: superficie, radio 16, relleno 18/20.
+            let burbuja = Bounds::new(
+                card_bounds.x,
+                cuerpo_top,
+                msg_card_w,
+                text_h + 18.0 * 2.0,
+            );
+            canvas.fill_rounded_rect(
+                burbuja,
+                design::radius::LG,
+                Color::from_hex(palette.surface),
+            );
+            (card_bounds.x + 20.0, cuerpo_top + 18.0)
+        } else {
+            (card_bounds.x, cuerpo_top)
+        };
         let msg_buf = state.text_system.create_buffer(text, design::type_scale::MD, msg_text_w);
         state.text_system.draw_buffer(
             canvas,
             &msg_buf,
-            card_bounds.x + 26.0,
-            card_bounds.y + CHAT_TEXT_TOP,
+            texto_x,
+            texto_top + design::type_scale::MD,
             text_color,
         );
 
         // Los detalles empiezan donde termina el texto, no a una altura fija.
-        let mut detail_y = card_bounds.y + CHAT_TEXT_TOP + text_h + 2.0;
-
-        if let Some(meta) = &msg.meta {
-            let meta_buf = state.text_system.create_line_buffer(
-                &truncate_chars(meta, 96), design::type_scale::SM,
-                card_bounds.width - 14.0,
-            );
-            state.text_system.draw_buffer(
-                canvas,
-                &meta_buf,
-                card_bounds.x + 8.0,
-                detail_y,
-                Color::from_hex(palette.text_muted),
-            );
-            detail_y += CHAT_DETAIL_LINE;
-        }
+        // `detail_y` es una línea base: va el hueco más el ascenso de la letra
+        // por debajo del cuerpo. Sumarle dos píxeles al pie del cuerpo la
+        // ponía encima de su última línea.
+        let mut detail_y = texto_top
+            + text_h
+            + (if msg.is_user { 18.0 } else { 0.0 })
+            + design::space::XS
+            + design::type_scale::SM;
 
         for citation in msg.citations.iter().take(2) {
             let short_id = citation.event_id.chars().take(8).collect::<String>();
@@ -2049,6 +2180,37 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             );
             detail_y += CHAT_DETAIL_LINE;
         }
+
+        // Fichas de código: la fuente se enseña como ruta:rango y símbolo, y al
+        // pulsarla se abre el archivo en esa línea.
+        for hint in msg.code_sources.iter().take(4) {
+            // Primero lo que distingue la fuente (archivo, rango y símbolo); la
+            // ruta completa va en la barra de estado al pulsarla. En columna
+            // estrecha una ruta larga se comía todo lo demás.
+            let archivo = hint.path.rsplit('/').next().unwrap_or(&hint.path);
+            let source_text = truncate_chars(
+                &format!("-> {archivo}:{}-{} · {}", hint.start_line, hint.end_line, hint.symbol),
+                80,
+            );
+            let source_x = card_bounds.x + 10.0;
+            let source_y = detail_y;
+            let source_buf =
+                state
+                    .text_system
+                    .create_line_buffer(&source_text, design::type_scale::SM, card_bounds.width - 18.0);
+            state.text_system.draw_buffer(
+                canvas,
+                &source_buf,
+                source_x,
+                source_y,
+                Color::from_hex(palette.accent),
+            );
+            state.add_click_target(
+                Bounds::new(source_x, source_y - 10.0, card_bounds.width - 20.0, 14.0),
+                ClickTargetAction::CodeSource(hint.clone()),
+            );
+            detail_y += CHAT_DETAIL_LINE;
+        }
     }
 
     // === Input de chat ===
@@ -2077,43 +2239,21 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         input_color,
     );
 
-    // === Barra de estado compacta ===
-    let active_editor = state.active_editor();
-    let cursor = active_editor.cursor();
-    let mode_and_cursor = format!(
-        "{:?} {}:{}",
-        active_editor.mode(),
-        cursor.line + 1,
-        cursor.column + 1
-    );
-    let active_syntax_diag = state.active_file_path().and_then(|path| {
-        let language_name = state
-            .language_registry
-            .detect_language(path)
-            .map(|lang| lang.name().to_string())?;
-        let source = state.active_editor().text();
-        syntax_diagnostic(Some(&language_name), &source).map(|diag| (language_name, diag))
-    });
-    let file_label = state
-        .active_file_path()
-        .map(|p| relative_workspace_path(&state.workspace_root, p))
-        .unwrap_or_else(|| "untitled".to_string());
-    let file_label = if active_editor.is_modified() {
-        format!("*{}", file_label)
-    } else {
-        file_label
-    };
+    // === Indicadores de la cabecera ===
+    //
+    // La maqueta lleva a la derecha dos cosas: el estado del brain y el
+    // conmutador de Segundo plano. Aquí van el brain, git y el estado; fuera
+    // el archivo activo, el modo del editor y «0 problems», que ya se enseñan
+    // en la barra de pestañas del propio editor (`pane_status`) o se abren
+    // desde la paleta. Duplicarlos arriba era lo que llenaba la cabecera de
+    // ruido.
     let conn_health_label = state.quiron_connection_health_label();
     let conn_health_ok = conn_health_label == "health=ok";
     let conn_health_checking = conn_health_label == "health=checking";
 
-    let connection_label = if conn_health_ok {
-        "connected".to_string()
-    } else if conn_health_checking {
-        "connecting".to_string()
-    } else {
-        "offline".to_string()
-    };
+    // «● brain :8766»: el punto lleva el color del estado; el texto, el puerto
+    // real de la conexión.
+    let connection_label = format!("● {}", state.brain_port_label());
     let connection_color = if conn_health_ok {
         Color::from_hex(palette.success)
     } else if conn_health_checking {
@@ -2132,33 +2272,15 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             )),
         ),
         (
-            if let Some((_, diag)) = active_syntax_diag.as_ref() {
-                format!("! L{}:{}", diag.line + 1, diag.column + 1)
-            } else {
-                "0 problems".to_string()
-            },
+            "Segundo plano".to_string(),
             Color::from_hex(palette.surface),
-            if active_syntax_diag.is_some() {
-                Color::from_hex(palette.error)
+            if state.background_panel_visible {
+                Color::from_hex(palette.text)
             } else {
                 Color::from_hex(palette.text_muted)
             },
             Color::from_hex(palette.surface),
-            Some(ClickTargetAction::ActivitySidebarProblems),
-        ),
-        (
-            truncate_chars(&file_label, 42),
-            Color::from_hex(palette.surface),
-            Color::from_hex(palette.text),
-            Color::from_hex(palette.surface),
-            None,
-        ),
-        (
-            mode_and_cursor,
-            Color::from_hex(palette.surface),
-            Color::from_hex(palette.text_muted),
-            Color::from_hex(palette.surface),
-            None,
+            Some(ClickTargetAction::ToggleBackgroundPanel),
         ),
     ];
     if let Some(git) = state.git_sidebar_status.as_ref() {
@@ -2232,6 +2354,281 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     }
 
     render_top_menu_dropdown(canvas, state, palette, &menu_layout);
+
+    // === Columna de Segundo plano ===
+    //
+    // Lo que Quirón hizo en la última respuesta, con datos medidos: cada
+    // herramienta con su duración, qué archivos leyó, y las métricas de
+    // delegación al cierre. Lo que la maqueta enseña y aquí no existe —el
+    // razonamiento del modelo, la consulta a la memoria vectorial— no se
+    // dibuja; el hueco queda para cuando exista.
+    if fondo_montado {
+        let fondo = Bounds::new(
+            main_x + main_width + llore_ui::app::COLUMN_GAP,
+            main_y,
+            fondo_width,
+            content_height,
+        );
+        let fx = fondo.x + design::space::MD;
+        let fw = (fondo.width - design::space::MD * 2.0).max(60.0);
+        let tope = fondo.y + fondo.height - design::space::LG;
+        let paso = CHAT_DETAIL_LINE + 4.0;
+        let mut y = fondo.y + design::space::XL;
+
+        // Cabecera: punto de acento, rótulo, chevrón para ocultar.
+        let punto = Bounds::new(fx, y - 7.0, 7.0, 7.0);
+        canvas.fill_rounded_rect(punto, 3.5, Color::from_hex(palette.accent));
+        let rotulo = state
+            .text_system
+            .create_label_buffer("SEGUNDO PLANO", design::type_scale::XS, fw - 40.0);
+        state.text_system.draw_buffer(
+            canvas,
+            &rotulo,
+            fx + 14.0,
+            y,
+            Color::from_hex(palette.text),
+        );
+        let chev = state
+            .text_system
+            .create_line_buffer("⌄", design::type_scale::SM, 16.0);
+        state.text_system.draw_buffer(
+            canvas,
+            &chev,
+            fx + fw - 12.0,
+            y,
+            Color::from_hex(palette.text_muted),
+        );
+        state.add_click_target(
+            Bounds::new(fondo.x, y - 14.0, fondo.width, 24.0),
+            ClickTargetAction::ToggleBackgroundPanel,
+        );
+        y += design::space::LG;
+
+        let index_label = state.project_index_label();
+        let index_buf = state.text_system.create_code_buffer(&index_label, design::type_scale::XS, fw);
+        let index_height: f32 = index_buf.layout_runs().map(|run| run.line_height).sum();
+        state.text_system.draw_buffer(canvas, &index_buf, fx, y, Color::from_hex(palette.text_muted));
+        y += (index_height + design::space::SM).max(design::space::LG);
+
+        // Estadísticas y barra de presupuesto, de la instantánea real.
+        let k = |n: u32| -> String {
+            if n >= 1000 {
+                format!("{:.1}k", n as f32 / 1000.0)
+            } else {
+                n.to_string()
+            }
+        };
+        let (stats, fraccion) = match state.background_snapshot {
+            Some(sn) => (
+                format!(
+                    "herramientas {}   {} / {}   par {}/{}",
+                    state.last_tool_runs.len(),
+                    k(sn.tokens_used),
+                    k(sn.token_budget),
+                    sn.parallel_current,
+                    sn.parallel_cap
+                ),
+                if sn.token_budget > 0 {
+                    (sn.tokens_used as f32 / sn.token_budget as f32).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                },
+            ),
+            None => ("chat · sin llamadas".to_string(), 0.0),
+        };
+        let stats_buf = state
+            .text_system
+            .create_code_buffer(&stats, design::type_scale::XS, fw);
+        state.text_system.draw_buffer(
+            canvas,
+            &stats_buf,
+            fx,
+            y,
+            Color::from_hex(palette.text_muted),
+        );
+        y += design::space::MD;
+        let barra = Bounds::new(fx, y, fw, 3.0);
+        canvas.fill_rounded_rect(barra, 1.5, Color::from_hex(palette.border));
+        if fraccion > 0.0 {
+            canvas.fill_rounded_rect(
+                Bounds::new(fx, y, (fw * fraccion).max(3.0), 3.0),
+                1.5,
+                Color::from_hex(palette.accent),
+            );
+        }
+        y += design::space::XL;
+
+        if state.last_tool_runs.is_empty() {
+            let vacio = state.text_system.create_code_buffer(
+                "las herramientas del chat aparecerán aquí",
+                design::type_scale::XS,
+                fw,
+            );
+            state.text_system.draw_buffer(
+                canvas,
+                &vacio,
+                fx,
+                y,
+                Color::from_hex(palette.text_muted),
+            );
+        } else {
+            // Flujo: una línea por herramienta, en el orden en que ocurrieron.
+            for run in state.last_tool_runs.iter().take(8) {
+                if y > tope {
+                    break;
+                }
+                let linea = match run.name.as_str() {
+                    "read_file" => format!("lee {}", run.arg),
+                    "search_text" => format!("busca \"{}\" → {}", run.arg, run.summary),
+                    "list_files" => format!("lista {}", if run.arg.is_empty() { "." } else { &run.arg }),
+                    otro => format!("{otro} {}", run.arg),
+                };
+                let linea = if run.is_error { format!("✗ {linea}") } else { linea };
+                let l_buf = state.text_system.create_code_buffer(
+                    &truncate_chars(&linea, 60),
+                    design::type_scale::XS,
+                    fw,
+                );
+                state.text_system.draw_buffer(
+                    canvas,
+                    &l_buf,
+                    fx,
+                    y,
+                    if run.is_error {
+                        Color::from_hex(palette.error)
+                    } else {
+                        Color::from_hex(palette.text_muted)
+                    },
+                );
+                y += paso;
+            }
+            y += design::space::LG;
+
+            // LEYENDO AHORA: los archivos que leyó, sin repetir.
+            let mut leidos: Vec<&str> = Vec::new();
+            for run in state.last_tool_runs.iter() {
+                if run.name == "read_file" && !run.is_error && !leidos.contains(&run.arg.as_str()) {
+                    leidos.push(run.arg.as_str());
+                }
+            }
+            if !leidos.is_empty() && y < tope {
+                let r = state
+                    .text_system
+                    .create_label_buffer("LEYENDO AHORA", design::type_scale::XS, fw);
+                state.text_system.draw_buffer(
+                    canvas,
+                    &r,
+                    fx,
+                    y,
+                    Color::from_hex(palette.text_muted),
+                );
+                y += design::space::LG;
+                for ruta in leidos.iter().take(6) {
+                    if y > tope {
+                        break;
+                    }
+                    let ruta_buf = state.text_system.create_code_buffer(
+                        &truncate_chars(ruta, 34),
+                        design::type_scale::XS,
+                        fw - 44.0,
+                    );
+                    state.text_system.draw_buffer(
+                        canvas,
+                        &ruta_buf,
+                        fx,
+                        y,
+                        Color::from_hex(palette.text),
+                    );
+                    let tag = state
+                        .text_system
+                        .create_code_buffer("leído", design::type_scale::XS, 40.0);
+                    state.text_system.draw_buffer(
+                        canvas,
+                        &tag,
+                        fx + fw - 36.0,
+                        y,
+                        Color::from_hex(palette.accent_alt),
+                    );
+                    y += paso;
+                }
+                y += design::space::LG;
+            }
+
+            // HERRAMIENTAS: tarjetas con la duración medida; la última, sobre
+            // superficie, como la destacada de la maqueta.
+            if y < tope {
+                let r = state
+                    .text_system
+                    .create_label_buffer("HERRAMIENTAS", design::type_scale::XS, fw);
+                state.text_system.draw_buffer(
+                    canvas,
+                    &r,
+                    fx,
+                    y,
+                    Color::from_hex(palette.text_muted),
+                );
+                y += design::space::LG;
+                let n = state.last_tool_runs.len();
+                let tarjeta_h = paso * 2.0 + 10.0;
+                for (i, run) in state.last_tool_runs.iter().enumerate().rev().take(5) {
+                    if y + tarjeta_h > tope {
+                        break;
+                    }
+                    let tarjeta = Bounds::new(fondo.x + 4.0, y - 12.0, fondo.width - 8.0, tarjeta_h);
+                    if i + 1 == n {
+                        canvas.fill_rounded_rect(
+                            tarjeta,
+                            design::radius::MD,
+                            Color::from_hex(palette.surface),
+                        );
+                    }
+                    let nombre = state
+                        .text_system
+                        .create_code_buffer(&run.name, design::type_scale::XS, fw - 52.0);
+                    state.text_system.draw_buffer(
+                        canvas,
+                        &nombre,
+                        fx,
+                        y,
+                        Color::from_hex(palette.text),
+                    );
+                    let dur = format!("{:.1}s", run.took.as_secs_f32());
+                    let dur_buf = state
+                        .text_system
+                        .create_code_buffer(&dur, design::type_scale::XS, 48.0);
+                    state.text_system.draw_buffer(
+                        canvas,
+                        &dur_buf,
+                        fx + fw - 40.0,
+                        y,
+                        if run.is_error {
+                            Color::from_hex(palette.error)
+                        } else {
+                            Color::from_hex(palette.accent_alt)
+                        },
+                    );
+                    let sub_txt = if run.arg.is_empty() {
+                        run.summary.clone()
+                    } else {
+                        format!("{} · {}", truncate_chars(&run.arg, 26), run.summary)
+                    };
+                    let sub_buf = state.text_system.create_code_buffer(
+                        &truncate_chars(&sub_txt, 46),
+                        design::type_scale::XS,
+                        fw,
+                    );
+                    state.text_system.draw_buffer(
+                        canvas,
+                        &sub_buf,
+                        fx,
+                        y + paso - 2.0,
+                        Color::from_hex(palette.text_muted),
+                    );
+                    y += tarjeta_h;
+                }
+            }
+        }
+    }
 
     // === Pantalla de inicio ===
     //
@@ -2535,10 +2932,10 @@ fn render_welcome(
     state.add_click_target(button, ClickTargetAction::WelcomeOpenFolder);
     y += 62.0;
 
-    // --- Estado del índice ---
+    // /health cuenta eventos y nodos internos, no puntos Qdrant ni nodos Neo4j.
     let heading = state
         .text_system
-        .create_line_buffer("ESTADO DEL ÍNDICE", design::type_scale::XS, column_width);
+        .create_line_buffer("ESTADO DEL SISTEMA", design::type_scale::XS, column_width);
     state
         .text_system
         .draw_buffer(canvas, &heading, x, y, Color::from_hex(palette.text_muted));
@@ -2563,18 +2960,18 @@ fn render_welcome(
         (
             icons::DATABASE,
             if connected {
-                format!("almacén vectorial  ·  {units} unidades")
+                format!("registro  ·  {units} eventos")
             } else {
-                "almacén vectorial  ·  desconocido".to_string()
+                "registro  ·  desconocido".to_string()
             },
             connected && units > 0,
         ),
         (
             icons::NETWORK,
             if connected {
-                format!("grafo  ·  {nodes} nodos")
+                format!("grafo interno  ·  {nodes} nodos")
             } else {
-                "grafo  ·  desconocido".to_string()
+                "grafo interno  ·  desconocido".to_string()
             },
             connected && nodes > 0,
         ),
@@ -2690,8 +3087,20 @@ fn render_editor_pane(
     let tab_h = tab_bar_h - 3.0;
     let mut tab_x = editor_bounds.x + 8.0;
     let max_tab_right = editor_bounds.x + editor_bounds.width - 160.0;
-    for tab in tabs.iter().take(10) {
-        let width = (tab.title.chars().count() as f32 * 7.0 + 24.0).clamp(86.0, 210.0);
+    // La pestaña activa siempre se ve. Con una sesión de muchas pestañas y una
+    // columna estrecha, la tira empezaba en la primera y la activa quedaba fuera:
+    // la cabecera decía un archivo y el cuerpo enseñaba otro.
+    let ancho = |tab: &TabSnapshot| (tab.title.chars().count() as f32 * 7.0 + 24.0).clamp(86.0, 210.0);
+    let disponible = max_tab_right - tab_x;
+    let activa = tabs.iter().position(|tab| tab.active).unwrap_or(0);
+    let mut inicio = activa;
+    let mut usado = tabs.get(activa).map(&ancho).unwrap_or(0.0) + 6.0;
+    while inicio > 0 && usado + ancho(&tabs[inicio - 1]) + 6.0 <= disponible {
+        inicio -= 1;
+        usado += ancho(&tabs[inicio]) + 6.0;
+    }
+    for tab in tabs.iter().skip(inicio).take(10) {
+        let width = ancho(tab);
         if tab_x + width > max_tab_right {
             break;
         }

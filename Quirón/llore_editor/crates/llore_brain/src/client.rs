@@ -27,6 +27,18 @@ pub struct QuironClient {
     project_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct IndexProgress {
+    pub project_id: String,
+    pub phase: String,
+    pub files_total: usize,
+    pub files_done: usize,
+    pub units_written: usize,
+    pub summaries_generated: usize,
+    pub current_path: String,
+    pub error: Option<String>,
+}
+
 impl QuironClient {
     /// Crear cliente con URL por defecto
     pub fn new() -> Self {
@@ -66,6 +78,12 @@ impl QuironClient {
 
     pub fn project_id(&self) -> Option<&str> {
         self.project_id.as_deref()
+    }
+
+    /// Apertura idempotente: mantiene el monitor del proyecto en el cerebro.
+    pub async fn start_project_index(&self, root: &std::path::Path, project_id: &str) -> Result<IndexProgress, ClientError> {
+        self.post(&format!("{}/index/project", self.base_url),
+            &serde_json::json!({"root":root,"project_id":project_id})).await
     }
 
     /// Obtener contexto de startup (identidad, gates, eventos recientes)
@@ -922,6 +940,35 @@ pub struct LlmToolDef {
     pub input_schema: serde_json::Value,
 }
 
+/// Ficha de código que el cerebro inyectó en la respuesta: ruta, símbolo, rango
+/// y hash del archivo tal como estaba al responder. Sirve para enseñar la fuente
+/// y abrirla, sin fiarse de lo que el modelo copió en su texto.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CodeHint {
+    pub path: String,
+    #[serde(default)]
+    pub symbol: String,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub start_line: usize,
+    #[serde(default)]
+    pub end_line: usize,
+    #[serde(default)]
+    pub content_hash: String,
+    #[serde(default)]
+    pub score: f32,
+    #[serde(default)]
+    pub summary_origin: String,
+}
+
+/// Lo que el cerebro añade a la respuesta del modelo.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct LlmQuironContext {
+    #[serde(default)]
+    pub code_hints: Vec<CodeHint>,
+}
+
 /// Respuesta del LLM
 #[derive(Debug, Clone, Deserialize)]
 pub struct LlmResponse {
@@ -930,6 +977,9 @@ pub struct LlmResponse {
     pub stop_reason: Option<String>,
     #[serde(default)]
     pub usage: Option<LlmUsage>,
+    /// Fichas y demás contexto que el cerebro adjunta; ausente en otras rutas.
+    #[serde(default)]
+    pub quiron_context: Option<LlmQuironContext>,
 }
 
 impl LlmResponse {

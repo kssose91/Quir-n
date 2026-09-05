@@ -52,8 +52,17 @@ impl Window {
         let window = Arc::new(window);
 
         let context = softbuffer::Context::new(window.clone()).expect("Failed to create context");
-        let surface = Surface::new(&context, window.clone()).expect("Failed to create surface");
-
+        let mut surface = Surface::new(&context, window.clone()).expect("Failed to create surface");
+        // El primer RedrawRequested puede preceder a Resized (ocurre en X11).
+        // softbuffer necesita dimensiones antes de presentar; inner_size está
+        // en píxeles físicos, también en escritorios con escala HiDPI.
+        let physical = window.inner_size();
+        let width = physical.width.max(1);
+        let height = physical.height.max(1);
+        surface.resize(
+            NonZeroU32::new(width).unwrap(),
+            NonZeroU32::new(height).unwrap(),
+        ).expect("Failed to initialize surface size");
         let canvas = Canvas::new(width, height);
 
         Self {

@@ -159,6 +159,31 @@ impl TextSystem {
         buffer
     }
 
+    /// Crea un buffer de etiqueta: una línea en peso medio.
+    ///
+    /// Los rótulos de sección y de rol de la maqueta —SESIONES, ARCHIVOS,
+    /// TÚ, QUIRÓN— van a 10,5 px en peso 600 y mayúsculas. Archivo viaja en
+    /// Regular, Medium y ExtraBold: Medium es el más cercano. La maqueta les
+    /// da además un tracking de 0,14 em que cosmic-text 0.12 no expone; se
+    /// queda sin él, y el que quiera notarlo tendrá que poner los dos lado a
+    /// lado.
+    pub fn create_label_buffer(&mut self, text: &str, font_size: f32, max_width: f32) -> Buffer {
+        let metrics = Metrics::new(font_size, font_size * 1.2);
+        let mut buffer = Buffer::new(&mut self.font_system, metrics);
+
+        buffer.set_wrap(&mut self.font_system, Wrap::None);
+        buffer.set_size(&mut self.font_system, Some(max_width.max(1.0)), None);
+        buffer.set_text(
+            &mut self.font_system,
+            text,
+            Attrs::new().family(Family::SansSerif).weight(Weight::MEDIUM),
+            Shaping::Advanced,
+        );
+        buffer.shape_until_scroll(&mut self.font_system, false);
+
+        buffer
+    }
+
     /// Crea un buffer con un glifo de la fuente de iconos.
     ///
     /// Los iconos no se envuelven ni se justifican: se piden por su punto de

@@ -30,6 +30,7 @@ pub enum AppEvent {
 }
 
 use llore_brain::client::{
+    CodeHint,
     HealthResponse, LlmToolDef, SessionTelemetryAnomalySummary,
     SessionTelemetryCheckpointSummary, SessionTelemetryResponse,
 };
@@ -229,6 +230,9 @@ pub struct ChatMessage {
     pub meta: Option<String>,
     /// Evidencias citadas por Quirón (clicables en la UI)
     pub citations: Vec<Citation>,
+    /// Fichas de código que respaldan la respuesta; al pulsarlas se abre el
+    /// archivo en su línea.
+    pub code_sources: Vec<CodeHint>,
 }
 
 /// Menú superior activo en la barra principal.
@@ -297,6 +301,8 @@ pub enum ClickTargetAction {
     /// Abrir un proyecto reciente desde la pantalla de bienvenida.
     WelcomeOpenRecent(PathBuf),
     Citation(Citation),
+    /// Abre el archivo de una ficha de código en su primera línea.
+    CodeSource(CodeHint),
     ExplorerFile(PathBuf),
     ExplorerDir(PathBuf),
     BreadcrumbSegment {
@@ -317,6 +323,8 @@ pub enum ClickTargetAction {
     NewChat,
     /// Pliega o despliega el bloque de pensamiento del mensaje dado.
     ToggleThought(usize),
+    /// Muestra u oculta la columna de Segundo plano.
+    ToggleBackgroundPanel,
     ActivityCommandPalette,
     ActivityToggleTelemetry,
     ActivityCycleTheme,
@@ -670,6 +678,7 @@ pub enum CommandPaletteAction {
     SetThemeCopperLight,
     SetThemeModernistLight,
     NewChat,
+    ToggleBackgroundPanel,
     CycleThemeNext,
     CycleThemePrevious,
     SetDensityCompact,
@@ -1245,6 +1254,12 @@ const COMMAND_DESCRIPTORS: &[CommandDescriptor] = &[
         keywords: "new chat clear conversation nuevo limpiar",
     },
     CommandDescriptor {
+        action: CommandPaletteAction::ToggleBackgroundPanel,
+        label: "Toggle Background Panel",
+        detail: "Show or hide the Segundo plano column",
+        keywords: "background panel segundo plano toggle column tools reading",
+    },
+    CommandDescriptor {
         action: CommandPaletteAction::OpenFolderPicker,
         label: "Open Folder...",
         detail: "Choose a project folder to open",
@@ -1587,6 +1602,32 @@ pub struct SessionTelemetryTimelineEntry {
     pub label: String,
 }
 
+/// Una herramienta ejecutada durante la última respuesta, cronometrada desde
+/// el editor: es la única parte del sistema que ve empezar y terminar cada
+/// llamada, así que es la única que puede decir cuánto tardó sin inventarlo.
+#[derive(Debug, Clone)]
+pub struct ToolRun {
+    /// Nombre de la herramienta (`read_file`, `search_text`, `list_files`).
+    pub name: String,
+    /// Argumento principal: la ruta, el patrón o la carpeta.
+    pub arg: String,
+    /// Resumen de lo que devolvió, en una línea.
+    pub summary: String,
+    pub is_error: bool,
+    pub took: Duration,
+}
+
+/// Instantánea de las métricas de delegación tomada al terminar cada
+/// respuesta, bajo el mismo lock que ya se tenía. Leerlas por fotograma
+/// costaría un lock del brain cada vez; guardarlas aquí cuesta cero.
+#[derive(Debug, Clone, Copy)]
+pub struct BackgroundSnapshot {
+    pub tokens_used: u32,
+    pub token_budget: u32,
+    pub parallel_current: usize,
+    pub parallel_cap: usize,
+}
+
 /// Estado compartido de la aplicación
 pub struct AppState {
     pub window_width: u32,
@@ -1648,6 +1689,7 @@ pub struct AppState {
     pub quiron: Arc<Mutex<Quiron>>,
     /// Modelo solicitado al gateway para el chat actual.
     selected_ai_model: String,
+    ai_provider: String,
     /// URL base actual de quiron-brain usada por la UI.
     quiron_brain_url: String,
     /// Modo de conexión: true = seguro (token solo env/archivo).
@@ -1658,6 +1700,10 @@ pub struct AppState {
     quiron_last_health_ok: Option<bool>,
     /// Último estado completo del índice: unidades y nodos del grafo.
     pub quiron_index_health: Option<HealthResponse>,
+    pub project_index_progress: Option<llore_brain::client::IndexProgress>,
+    pub project_index_error: Option<String>,
+    project_index_task: Option<JoinHandle<(String, Result<llore_brain::client::IndexProgress, String>)>>,
+    project_index_last_poll: Instant,
     /// Identidad del proyecto abierto, leída de `.llore/project.id`.
     ///
     /// Sin proyecto abierto no hay identidad, y sin identidad el contexto
@@ -1709,14 +1755,15 @@ pub struct AppState {
     pub main_content_bounds: Option<Bounds>,
     /// Gap horizontal entre panel editor y chat.
     pub main_split_gap: f32,
-    /// Panel de segundo plano visible.
-    ///
-    /// La maqueta arranca con él abierto (`fondo: true`), pero aquí nace
-    /// cerrado porque la columna todavía no se dibuja: si estuviera a `true`,
-    /// `cabe_el_editor` reservaría sus 252 px más el hueco para algo que no
-    /// ocupa nada, y el editor no llegaría a montarse en una ventana de 1280.
-    /// Pasa a `true` cuando la columna exista.
+    /// Panel de segundo plano visible. Arranca abierto, como el `fondo: true`
+    /// de la maqueta; se pliega desde su chevrón o desde el chip de la cabecera.
     pub background_panel_visible: bool,
+    /// Herramientas de la última respuesta, con su duración medida.
+    pub last_tool_runs: Vec<ToolRun>,
+    /// Cuánto tardó la última respuesta entera, en segundos.
+    pub last_thought_secs: f32,
+    /// Métricas de delegación al cierre de la última respuesta.
+    pub background_snapshot: Option<BackgroundSnapshot>,
     /// Bloques de pensamiento desplegados, por índice del mensaje en `messages`.
     /// Nacen plegados, como el `pensado: false` de la maqueta: el encabezado
     /// ya dice cuánto tardó y qué tocó; el detalle se abre a demanda.
@@ -1858,9 +1905,13 @@ impl AppState {
 
     /// Pestaña inicial: el README del proyecto, si la guardia lo permite.
     fn initial_tab_for(workspace_root: &Path, language_registry: &LanguageRegistry) -> OpenTab {
-        let vacia = || OpenTab {
-            path: None,
-            editor: Editor::with_text(""),
+        let vacia = || {
+            let mut editor = Editor::with_text("");
+            // La pestaña de bienvenida no contiene cambios del usuario.
+            // History::new arranca sin marca de guardado y, sin esto, incluso
+            // cerrar una ventana recién abierta pide descartar cambios.
+            editor.mark_saved();
+            OpenTab { path: None, editor }
         };
 
         if workspace_root.as_os_str().is_empty() {
@@ -2034,6 +2085,10 @@ impl AppState {
             }
         };
 
+        if let Some(task) = self.project_index_task.take() { task.abort(); }
+        self.project_index_progress = None;
+        self.project_index_error = None;
+        self.project_index_last_poll = Instant::now() - Duration::from_secs(5);
         self.project_id = Some(project_id.clone());
         self.set_quiron_project_id(Some(project_id));
 
@@ -2050,6 +2105,10 @@ impl AppState {
         // que restaurar.
         self.restore_layout_snapshot();
         self.restore_session_snapshot();
+        // El chat es la aplicación: al abrir un proyecto, lo que se teclea es
+        // una pregunta. Las pestañas de la sesión quedan abiertas, pero el foco
+        // no se lo lleva el editor hasta que el usuario lo pida.
+        self.set_focus(FocusTarget::ChatInput);
         self.needs_render = true;
     }
 
@@ -2078,6 +2137,7 @@ impl AppState {
         // systemd que arranque el cerebro, cuyo ExecStartPre levanta Qdrant y
         // Neo4j. No se bloquea la interfaz: el health task reconecta cuando el
         // servicio termina de estar listo.
+        #[cfg(not(test))]
         Self::ensure_brain_service();
 
         // Crear Quiron (conexión a quiron-brain, configurable desde entorno en modo seguro)
@@ -2102,12 +2162,10 @@ impl AppState {
             input_text: String::new(),
             input_focused: false,
             editor_focused: true,
-            messages: vec![ChatMessage {
-                is_user: false,
-                content: "Listo. Abre un proyecto o pregunta sobre el código.".to_string(),
-                meta: Some("system".to_string()),
-                citations: vec![],
-            }],
+            // Sin saludo del sistema: la invitación a escribir es la bandeja
+            // centrada, como en la maqueta. Un «Listo. Abre un proyecto…» encima
+            // solo añadía un mensaje que nadie había escrito.
+            messages: Vec::new(),
             open_tabs: vec![initial_tab],
             active_tab: 0,
             secondary_tab: None,
@@ -2124,15 +2182,18 @@ impl AppState {
             telemetry_panel_enabled: false,
             runtime,
             quiron: Arc::new(Mutex::new(quiron)),
-            selected_ai_model: std::env::var("QUIRON_LLM_MODEL_PRIMARY")
-                .ok()
-                .filter(|value| !value.trim().is_empty())
+            selected_ai_model: Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY")
                 .unwrap_or_else(|| AI_MODEL_OPTIONS[0].to_string()),
+            ai_provider: Self::provider_setting("QUIRON_GATEWAY_BACKEND").unwrap_or_default(),
             quiron_brain_url,
             quiron_secure_mode,
             quiron_auth_source,
             quiron_last_health_ok: None,
             quiron_index_health: None,
+            project_index_progress: None,
+            project_index_error: None,
+            project_index_task: None,
+            project_index_last_poll: Instant::now() - Duration::from_secs(5),
             project_id: None,
             recent_projects: recents::load(),
             recents_file: recents::recents_path(),
@@ -2162,8 +2223,11 @@ impl AppState {
             chat_dock: PanelDock::Left,
             main_content_bounds: None,
             main_split_gap: COLUMN_GAP,
-            background_panel_visible: false,
+            background_panel_visible: true,
             expanded_thoughts: HashSet::new(),
+            last_tool_runs: Vec::new(),
+            last_thought_secs: 0.0,
+            background_snapshot: None,
             sidebar_resizer_bounds: None,
             editor_resizer_bounds: None,
             editor_pane_resizer_bounds: None,
@@ -2229,6 +2293,9 @@ impl AppState {
         state.workspace_signature = state.compute_workspace_signature();
         state.restore_session_snapshot();
         state.restore_layout_snapshot();
+        // Mismo criterio que en `open_workspace`: el chat es la aplicación y
+        // lo que se teclea al arrancar con un proyecto es una pregunta.
+        state.set_focus(FocusTarget::ChatInput);
         let _ = state.poll_quiron_health();
         state
     }
@@ -2251,6 +2318,7 @@ impl AppState {
     /// el servicio no existe o ya corre, no pasa nada y el editor conecta igual.
     /// No espera: `systemctl start` bloquearía mientras Neo4j se inicializa, así
     /// que se lanza y se deja al health task reintentar la conexión.
+    #[cfg(not(test))]
     fn ensure_brain_service() {
         let _ = std::process::Command::new("systemctl")
             .args(["--user", "start", "quiron-brain.service"])
@@ -2585,6 +2653,7 @@ impl AppState {
             content,
             meta: Some("connection_status".to_string()),
             citations: vec![],
+            code_sources: Vec::new(),
         });
         self.status_text = format!(
             "{} | {} | {}",
@@ -2625,6 +2694,7 @@ impl AppState {
             content: trimmed.to_string(),
             meta: Some("control".to_string()),
             citations: vec![],
+            code_sources: Vec::new(),
         });
 
         match command.as_str() {
@@ -2639,6 +2709,7 @@ impl AppState {
                             .to_string(),
                         meta: Some("connection_usage".to_string()),
                         citations: vec![],
+                        code_sources: Vec::new(),
                     });
                     self.status_text = "connection usage: /connect <url>".to_string();
                     self.needs_render = true;
@@ -2655,6 +2726,7 @@ impl AppState {
                             ),
                             meta: Some("connection_reconnect".to_string()),
                             citations: vec![],
+                            code_sources: Vec::new(),
                         });
                         self.status_text = format!(
                             "secure reconnect applied | {} | {} | health=checking",
@@ -2669,6 +2741,7 @@ impl AppState {
                             content: format!("Secure reconnect failed\n{}", err),
                             meta: Some("connection_error".to_string()),
                             citations: vec![],
+                            code_sources: Vec::new(),
                         });
                         self.status_text = format!("secure reconnect failed: {}", err);
                         self.needs_render = true;
@@ -2687,6 +2760,7 @@ impl AppState {
                             ),
                             meta: Some("connection_reconnect".to_string()),
                             citations: vec![],
+                            code_sources: Vec::new(),
                         });
                         self.status_text = format!(
                             "secure reconnect local applied | {} | {} | health=checking",
@@ -2701,6 +2775,7 @@ impl AppState {
                             content: format!("Secure reconnect local failed\n{}", err),
                             meta: Some("connection_error".to_string()),
                             citations: vec![],
+                            code_sources: Vec::new(),
                         });
                         self.status_text = format!("secure reconnect local failed: {}", err);
                         self.needs_render = true;
@@ -2721,6 +2796,7 @@ impl AppState {
                             ),
                             meta: Some("connection_reconnect".to_string()),
                             citations: vec![],
+                            code_sources: Vec::new(),
                         });
                         self.status_text = format!(
                             "secure reconnect env applied | {} | {} | health=checking",
@@ -2735,6 +2811,7 @@ impl AppState {
                             content: format!("Secure reconnect env failed\n{}", err),
                             meta: Some("connection_error".to_string()),
                             citations: vec![],
+                            code_sources: Vec::new(),
                         });
                         self.status_text = format!("secure reconnect env failed: {}", err);
                         self.needs_render = true;
@@ -2751,6 +2828,7 @@ impl AppState {
                     ),
                     meta: Some("connection_help".to_string()),
                     citations: vec![],
+                    code_sources: Vec::new(),
                 });
                 self.status_text = "connection help posted".to_string();
                 self.needs_render = true;
@@ -2976,7 +3054,7 @@ impl AppState {
             } else if let Some(value) = line.strip_prefix("chat_dock=") {
                 chat_dock = PanelDock::from_config_value(value.trim());
             } else if let Some(value) = line.strip_prefix("ai_model=") {
-                ai_model = AI_MODEL_OPTIONS
+                ai_model = self.ai_model_options()
                     .contains(&value.trim())
                     .then(|| value.trim().to_string());
             } else if let Some(value) = line.strip_prefix("ui_theme=") {
@@ -3245,6 +3323,23 @@ impl AppState {
     /// De aquí sale el comportamiento que se ve al estrechar la ventana: el
     /// editor desaparece y el chat vuelve al centro, en vez de repartirse un
     /// espacio en el que ninguno de los dos sirve.
+    /// Rótulo del brain para la cabecera: «brain :8766», como en la maqueta.
+    ///
+    /// El puerto sale de la URL configurada; si no se puede leer, queda
+    /// «brain» a secas antes que inventar un número.
+    pub fn brain_port_label(&self) -> String {
+        let puerto = self
+            .quiron_brain_url
+            .trim_end_matches('/')
+            .rsplit(':')
+            .next()
+            .filter(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()));
+        match puerto {
+            Some(p) => format!("brain :{p}"),
+            None => "brain".to_string(),
+        }
+    }
+
     /// ¿Hay algún archivo abierto?
     ///
     /// Es la otra mitad de la regla de la maqueta, su `!!s.editor`: la columna
@@ -3444,17 +3539,43 @@ impl AppState {
         self.needs_render = true;
     }
 
+    fn provider_setting(key: &str) -> Option<String> {
+        if let Some(value) = Self::env_non_empty(key) { return Some(value); }
+        #[cfg(not(test))]
+        {
+            let path = Self::env_non_empty(QUIRON_BRAIN_ENV_FILE_ENV).map(PathBuf::from)
+                .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(QUIRON_BRAIN_ENV_FILE_DEFAULT_REL)));
+            if let Some(raw) = path.and_then(|p| fs::read_to_string(p).ok()) {
+                return Self::parse_env_assignment(&raw,key);
+            }
+        }
+        None
+    }
+
+    fn ai_provider_is_claude(&self) -> bool {
+        ["claude_cli", "claude-cli", "claude"].contains(&self.ai_provider.as_str())
+    }
+
+    fn ai_model_options(&self) -> &[&str] {
+        if self.ai_provider_is_claude() {
+            &["sonnet", "opus", "haiku"]
+        } else {
+            AI_MODEL_OPTIONS
+        }
+    }
+
     pub fn selected_ai_model(&self) -> &str {
         &self.selected_ai_model
     }
 
     pub fn cycle_ai_model(&mut self) {
-        let next = AI_MODEL_OPTIONS
+        let options = self.ai_model_options();
+        let next = options
             .iter()
             .position(|model| *model == self.selected_ai_model)
-            .map(|index| (index + 1) % AI_MODEL_OPTIONS.len())
+            .map(|index| (index + 1) % options.len())
             .unwrap_or(0);
-        self.selected_ai_model = AI_MODEL_OPTIONS[next].to_string();
+        self.selected_ai_model = options[next].to_string();
         self.persist_layout_snapshot();
         self.status_text = format!("model {}", self.selected_ai_model);
         self.needs_render = true;
@@ -4605,6 +4726,17 @@ impl AppState {
     }
 
     /// Abre overlay de quick open con indexación local del workspace.
+    /// Muestra u oculta la columna de Segundo plano.
+    pub fn toggle_background_panel(&mut self) {
+        self.background_panel_visible = !self.background_panel_visible;
+        self.status_text = if self.background_panel_visible {
+            "segundo plano: visible".to_string()
+        } else {
+            "segundo plano: oculto".to_string()
+        };
+        self.needs_render = true;
+    }
+
     /// Empieza una conversación limpia.
     ///
     /// Vacía el hilo, nada más. La maqueta enseña además una lista de sesiones
@@ -4612,11 +4744,13 @@ impl AppState {
     /// así que un chat nuevo no archiva el viejo, lo descarta. Cuando haya
     /// persistencia de sesiones, aquí es donde se archivará antes de vaciar.
     pub fn new_chat(&mut self) {
+        // Los índices de bloques desplegados se olvidan siempre, haya o no
+        // mensajes: apuntan a posiciones de un hilo que deja de existir.
+        self.expanded_thoughts.clear();
         if self.messages.is_empty() {
             self.status_text = "chat: ya estaba vacío".to_string();
         } else {
             self.messages.clear();
-            self.expanded_thoughts.clear();
             self.status_text = "chat: conversación nueva".to_string();
         }
         self.needs_render = true;
@@ -5102,6 +5236,57 @@ impl AppState {
         if changed {
             self.needs_render = true;
         }
+        changed
+    }
+
+    pub fn project_index_label(&self) -> String {
+        if !self.workspace_is_open() { return "índice · abre un proyecto".into(); }
+        if let Some(error) = &self.project_index_error { return format!("índice · {error}"); }
+        match &self.project_index_progress {
+            None => "índice · conectando".into(),
+            Some(p) => {
+                let phase = match p.phase.as_str() {
+                    "queued" => "en cola", "scanning" => "revisando", "summarizing" => "analizando lógica",
+                    "embedding" => "vectorizando", "writing" => "guardando mapa", "watching" => "al día · vigilando cambios",
+                    "error" => "reintentando", "partial" => "archivos pendientes · reintentando", _ => "detenido",
+                };
+                if let Some(error) = &p.error { format!("índice · {phase}: {error}") }
+                else { format!("índice · {phase} · {}/{} archivos", p.files_done, p.files_total) }
+            }
+        }
+    }
+
+    fn poll_project_index(&mut self) -> bool {
+        let mut changed = false;
+        if self.project_index_task.as_ref().is_some_and(|t| t.is_finished()) {
+            let task = self.project_index_task.take().unwrap();
+            match self.runtime.block_on(task) {
+                Ok((project, result)) if self.project_id.as_deref() == Some(&project) => {
+                    match result {
+                        Ok(progress) => { self.project_index_progress = Some(progress); self.project_index_error = None; }
+                        Err(error) => { self.project_index_error = Some(error); }
+                    }
+                    changed = true;
+                }
+                _ => {}
+            }
+        }
+        #[cfg(not(test))]
+        if self.project_index_task.is_none() && self.project_index_last_poll.elapsed() >= Duration::from_secs(5) {
+            if let Some(project) = self.project_id.clone() {
+                // Copiamos el cliente antes del I/O; el chat queda libre durante toda la indexación.
+                if let Ok(quiron) = self.quiron.try_lock() {
+                    let client = quiron.client_snapshot();
+                    let root = self.workspace_root.clone();
+                    self.project_index_last_poll = Instant::now();
+                    self.project_index_task = Some(self.runtime.spawn(async move {
+                        let result = client.start_project_index(&root, &project).await.map_err(|e| e.to_string());
+                        (project, result)
+                    }));
+                }
+            }
+        }
+        if changed { self.needs_render = true; }
         changed
     }
 
@@ -7204,6 +7389,7 @@ impl AppState {
             content: report_lines.join("\n"),
             meta: Some("telemetry_report".to_string()),
             citations: vec![],
+            code_sources: Vec::new(),
         });
         self.status_text = status;
         self.needs_render = true;
@@ -7217,6 +7403,7 @@ impl AppState {
             CommandPaletteAction::OpenFilePicker => self.open_file_picker(),
             CommandPaletteAction::OpenFolderPicker => self.open_folder_picker(),
             CommandPaletteAction::NewChat => self.new_chat(),
+            CommandPaletteAction::ToggleBackgroundPanel => self.toggle_background_panel(),
             CommandPaletteAction::QuickOpen => self.begin_quick_open(),
             CommandPaletteAction::GoToLine => self.begin_go_to_line_overlay(),
             CommandPaletteAction::FindInWorkspace => self.begin_workspace_text_search_overlay(),
@@ -9255,6 +9442,7 @@ impl AppState {
                         ),
                         meta: Some("citation_invalid".to_string()),
                         citations: vec![citation],
+                        code_sources: Vec::new(),
                     });
                     self.needs_render = true;
                     return;
@@ -9285,6 +9473,7 @@ impl AppState {
                             ),
                             meta: Some("citation_resolved".to_string()),
                             citations: vec![citation],
+                            code_sources: Vec::new(),
                         });
                     }
                     Ok(None) => {
@@ -9297,6 +9486,7 @@ impl AppState {
                             ),
                             meta: Some("citation_not_found".to_string()),
                             citations: vec![citation],
+                            code_sources: Vec::new(),
                         });
                     }
                     Err(err) => {
@@ -9309,10 +9499,25 @@ impl AppState {
                             ),
                             meta: Some("citation_lookup_error".to_string()),
                             citations: vec![citation],
+                            code_sources: Vec::new(),
                         });
                     }
                 }
 
+                self.needs_render = true;
+            }
+            ClickTargetAction::CodeSource(hint) => {
+                // La ficha trae la ruta relativa a la raíz y líneas desde 1;
+                // el editor cuenta desde 0. Se abre en el panel enfocado.
+                let path = self.workspace_root.join(&hint.path);
+                let pane = self.focused_editor_pane;
+                self.open_file_in_pane(path, pane, false);
+                self.editor_for_pane_mut(pane)
+                    .set_cursor_line_column(hint.start_line.saturating_sub(1), 0);
+                self.status_text = format!(
+                    "{} L{} · {}",
+                    hint.path, hint.start_line, hint.symbol
+                );
                 self.needs_render = true;
             }
             ClickTargetAction::ExplorerFile(path) => {
@@ -9377,6 +9582,7 @@ impl AppState {
                 self.set_focus(FocusTarget::EditorPrimary);
             }
             ClickTargetAction::NewChat => self.new_chat(),
+            ClickTargetAction::ToggleBackgroundPanel => self.toggle_background_panel(),
             ClickTargetAction::ToggleThought(indice) => {
                 if !self.expanded_thoughts.remove(&indice) {
                     self.expanded_thoughts.insert(indice);
@@ -9696,6 +9902,7 @@ impl AppState {
                 content: "Abre una carpeta de proyecto antes de preguntar.".to_string(),
                 meta: Some("system".to_string()),
                 citations: vec![],
+                code_sources: Vec::new(),
             });
             self.loading = false;
             self.needs_render = true;
@@ -9708,6 +9915,7 @@ impl AppState {
             content: content.to_string(),
             meta: None,
             citations: vec![],
+            code_sources: Vec::new(),
         });
 
         self.loading = true;
@@ -9723,12 +9931,21 @@ impl AppState {
 
         // Con proyecto abierto, el chat lleva manos: el catálogo de
         // herramientas viaja con la pregunta y el modelo puede leer el
-        // proyecto en vez de inventárselo. Las herramientas fijan el modelo
-        // (ver nota en TOOLS_CHAT_MODEL), elija lo que elija el selector.
-        let model = chat_tools::TOOLS_CHAT_MODEL.to_string();
+        // proyecto en vez de inventárselo. Con Claude por su CLI el modelo lo
+        // elige el selector; con el resto de proveedores lo fijan las
+        // herramientas (ver nota en TOOLS_CHAT_MODEL), elija lo que elija.
+        let model = if self.ai_provider_is_claude() {
+            self.selected_ai_model.clone()
+        } else {
+            chat_tools::TOOLS_CHAT_MODEL.to_string()
+        };
 
+        // Cada herramienta se cronometra aquí, en el editor: es el único sitio
+        // que ve empezar y terminar la llamada. Y las métricas de delegación se
+        // leen al cerrar la respuesta, bajo el mismo lock que ya se tenía.
+        let mut corridas: Vec<ToolRun> = Vec::new();
         let empezo = Instant::now();
-        let result = self.runtime.block_on(async {
+        let (result, metrics) = self.runtime.block_on(async {
             let q = quiron.lock().await;
             let tools = chat_tools::tool_catalog()
                 .into_iter()
@@ -9738,7 +9955,7 @@ impl AppState {
                     input_schema: tool.input_schema,
                 })
                 .collect();
-            q.chat_with_tools(
+            let outcome = q.chat_with_tools(
                 &content_str,
                 &model,
                 &context,
@@ -9751,19 +9968,55 @@ impl AppState {
                         workspace_root: &workspace_root,
                         show_noise,
                     };
+                    let arg = ["path", "pattern", "query", "dir", "directory"]
+                        .iter()
+                        .find_map(|k| input.get(*k).and_then(|v| v.as_str()))
+                        .unwrap_or("")
+                        .to_string();
+                    let t0 = Instant::now();
                     let outcome = chat_tools::execute(&ctx, name, input);
+                    let took = t0.elapsed();
+                    let lineas = outcome.content.lines().count();
+                    let summary = if outcome.is_error {
+                        outcome
+                            .content
+                            .lines()
+                            .next()
+                            .unwrap_or("error")
+                            .to_string()
+                    } else {
+                        format!("{lineas} línea{}", if lineas == 1 { "" } else { "s" })
+                    };
+                    corridas.push(ToolRun {
+                        name: name.to_string(),
+                        arg,
+                        summary,
+                        is_error: outcome.is_error,
+                        took,
+                    });
                     (outcome.content, outcome.is_error)
                 },
             )
-            .await
+            .await;
+            let metrics = q.delegation_metrics();
+            (outcome, metrics)
         });
 
         let pensado = empezo.elapsed();
-        let (response_text, response_meta, tool_trace) = match result {
-            Ok(outcome) => (outcome.text, None, outcome.tool_trace),
+        self.last_thought_secs = pensado.as_secs_f32();
+        self.last_tool_runs = corridas;
+        self.background_snapshot = Some(BackgroundSnapshot {
+            tokens_used: metrics.model_tokens_used,
+            token_budget: metrics.token_budget,
+            parallel_current: metrics.parallel_subtasks_current,
+            parallel_cap: metrics.parallel_subtasks_cap,
+        });
+        let (response_text, response_meta, tool_trace, code_sources) = match result {
+            Ok(outcome) => (outcome.text, None, outcome.tool_trace, outcome.code_hints),
             Err(err) => (
                 format!("No se pudo obtener respuesta: {}", err),
                 Some("model-error".to_string()),
+                Vec::new(),
                 Vec::new(),
             ),
         };
@@ -9823,6 +10076,7 @@ impl AppState {
                 content: format!("{encabezado}\n{detalle}"),
                 meta: Some("tools".to_string()),
                 citations: vec![],
+                code_sources: Vec::new(),
             });
         }
 
@@ -9831,6 +10085,7 @@ impl AppState {
             content: response_text,
             meta: response_meta.clone(),
             citations: vec![],
+            code_sources,
         });
 
         self.status_text = response_meta.unwrap_or_else(|| "response received".to_string());
@@ -10526,7 +10781,15 @@ where
                         self.state.clear_click_targets();
 
                         // Renderizar contenido
+                        // Cronómetro de fotograma, solo bajo QUIRON_FRAME_TIMING=1: el
+                        // coste de un fotograma se mide en la aplicación real, no se
+                        // deduce de los bancos de cada primitiva.
+                        let cronometrar = std::env::var_os("QUIRON_FRAME_TIMING").is_some();
+                        let empezo = cronometrar.then(Instant::now);
                         (self.render_fn)(window, &mut self.state);
+                        if let Some(t) = empezo {
+                            eprintln!("fotograma: {:.2} ms", t.elapsed().as_secs_f64() * 1000.0);
+                        }
 
                         // Presentar
                         window.present();
@@ -10566,7 +10829,9 @@ where
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        // Progreso y monitores deben avanzar aunque no se mueva el ratón.
+        event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(250)));
         let mut should_redraw = false;
         if self.state.poll_workspace_changes() {
             should_redraw = true;
@@ -10575,6 +10840,9 @@ where
             should_redraw = true;
         }
         if self.state.poll_telemetry_persisted_prefetch() {
+            should_redraw = true;
+        }
+        if self.state.poll_project_index() {
             should_redraw = true;
         }
         if self.state.poll_quiron_health() {
@@ -11501,6 +11769,26 @@ mod tests {
         assert!(state.status_text.contains("theme: Graphite Dark"));
     }
 
+    /// El rótulo del brain enseña el puerto real de la URL configurada y, si no
+    /// hay puerto legible, se queda en «brain» antes que inventar uno.
+    #[test]
+    fn el_rotulo_del_brain_lleva_el_puerto_real_o_ninguno() {
+        let workspace = TestWorkspace::new("brain_port_label");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+
+        state.quiron_brain_url = "http://localhost:8766".to_string();
+        assert_eq!(state.brain_port_label(), "brain :8766");
+
+        state.quiron_brain_url = "http://127.0.0.1:9001/".to_string();
+        assert_eq!(state.brain_port_label(), "brain :9001", "tolera la barra final");
+
+        state.quiron_brain_url = "http://brain.local".to_string();
+        assert_eq!(state.brain_port_label(), "brain", "sin puerto no se inventa");
+
+        state.quiron_brain_url = "https://brain.local/api".to_string();
+        assert_eq!(state.brain_port_label(), "brain", "una ruta no es un puerto");
+    }
+
     /// Una pestaña sin título no es un archivo abierto. Llore arranca con una,
     /// así que sin esta distinción la columna del editor se montaría siempre y
     /// volvería a comerse el centro sin tener nada que enseñar.
@@ -11589,6 +11877,27 @@ mod tests {
         );
     }
 
+    /// La columna de Segundo plano se conmuta desde la paleta y desde el clic,
+    /// y el conmutador dice en qué estado la deja.
+    #[test]
+    fn la_columna_de_segundo_plano_se_conmuta() {
+        let workspace = TestWorkspace::new("toggle_background");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        let inicial = state.background_panel_visible;
+
+        state.execute_command_palette_action(CommandPaletteAction::ToggleBackgroundPanel);
+        assert_eq!(state.background_panel_visible, !inicial);
+
+        state.clear_click_targets();
+        state.add_click_target(
+            Bounds::new(0.0, 0.0, 20.0, 20.0),
+            ClickTargetAction::ToggleBackgroundPanel,
+        );
+        state.handle_click(10.0, 10.0);
+        assert_eq!(state.background_panel_visible, inicial, "el clic la devuelve");
+        assert!(state.status_text.starts_with("segundo plano:"));
+    }
+
     /// El bloque de pensamiento nace plegado y se abre y cierra por clic sobre
     /// su encabezado. Un chat nuevo olvida qué estaba abierto: los índices de
     /// un hilo vaciado no significan nada en el siguiente.
@@ -11623,14 +11932,9 @@ mod tests {
         let workspace = TestWorkspace::new("nuevo_chat");
         let mut state = AppState::new_for_tests(workspace.root_path());
 
-        // El arranque trae un mensaje de bienvenida, así que el hilo no nace
-        // vacío: la primera pasada sí tiene algo que descartar.
-        assert!(!state.messages.is_empty());
-        state.new_chat();
-        assert!(state.messages.is_empty());
-        assert!(state.status_text.contains("conversación nueva"));
-
-        // Y sobre un hilo ya vacío, lo dice en vez de fingir que hizo algo.
+        // El hilo nace vacío: no hay saludo del sistema. Sobre un hilo vacío
+        // lo dice en vez de fingir que hizo algo.
+        assert!(state.messages.is_empty(), "nace sin saludo");
         state.new_chat();
         assert!(state.status_text.contains("ya estaba vacío"));
 
@@ -11639,6 +11943,7 @@ mod tests {
             content: "hola".to_string(),
             meta: None,
             citations: Vec::new(),
+            code_sources: Vec::new(),
         });
         assert_eq!(state.messages.len(), 1);
 
@@ -12556,11 +12861,14 @@ mod tests {
 
     #[test]
     fn arranca_sin_proyecto_abierto() {
-        let state = AppState::new_for_tests(PathBuf::new());
+        let mut state = AppState::new_for_tests(PathBuf::new());
 
         assert!(!state.workspace_is_open());
         assert_eq!(state.open_tabs.len(), 1);
         assert!(state.open_tabs[0].path.is_none(), "no debe abrir ningún archivo");
+        assert!(!state.has_unsaved_tabs(), "la bienvenida no tiene cambios del usuario");
+        assert!(state.request_app_exit(), "debe cerrar con una sola petición");
+        assert!(!state.pending_exit_confirm);
     }
 
     #[test]
