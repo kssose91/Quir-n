@@ -1,0 +1,23 @@
+[Unit]
+Description=Quirón worker local Qwen 1.5B
+# BindsTo con After: el worker se para cuando el cerebro entra en inactivo,
+# también si el cerebro termina solo (apagado por inactividad), no solo ante
+# un `systemctl stop`. PartOf no cubría ese caso y llama-server se quedaba
+# corriendo con su memoria y su GPU.
+BindsTo=quiron-brain.service
+After=quiron-brain.service
+ConditionPathExists=/home/KSSOSE/Quirón/data/worker/manifest.json
+
+[Service]
+Type=simple
+WorkingDirectory=/home/KSSOSE/Quirón
+EnvironmentFile=%h/.config/quiron/quiron-brain.env
+ExecStart=/bin/bash /home/KSSOSE/Quirón/scripts/run-worker.sh
+Restart=on-failure
+RestartSec=10
+# Tope de RAM del host: el modelo va a la GPU; la RAM la usan el mapeo del GGUF,
+# la caché de prompts (acotada en run-worker.sh) y el runtime.
+MemoryHigh=2G
+MemoryMax=3G
+NoNewPrivileges=true
+UMask=0077

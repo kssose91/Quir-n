@@ -33,3 +33,4 @@ node_modules/
 
 # Binarios release preservados al limpiar target/ (se regeneran compilando)
 /bin/
+/dist/

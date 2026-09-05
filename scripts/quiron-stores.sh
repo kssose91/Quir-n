@@ -1,130 +1,124 @@
 #!/usr/bin/env bash
-#
-# Ciclo de vida de los almacenes de Quirón (Qdrant y Neo4j).
-#
-# No arranca nada al boot: lo invoca el servicio quiron-brain en ExecStartPre
-# (up) y ExecStopPost (down), de modo que los contenedores viven exactamente
-# mientras vive la aplicación. Fuera de ella, no corren.
-#
-# Uso: quiron-stores.sh {up|down|status}
-#
-# Docker es rootful en esta máquina: quien ejecute esto necesita pertenecer al
-# grupo `docker` (o usar sudo). El servicio systemd --user lo hereda de la sesión.
-
+# Almacenes a demanda. Nunca adopta ni detiene un contenedor por su puerto.
 set -euo pipefail
 
-ROOT="${QUIRON_ROOT:-/home/KSSOSE/Quirón}"
-
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="${QUIRON_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 QDRANT_CONTAINER_NAME="${QUIRON_QDRANT_CONTAINER_NAME:-quiron-qdrant}"
 NEO4J_CONTAINER_NAME="${QUIRON_NEO4J_CONTAINER_NAME:-quiron-neo4j}"
-QDRANT_IMAGE="${QUIRON_QDRANT_IMAGE:-qdrant/qdrant}"
-NEO4J_IMAGE="${QUIRON_NEO4J_IMAGE:-neo4j:5}"
+# Digests presentes en el equipo auditado el 05-09-2026.
+QDRANT_IMAGE="${QUIRON_QDRANT_IMAGE:-qdrant/qdrant@sha256:0425e3e03e7fd9b3dc95c4214546afe19de2eb2e28ca621441a56663ac6e1f46}"
+NEO4J_IMAGE="${QUIRON_NEO4J_IMAGE:-neo4j@sha256:037cf5756f0135cbfd66b739b6df7c7c4bb100f9ce11602f6f9538e17e02c74d}"
 QDRANT_DATA_DIR="${QUIRON_QDRANT_DATA_DIR:-${ROOT}/data/qdrant}"
 NEO4J_DATA_DIR="${QUIRON_NEO4J_DATA_DIR:-${ROOT}/data/neo4j}"
-NEO4J_PASSWORD="${NEO4J_PASSWORD:-neo4j}"
+READY_TIMEOUT="${QUIRON_STORES_TIMEOUT:-90}"
+# Topes de RAM por contenedor (cgroup, sin swap). Neo4j: heap 512m + pagecache
+# 256m + JVM. Qdrant mapea sus segmentos en memoria; el exceso es reclamable.
+QDRANT_MEMORY="${QUIRON_QDRANT_MEMORY:-2g}"
+NEO4J_MEMORY="${QUIRON_NEO4J_MEMORY:-1536m}"
+NEO4J_PASSWORD="${NEO4J_PASSWORD:-}"
 
 log() { printf '[quiron-stores] %s\n' "$*"; }
 die() { printf '[quiron-stores][error] %s\n' "$*" >&2; exit 1; }
-
-command -v docker >/dev/null 2>&1 || die "docker no está disponible"
-
-# Nombre real del contenedor que publica un puerto dado, si existe.
-discover_by_port() {
-  local port="$1"
-  docker ps --format '{{.Names}}\t{{.Ports}}' \
-    | awk -F'\t' -v p="${port}" '$2 ~ (":" p "->" p "/tcp") { print $1; exit }'
-}
-
-is_running() { [[ -n "$(docker ps --filter "name=^/$1$" --filter status=running -q 2>/dev/null)" ]]; }
-exists()     { [[ -n "$(docker ps -a --filter "name=^/$1$" -q 2>/dev/null)" ]]; }
+exists() { docker container inspect "$1" >/dev/null 2>&1; }
+is_running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1")" == true ]]; }
+# Un contenedor creado por otra vía (p. ej. un compose antiguo con
+# `unless-stopped`) heredaría su política y correría sin tope: se corrige antes
+# de arrancarlo. `docker update` es idempotente y no toca los datos.
+enforce_limits() { docker update --restart no --memory "$2" --memory-swap "$2" "$1" >/dev/null; }
 
 ensure_qdrant() {
-  # Reutiliza un contenedor existente aunque tenga otro nombre (descubierto por puerto).
-  local discovered; discovered="$(discover_by_port 6333 || true)"
-  [[ -n "${discovered}" ]] && QDRANT_CONTAINER_NAME="${discovered}"
-
-  if is_running "${QDRANT_CONTAINER_NAME}"; then
-    log "Qdrant ya está levantado (${QDRANT_CONTAINER_NAME})"
-  elif exists "${QDRANT_CONTAINER_NAME}"; then
-    log "Arrancando Qdrant (${QDRANT_CONTAINER_NAME})"
-    docker start "${QDRANT_CONTAINER_NAME}" >/dev/null
+  if exists "$QDRANT_CONTAINER_NAME"; then
+    enforce_limits "$QDRANT_CONTAINER_NAME" "$QDRANT_MEMORY"
+    is_running "$QDRANT_CONTAINER_NAME" || docker start "$QDRANT_CONTAINER_NAME" >/dev/null
   else
-    log "Creando Qdrant"
-    docker run -d --name "${QDRANT_CONTAINER_NAME}" \
-      -p 6333:6333 -p 6334:6334 \
-      -v "${QDRANT_DATA_DIR}:/qdrant/storage" \
-      --restart no \
-      "${QDRANT_IMAGE}" >/dev/null
+    mkdir -p "$QDRANT_DATA_DIR"
+    docker run -d --name "$QDRANT_CONTAINER_NAME" \
+      --label org.quiron.store=qdrant --restart no \
+      --memory "$QDRANT_MEMORY" --memory-swap "$QDRANT_MEMORY" \
+      -p 127.0.0.1:6333:6333 -p 127.0.0.1:6334:6334 \
+      -v "${QDRANT_DATA_DIR}:/qdrant/storage" "$QDRANT_IMAGE" >/dev/null
   fi
 }
 
 ensure_neo4j() {
-  local discovered; discovered="$(discover_by_port 7474 || true)"
-  [[ -n "${discovered}" ]] && NEO4J_CONTAINER_NAME="${discovered}"
-
-  if is_running "${NEO4J_CONTAINER_NAME}"; then
-    log "Neo4j ya está levantado (${NEO4J_CONTAINER_NAME})"
-  elif exists "${NEO4J_CONTAINER_NAME}"; then
-    log "Arrancando Neo4j (${NEO4J_CONTAINER_NAME})"
-    docker start "${NEO4J_CONTAINER_NAME}" >/dev/null
+  if exists "$NEO4J_CONTAINER_NAME"; then
+    enforce_limits "$NEO4J_CONTAINER_NAME" "$NEO4J_MEMORY"
+    is_running "$NEO4J_CONTAINER_NAME" || docker start "$NEO4J_CONTAINER_NAME" >/dev/null
   else
-    log "Creando Neo4j"
-    docker run -d --name "${NEO4J_CONTAINER_NAME}" \
-      -p 7474:7474 -p 7687:7687 \
-      -e "NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}" \
-      -v "${NEO4J_DATA_DIR}:/data" \
-      --restart no \
-      "${NEO4J_IMAGE}" >/dev/null
+    mkdir -p "$NEO4J_DATA_DIR"
+    # Docker lee el valor del entorno; la contraseña no aparece en argv.
+    export NEO4J_AUTH="neo4j/${NEO4J_PASSWORD}"
+    docker run -d --name "$NEO4J_CONTAINER_NAME" \
+      --label org.quiron.store=neo4j --restart no \
+      --memory "$NEO4J_MEMORY" --memory-swap "$NEO4J_MEMORY" \
+      -p 127.0.0.1:7474:7474 -p 127.0.0.1:7687:7687 \
+      -e NEO4J_AUTH \
+      -e NEO4J_server_memory_heap_initial__size=256m \
+      -e NEO4J_server_memory_heap_max__size=512m \
+      -e NEO4J_server_memory_pagecache_size=256m \
+      -v "${NEO4J_DATA_DIR}:/data" "$NEO4J_IMAGE" >/dev/null
   fi
+}
+
+qdrant_ready() {
+  is_running "$QDRANT_CONTAINER_NAME" &&
+    curl --fail --silent --show-error --max-time 3 http://127.0.0.1:6333/readyz >/dev/null 2>&1
+}
+
+neo4j_ready() {
+  # HTTP 200 no garantiza que Bolt acepte consultas autenticadas.
+  is_running "$NEO4J_CONTAINER_NAME" &&
+    timeout 8 docker exec -e NEO4J_PASSWORD -e NEO4J_USERNAME=neo4j \
+      "$NEO4J_CONTAINER_NAME" cypher-shell -a bolt://127.0.0.1:7687 \
+      'RETURN 1;' >/dev/null 2>&1
+}
+
+wait_ready() {
+  local label="$1" check="$2" start=$SECONDS
+  while (( SECONDS - start < READY_TIMEOUT )); do
+    if "$check"; then log "$label listo"; return 0; fi
+    sleep 1
+  done
+  die "$label no está listo tras ${READY_TIMEOUT}s; no se inicia el cerebro"
 }
 
 stop_one() {
-  local name="$1" port="$2"
-  local discovered; discovered="$(discover_by_port "${port}" || true)"
-  [[ -n "${discovered}" ]] && name="${discovered}"
-  if is_running "${name}"; then
-    log "Parando ${name}"
-    docker stop "${name}" >/dev/null
+  if exists "$1" && is_running "$1"; then
+    log "Parando $1"
+    docker stop --time 20 "$1" >/dev/null
   fi
 }
 
-# Espera a que un almacén acepte conexiones. Arrancar el contenedor no basta:
-# Neo4j tarda en abrir el puerto bolt, y el brain fallaría al conectar.
-wait_ready() {
-  local label="$1" url="$2" timeout="${3:-90}"
-  local start=$SECONDS
-  while (( SECONDS - start < timeout )); do
-    if curl -s -o /dev/null -m 3 "${url}"; then
-      log "${label} listo"
-      return 0
-    fi
-    sleep 1
-  done
-  log "Aviso: ${label} no respondió en ${timeout}s; se continúa"
-  return 0
-}
+action="${1:-status}"
+case "$action" in up|down|status) ;; *) die "uso: $0 {up|down|status}" ;; esac
+command -v docker >/dev/null || die "docker no está disponible"
+docker info >/dev/null 2>&1 || die "Docker no responde o el usuario no tiene acceso a su socket"
 
-case "${1:-status}" in
+case "$action" in
   up)
+    command -v curl >/dev/null || die "falta curl"
+    command -v timeout >/dev/null || die "falta timeout (coreutils)"
+    [[ "$READY_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "QUIRON_STORES_TIMEOUT debe ser un entero positivo"
+    [[ ${#NEO4J_PASSWORD} -ge 8 ]] || die "NEO4J_PASSWORD debe contener al menos 8 caracteres"
+    export NEO4J_PASSWORD
     ensure_qdrant
     ensure_neo4j
-    wait_ready "Qdrant" "http://127.0.0.1:6333/readyz" 30
-    wait_ready "Neo4j" "http://127.0.0.1:7474" 90
-    log "Almacenes arriba"
+    wait_ready Qdrant qdrant_ready
+    wait_ready Neo4j neo4j_ready
+    log "Almacenes listos"
     ;;
   down)
-    stop_one "${QDRANT_CONTAINER_NAME}" 6333
-    stop_one "${NEO4J_CONTAINER_NAME}" 7687
-    log "Almacenes parados"
+    stop_one "$QDRANT_CONTAINER_NAME"
+    stop_one "$NEO4J_CONTAINER_NAME"
     ;;
   status)
-    for pair in "Qdrant:6333" "Neo4j:7474"; do
-      name="${pair%%:*}"; port="${pair##*:}"
-      c="$(discover_by_port "${port}" || true)"
-      if [[ -n "${c}" ]]; then echo "  ${name}: corriendo (${c})"; else echo "  ${name}: parado"; fi
+    for name in "$QDRANT_CONTAINER_NAME" "$NEO4J_CONTAINER_NAME"; do
+      if exists "$name" && is_running "$name"; then
+        log "$name: corriendo (salud no comprobada)"
+      else
+        log "$name: parado o ausente"
+      fi
     done
-    ;;
-  *)
-    die "uso: $0 {up|down|status}"
     ;;
 esac

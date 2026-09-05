@@ -1,9 +1,11 @@
 [Unit]
 Description=Quirón Brain — índice, grafo y API, con sus almacenes
-Documentation=file:///home/KSSOSE/Quirón/README.md
 # Necesita el socket de Docker para gestionar los contenedores de los almacenes.
+# El worker se ordena después del cerebro (BindsTo+After en su unidad) para
+# que se pare también cuando el cerebro termina solo por inactividad; por eso
+# el cerebro no puede ir After del worker.
 After=docker.service network-online.target
-Wants=network-online.target
+Wants=network-online.target quiron-worker.service
 
 [Service]
 Type=simple
@@ -13,7 +15,7 @@ EnvironmentFile=%h/.config/quiron/quiron-brain.env
 # Los almacenes viven exactamente mientras vive la aplicación:
 # se levantan justo antes del brain y se paran justo después.
 ExecStartPre=/home/KSSOSE/Quirón/scripts/quiron-stores.sh up
-ExecStart=/home/KSSOSE/Quirón/Quirón/quiron-brain/target/release/quiron-brain
+ExecStart=/home/KSSOSE/Quirón/bin/quiron-brain
 ExecStopPost=/home/KSSOSE/Quirón/scripts/quiron-stores.sh down
 
 # La app es un todo: si el brain cae, cae con sus almacenes. El editor lo
@@ -22,6 +24,11 @@ ExecStopPost=/home/KSSOSE/Quirón/scripts/quiron-stores.sh down
 Restart=no
 TimeoutStartSec=180
 TimeoutStopSec=60
+
+# Pico medido en el barrido completo del 05-09-2026: 3,4 GB (BGE-M3 en CPU).
+# MemoryHigh frena y reclama antes de que MemoryMax mate el servicio.
+MemoryHigh=4G
+MemoryMax=5G
 
 # Sin sección [Install] a propósito: este servicio NO se habilita al arranque.
 # Se activa a demanda (el editor, o `systemctl --user start quiron-brain`).
