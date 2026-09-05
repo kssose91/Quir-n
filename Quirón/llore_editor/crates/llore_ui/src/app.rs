@@ -10494,8 +10494,12 @@ where
                                     self.state.begin_workspace_symbol_overlay();
                                 } else if shift {
                                     self.state.begin_symbol_overlay();
-                                } else {
+                                } else if self.state.workspace_is_open() {
                                     self.state.open_file_picker();
+                                } else {
+                                    // Sin proyecto, Ctrl+O abre una carpeta: es lo
+                                    // que promete la bienvenida.
+                                    self.state.open_folder_picker();
                                 }
                                 if let Some(window) = &self.window {
                                     window.request_redraw();
