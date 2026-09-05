@@ -34,3 +34,5 @@ node_modules/
 # Binarios release preservados al limpiar target/ (se regeneran compilando)
 /bin/
 /dist/
+# Identidad y estado de cualquier carpeta abierta como proyecto, a cualquier nivel.
+.llore/
