@@ -1,0 +1,28 @@
+{
+  "checks": {
+    "chat_answered": true
+  },
+  "chat": {
+    "question": "que hace la funcion ensure current",
+    "seconds": 164.8,
+    "llamadas": 5,
+    "gateway_log": [
+      "[claude_cli] model=claude-sonnet-5 turns=2 output_tokens=314 content_chars=70 tool_calls=1",
+      "[claude_cli] model=claude-sonnet-5 turns=3 output_tokens=476 content_chars=193 tool_calls=1",
+      "[claude_cli] model=claude-sonnet-5 turns=2 output_tokens=2979 content_chars=199 tool_calls=3",
+      "[claude_cli] model=claude-sonnet-5 turns=2 output_tokens=1059 content_chars=166 tool_calls=3",
+      "[claude_cli] model=claude-sonnet-5 turns=6 output_tokens=7270 content_chars=13 tool_calls=0"
+    ]
+  },
+  "index_after_chat": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "watching",
+    "files_total": 179,
+    "files_done": 179,
+    "units_written": 443,
+    "summaries_generated": 30,
+    "structural_fallbacks": 12,
+    "current_path": "",
+    "error": null
+  }
+}

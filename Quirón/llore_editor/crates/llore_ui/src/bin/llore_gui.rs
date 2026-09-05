@@ -515,11 +515,9 @@ fn render_app(window: &mut Window, state: &mut AppState) {
 
     // === Cabeza de la lateral ===
     //
-    // La maqueta abre la columna con la acción primaria y la búsqueda, antes de
-    // ninguna lista. Entre ellas y el árbol va su sección SESIONES, que aquí no
-    // se dibuja: Llore no guarda conversaciones, así que no hay nada que
-    // listar. Inventarse cuatro filas de ejemplo sería mentir sobre lo que la
-    // aplicación sabe.
+    // La maqueta abre la columna con la acción primaria. Debajo van las
+    // pestañas plegables —conversaciones y repositorios— y después la búsqueda
+    // y el árbol del proyecto (`render_sidebar_sections`).
     let boton_h = 38.0;
     let boton_y = header_height + design::space::MD;
     let boton_bounds = Bounds::new(sidebar_content_x, boton_y, sidebar_content_width, boton_h);
@@ -545,7 +543,14 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     // Fila de búsqueda. En la maqueta el atajo es ⌘P; aquí es Ctrl+P, que es el
     // que realmente funciona en esta máquina.
     let buscar_h = 26.0;
-    let buscar_y = boton_y + boton_h + design::space::SM;
+    let buscar_y = render_sidebar_sections(
+        canvas,
+        state,
+        &palette,
+        sidebar_content_x,
+        sidebar_content_width,
+        boton_y + boton_h + design::space::SM,
+    );
     let buscar_bounds = Bounds::new(sidebar_content_x, buscar_y, sidebar_content_width, buscar_h);
     let buscar_base = buscar_y + buscar_h * 0.5 + design::type_scale::SM * 0.36;
     let lupa = state.text_system.create_icon_buffer(icons::SEARCH, 12.0);
@@ -643,75 +648,6 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 .floor()
                 .max(0.0) as usize;
 
-            // Sin proyecto, el explorador es la puerta: abrir carpeta y recientes.
-            if !state.workspace_is_open() {
-                let boton = Bounds::new(sidebar_content_x, list_start_y, sidebar_content_width, 30.0);
-                canvas.fill_rounded_rect(
-                    boton,
-                    design::radius::MD,
-                    Color::from_hex(palette.accent).with_alpha(38),
-                );
-                canvas.stroke_rect(boton, Color::from_hex(palette.accent).with_alpha(90), 1.0);
-                let icono = state.text_system.create_icon_buffer(icons::FOLDER_OPEN, 13.0);
-                state.text_system.draw_buffer(
-                    canvas,
-                    &icono,
-                    boton.x + 10.0,
-                    boton.y + 20.0,
-                    Color::from_hex(palette.accent),
-                );
-                let etiqueta = state.text_system.create_line_buffer(
-                    "Abrir carpeta…",
-                    design::type_scale::SM,
-                    boton.width - 40.0,
-                );
-                state.text_system.draw_buffer(
-                    canvas,
-                    &etiqueta,
-                    boton.x + 30.0,
-                    boton.y + 20.0,
-                    Color::from_hex(palette.text),
-                );
-                state.add_click_target(boton, ClickTargetAction::WelcomeOpenFolder);
-
-                let recientes: Vec<_> = state.recent_projects.iter().take(6).cloned().collect();
-                if !recientes.is_empty() {
-                    let mut y = boton.y + boton.height + 18.0;
-                    let rotulo = state.text_system.create_line_buffer(
-                        "RECIENTES",
-                        design::type_scale::XS,
-                        sidebar_content_width,
-                    );
-                    state.text_system.draw_buffer(
-                        canvas,
-                        &rotulo,
-                        sidebar_content_x,
-                        y,
-                        Color::from_hex(palette.text_muted),
-                    );
-                    y += 8.0;
-                    for project in &recientes {
-                        if y + explorer_row_h > explorer_end_y {
-                            break;
-                        }
-                        let fila = Bounds::new(sidebar_content_x, y, sidebar_content_width, explorer_row_h);
-                        let nombre = state.text_system.create_line_buffer(
-                            &llore_ui::recents::display_name(project),
-                            design::type_scale::SM,
-                            sidebar_content_width,
-                        );
-                        state.text_system.draw_buffer(
-                            canvas,
-                            &nombre,
-                            sidebar_content_x,
-                            y + explorer_row_h * 0.5 + design::type_scale::SM * 0.36,
-                            Color::from_hex(palette.accent),
-                        );
-                        state.add_click_target(fila, ClickTargetAction::WelcomeOpenRecent(project.clone()));
-                        y += explorer_row_h;
-                    }
-                }
-            }
             let start_idx = state.explorer_scroll.min(state.explorer_entries.len());
             let end_idx = (start_idx + max_visible_entries).min(state.explorer_entries.len());
 
@@ -2960,6 +2896,179 @@ fn render_top_menu_dropdown(
 /// Enseña el estado real del índice —no un eslogan— porque es lo que decide si
 /// una consulta al chat va a servir de algo: sin Qdrant no hay recuperación, y
 /// sin grafo no hay dependencias.
+/// Secciones de la lateral entre «Nuevo chat» y la búsqueda: el historial de
+/// conversaciones y el repositorio de trabajo con sus recientes, como pestañas
+/// plegables. Devuelve la `y` donde sigue la columna.
+fn render_sidebar_sections(
+    canvas: &mut Canvas,
+    state: &mut AppState,
+    palette: &ThemePalette,
+    x: f32,
+    w: f32,
+    mut y: f32,
+) -> f32 {
+    let fila = 24.0;
+    let texto_base = |y: f32, tamano: f32| y + fila * 0.5 + tamano * 0.36;
+    let cabecera = |canvas: &mut Canvas,
+                    state: &mut AppState,
+                    y: f32,
+                    texto: &str,
+                    abierta: bool,
+                    accion: ClickTargetAction| {
+        let bounds = Bounds::new(x, y, w, fila);
+        let rotulo = format!("{}  {}", if abierta { "⌄" } else { "›" }, texto);
+        let buf = state
+            .text_system
+            .create_line_buffer(&rotulo, design::type_scale::XS, w);
+        state.text_system.draw_buffer(
+            canvas,
+            &buf,
+            x + 2.0,
+            texto_base(y, design::type_scale::XS),
+            Color::from_hex(palette.text_muted),
+        );
+        state.add_click_target(bounds, accion);
+    };
+
+    // --- Conversaciones: el historial, con el hilo activo marcado ---
+    let abierta = state.sidebar_conversations_open;
+    cabecera(canvas, state, y, "CONVERSACIONES", abierta, ClickTargetAction::ToggleConversations);
+    y += fila;
+    if abierta {
+        let hilos: Vec<(usize, String)> = state
+            .chat_threads
+            .iter()
+            .enumerate()
+            .rev()
+            .take(8)
+            .map(|(i, hilo)| (i, hilo.title()))
+            .collect();
+        if hilos.is_empty() {
+            let vacio = state.text_system.create_line_buffer(
+                "sin conversaciones todavía",
+                design::type_scale::XS,
+                w,
+            );
+            state.text_system.draw_buffer(
+                canvas,
+                &vacio,
+                x + 14.0,
+                texto_base(y, design::type_scale::XS),
+                Color::from_hex(palette.text_muted).with_alpha(150),
+            );
+            y += fila;
+        }
+        for (i, titulo) in hilos {
+            let activa = state.active_thread == Some(i);
+            let bounds = Bounds::new(x, y, w, fila);
+            if activa {
+                canvas.fill_rounded_rect(bounds, 4.0, Color::from_hex(palette.selection).with_alpha(120));
+            }
+            let buf = state
+                .text_system
+                .create_line_buffer(&titulo, design::type_scale::SM, w - 20.0);
+            state.text_system.draw_buffer(
+                canvas,
+                &buf,
+                x + 14.0,
+                texto_base(y, design::type_scale::SM),
+                Color::from_hex(if activa { palette.text } else { palette.text_muted }),
+            );
+            state.add_click_target(bounds, ClickTargetAction::SelectThread(i));
+            y += fila;
+        }
+    }
+    y += design::space::SM;
+
+    // --- Abrir carpeta: la acción, como «Nuevo chat» ---
+    let boton_h = 34.0;
+    let boton = Bounds::new(x, y, w, boton_h);
+    canvas.fill_rounded_rect(boton, design::radius::MD, Color::from_hex(palette.accent));
+    let icono = state.text_system.create_icon_buffer(icons::FOLDER_OPEN, 13.0);
+    state.text_system.draw_buffer(
+        canvas,
+        &icono,
+        boton.x + 14.0,
+        y + boton_h * 0.5 + 5.0,
+        Color::from_hex(palette.background),
+    );
+    let etiqueta = state.text_system.create_heading_buffer(
+        "Abrir carpeta",
+        design::type_scale::SM,
+        w - 40.0,
+    );
+    state.text_system.draw_buffer(
+        canvas,
+        &etiqueta,
+        boton.x + 36.0,
+        y + boton_h * 0.5 + design::type_scale::SM * 0.36,
+        Color::from_hex(palette.background),
+    );
+    state.add_click_target(boton, ClickTargetAction::WelcomeOpenFolder);
+    y += boton_h + design::space::SM;
+
+    // --- Repositorios: el de trabajo como cajita; pulsarla despliega los demás ---
+    let actual = state.workspace_is_open().then(|| state.workspace_root.clone());
+    let abierta = state.sidebar_repos_open || actual.is_none();
+    cabecera(canvas, state, y, "REPOSITORIOS", abierta, ClickTargetAction::ToggleRepositories);
+    y += fila;
+    if let Some(raiz) = &actual {
+        let chip = Bounds::new(x, y, w, 28.0);
+        canvas.fill_rounded_rect(chip, design::radius::MD, Color::from_hex(palette.accent).with_alpha(38));
+        canvas.stroke_rect(chip, Color::from_hex(palette.accent).with_alpha(90), 1.0);
+        let icono = state.text_system.create_icon_buffer(icons::FOLDER_OPEN, 12.0);
+        state.text_system.draw_buffer(canvas, &icono, chip.x + 10.0, y + 19.0, Color::from_hex(palette.accent));
+        let nombre = llore_ui::recents::display_name(raiz);
+        let buf = state
+            .text_system
+            .create_line_buffer(&nombre, design::type_scale::SM, w - 40.0);
+        state.text_system.draw_buffer(canvas, &buf, chip.x + 30.0, y + 19.0, Color::from_hex(palette.text));
+        state.add_click_target(chip, ClickTargetAction::ToggleRepositories);
+        y += 28.0 + 4.0;
+    }
+    if abierta {
+        let otros: Vec<_> = state
+            .recent_projects
+            .iter()
+            .filter(|p| actual.as_ref() != Some(*p))
+            .take(6)
+            .cloned()
+            .collect();
+        if otros.is_empty() && actual.is_none() {
+            let vacio = state.text_system.create_line_buffer(
+                "sin repositorios recientes",
+                design::type_scale::XS,
+                w,
+            );
+            state.text_system.draw_buffer(
+                canvas,
+                &vacio,
+                x + 14.0,
+                texto_base(y, design::type_scale::XS),
+                Color::from_hex(palette.text_muted).with_alpha(150),
+            );
+            y += fila;
+        }
+        for proyecto in otros {
+            let bounds = Bounds::new(x, y, w, fila);
+            let nombre = llore_ui::recents::display_name(&proyecto);
+            let buf = state
+                .text_system
+                .create_line_buffer(&nombre, design::type_scale::SM, w - 20.0);
+            state.text_system.draw_buffer(
+                canvas,
+                &buf,
+                x + 14.0,
+                texto_base(y, design::type_scale::SM),
+                Color::from_hex(palette.text_muted),
+            );
+            state.add_click_target(bounds, ClickTargetAction::WelcomeOpenRecent(proyecto));
+            y += fila;
+        }
+    }
+    y + design::space::SM
+}
+
 fn render_welcome(
     canvas: &mut Canvas,
     state: &mut AppState,

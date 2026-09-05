@@ -97,6 +97,10 @@ pub const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(350);
 pub const SESSION_SNAPSHOT_RELATIVE_PATH: &str = ".llore/state/session.txt";
 /// Ruta relativa del snapshot de layout de paneles.
 pub const LAYOUT_SNAPSHOT_RELATIVE_PATH: &str = ".llore/state/layout.txt";
+/// Ruta del historial de conversaciones, dentro del proyecto.
+pub const CHATS_SNAPSHOT_RELATIVE_PATH: &str = ".llore/state/chats.json";
+/// Conversaciones que se conservan por proyecto.
+const CHAT_THREADS_MAX: usize = 20;
 /// Valor por defecto del ancho de sidebar.
 pub const DEFAULT_SIDEBAR_WIDTH: f32 = 252.0;
 
@@ -235,6 +239,39 @@ pub struct ChatMessage {
     pub code_sources: Vec<CodeHint>,
 }
 
+/// Un hilo de conversación del historial de la barra lateral.
+#[derive(Debug, Clone)]
+pub struct ChatThread {
+    /// Segundos desde la época Unix al crearse; ordena el historial.
+    pub created_secs: u64,
+    pub messages: Vec<ChatMessage>,
+}
+
+impl ChatThread {
+    /// Título para la lista: la primera pregunta del usuario, recortada.
+    pub fn title(&self) -> String {
+        self.messages
+            .iter()
+            .find(|m| m.is_user)
+            .map(|m| {
+                let linea = m.content.lines().next().unwrap_or("").trim();
+                let mut titulo: String = linea.chars().take(38).collect();
+                if linea.chars().count() > 38 {
+                    titulo.push('…');
+                }
+                titulo
+            })
+            .unwrap_or_else(|| "Conversación nueva".to_string())
+    }
+}
+
+fn unix_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
 /// Menú superior activo en la barra principal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TopMenuKind {
@@ -302,6 +339,12 @@ pub enum ClickTargetAction {
     WelcomeOpenRecent(PathBuf),
     /// «Empezar»: entra al programa sin abrir carpeta todavía.
     WelcomeEnter,
+    /// Pliega o despliega el historial de conversaciones de la lateral.
+    ToggleConversations,
+    /// Activa un hilo del historial.
+    SelectThread(usize),
+    /// Pliega o despliega la lista de repositorios de la lateral.
+    ToggleRepositories,
     Citation(Citation),
     /// Abre el archivo de una ficha de código en su primera línea.
     CodeSource(CodeHint),
@@ -1758,6 +1801,13 @@ pub struct AppState {
     /// Hacia dónde mira el holograma (guiñada, cabeceo), con inercia hacia el
     /// cursor; en reposo, (0, 0).
     pub welcome_gaze: (f32, f32),
+    /// Historial de conversaciones; `messages` es el hilo activo.
+    pub chat_threads: Vec<ChatThread>,
+    /// Índice del hilo activo en `chat_threads`, si ya está en el historial.
+    pub active_thread: Option<usize>,
+    /// Pestañas plegables de la barra lateral.
+    pub sidebar_conversations_open: bool,
+    pub sidebar_repos_open: bool,
     /// Bounds de la columna sidebar (explorer)
     pub sidebar_bounds: Option<Bounds>,
     /// Panel activo del sidebar (explorer/search/git).
@@ -2120,6 +2170,9 @@ impl AppState {
         // que restaurar.
         self.restore_layout_snapshot();
         self.restore_session_snapshot();
+        self.restore_chat_threads();
+        // El repositorio elegido pliega la lista: queda solo su cajita.
+        self.sidebar_repos_open = false;
         // El chat es la aplicación: al abrir un proyecto, lo que se teclea es
         // una pregunta. Las pestañas de la sesión quedan abiertas, pero el foco
         // no se lo lleva el editor hasta que el usuario lo pida.
@@ -2234,6 +2287,10 @@ impl AppState {
             welcome_dismissed: false,
             welcome_clock: Instant::now(),
             welcome_gaze: (0.0, 0.0),
+            chat_threads: Vec::new(),
+            active_thread: None,
+            sidebar_conversations_open: true,
+            sidebar_repos_open: true,
             sidebar_bounds: None,
             sidebar_panel: SidebarPanel::Explorer,
             explorer_dock: PanelDock::Left,
@@ -2313,6 +2370,8 @@ impl AppState {
         state.workspace_signature = state.compute_workspace_signature();
         state.restore_session_snapshot();
         state.restore_layout_snapshot();
+        state.restore_chat_threads();
+        state.sidebar_repos_open = false;
         // Mismo criterio que en `open_workspace`: el chat es la aplicación y
         // lo que se teclea al arrancar con un proyecto es una pregunta.
         state.set_focus(FocusTarget::ChatInput);
@@ -2873,6 +2932,12 @@ impl AppState {
     fn layout_snapshot_path(&self) -> Option<PathBuf> {
         self.workspace_is_open()
             .then(|| self.workspace_root.join(LAYOUT_SNAPSHOT_RELATIVE_PATH))
+    }
+
+    /// Ruta del historial de conversaciones, si hay proyecto abierto.
+    fn chats_snapshot_path(&self) -> Option<PathBuf> {
+        self.workspace_is_open()
+            .then(|| self.workspace_root.join(CHATS_SNAPSHOT_RELATIVE_PATH))
     }
 
     /// Persiste sesión actual (tabs con path real + pestaña activa).
@@ -4771,9 +4836,19 @@ impl AppState {
         if self.messages.is_empty() {
             self.status_text = "chat: ya estaba vacío".to_string();
         } else {
+            // El hilo que se deja queda en el historial; el nuevo empieza vacío
+            // y entra en la lista con su primera pregunta.
+            self.stash_active_thread();
             self.messages.clear();
+            self.chat_threads.push(ChatThread {
+                created_secs: unix_secs(),
+                messages: Vec::new(),
+            });
+            self.active_thread = Some(self.chat_threads.len() - 1);
+            self.persist_chat_threads();
             self.status_text = "chat: conversación nueva".to_string();
         }
+        self.sidebar_conversations_open = true;
         self.needs_render = true;
     }
 
@@ -7887,6 +7962,132 @@ impl AppState {
     }
 
     /// Ajusta scroll contextual según panel activo del sidebar.
+    /// Vuelca el hilo activo al historial; si aún no estaba, lo crea.
+    fn stash_active_thread(&mut self) {
+        match self.active_thread {
+            Some(i) if i < self.chat_threads.len() => {
+                self.chat_threads[i].messages = self.messages.clone();
+            }
+            _ => {
+                self.chat_threads.push(ChatThread {
+                    created_secs: unix_secs(),
+                    messages: self.messages.clone(),
+                });
+                self.active_thread = Some(self.chat_threads.len() - 1);
+            }
+        }
+    }
+
+    /// Activa un hilo del historial; el activo se guarda antes.
+    pub fn select_thread(&mut self, index: usize) {
+        if index >= self.chat_threads.len() || self.active_thread == Some(index) {
+            return;
+        }
+        self.stash_active_thread();
+        self.messages = self.chat_threads[index].messages.clone();
+        self.active_thread = Some(index);
+        self.expanded_thoughts.clear();
+        self.chat_scroll = 0.0;
+        self.status_text = format!("chat: {}", self.chat_threads[index].title());
+        self.persist_chat_threads();
+        self.needs_render = true;
+    }
+
+    /// Escribe el historial en el proyecto. Los hilos vacíos no se guardan y
+    /// se conservan los últimos `CHAT_THREADS_MAX`. Sin proyecto, el historial
+    /// vive solo en memoria. Las citas de eventos no se conservan; las fuentes
+    /// de código, sí.
+    pub fn persist_chat_threads(&mut self) {
+        self.stash_active_thread();
+        let Some(path) = self.chats_snapshot_path() else {
+            return;
+        };
+        let mut kept: Vec<&ChatThread> = Vec::new();
+        let mut activo = None;
+        for (i, hilo) in self.chat_threads.iter().enumerate() {
+            if hilo.messages.is_empty() {
+                continue;
+            }
+            if self.active_thread == Some(i) {
+                activo = Some(kept.len());
+            }
+            kept.push(hilo);
+        }
+        let exceso = kept.len().saturating_sub(CHAT_THREADS_MAX);
+        if exceso > 0 {
+            kept.drain(0..exceso);
+            activo = activo.and_then(|a| a.checked_sub(exceso));
+        }
+        let hilos: Vec<serde_json::Value> = kept
+            .iter()
+            .map(|hilo| {
+                serde_json::json!({
+                    "created_secs": hilo.created_secs,
+                    "messages": hilo.messages.iter().map(|m| serde_json::json!({
+                        "is_user": m.is_user,
+                        "content": m.content,
+                        "meta": m.meta,
+                        "code_sources": m.code_sources.iter().map(|h| serde_json::json!({
+                            "path": h.path, "symbol": h.symbol, "kind": h.kind,
+                            "start_line": h.start_line, "end_line": h.end_line,
+                            "content_hash": h.content_hash, "score": h.score,
+                            "summary_origin": h.summary_origin,
+                        })).collect::<Vec<_>>(),
+                    })).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        let cuerpo = serde_json::json!({ "threads": hilos, "active": activo });
+        if let Some(dir) = path.parent() {
+            let _ = fs::create_dir_all(dir);
+        }
+        let _ = fs::write(&path, serde_json::to_string(&cuerpo).unwrap_or_default());
+    }
+
+    /// Carga el historial del proyecto y arranca con un hilo nuevo vacío: el
+    /// historial queda a un clic en la lateral.
+    pub fn restore_chat_threads(&mut self) {
+        self.chat_threads.clear();
+        self.active_thread = None;
+        self.messages.clear();
+        self.expanded_thoughts.clear();
+        let Some(path) = self.chats_snapshot_path() else {
+            return;
+        };
+        let Ok(texto) = fs::read_to_string(&path) else {
+            return;
+        };
+        let Ok(cuerpo) = serde_json::from_str::<serde_json::Value>(&texto) else {
+            return;
+        };
+        for hilo in cuerpo["threads"].as_array().into_iter().flatten() {
+            let messages: Vec<ChatMessage> = hilo["messages"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|m| ChatMessage {
+                    is_user: m["is_user"].as_bool().unwrap_or(false),
+                    content: m["content"].as_str().unwrap_or("").to_string(),
+                    meta: m["meta"].as_str().map(str::to_string),
+                    citations: vec![],
+                    code_sources: m["code_sources"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|h| serde_json::from_value(h.clone()).ok())
+                        .collect(),
+                })
+                .collect();
+            if messages.is_empty() {
+                continue;
+            }
+            self.chat_threads.push(ChatThread {
+                created_secs: hilo["created_secs"].as_u64().unwrap_or(0),
+                messages,
+            });
+        }
+    }
+
     /// La bienvenida se enseña sin proyecto y hasta que se pulsa «Empezar».
     pub fn welcome_visible(&self) -> bool {
         !self.workspace_is_open() && !self.welcome_dismissed
@@ -9645,6 +9846,15 @@ impl AppState {
                 self.open_folder_picker();
             }
             ClickTargetAction::WelcomeEnter => self.enter_program(),
+            ClickTargetAction::ToggleConversations => {
+                self.sidebar_conversations_open = !self.sidebar_conversations_open;
+                self.needs_render = true;
+            }
+            ClickTargetAction::SelectThread(index) => self.select_thread(index),
+            ClickTargetAction::ToggleRepositories => {
+                self.sidebar_repos_open = !self.sidebar_repos_open;
+                self.needs_render = true;
+            }
             ClickTargetAction::WelcomeOpenRecent(path) => {
                 if path.is_dir() {
                     self.open_workspace(path);
@@ -9965,6 +10175,7 @@ impl AppState {
             citations: vec![],
             code_sources: Vec::new(),
         });
+        self.stash_active_thread();
 
         self.loading = true;
         self.status_text = "thinking...".to_string();
@@ -10137,6 +10348,7 @@ impl AppState {
         });
 
         self.status_text = response_meta.unwrap_or_else(|| "response received".to_string());
+        self.persist_chat_threads();
         self.loading = false;
         self.needs_render = true;
     }
@@ -11613,6 +11825,34 @@ mod tests {
         assert!(!state.welcome_visible());
         assert!(!state.workspace_is_open());
         assert!(state.input_focused);
+    }
+
+    #[test]
+    fn el_historial_de_conversaciones_conserva_y_recupera_los_hilos() {
+        let workspace = TestWorkspace::new("hilos");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        let pregunta = |texto: &str| ChatMessage {
+            is_user: true,
+            content: texto.to_string(),
+            meta: None,
+            citations: vec![],
+            code_sources: Vec::new(),
+        };
+        state.messages.push(pregunta("primera pregunta"));
+        state.new_chat();
+        assert_eq!(state.chat_threads.len(), 2, "el hilo anterior y el nuevo vacío");
+        assert!(state.messages.is_empty());
+        state.messages.push(pregunta("segunda"));
+        state.persist_chat_threads();
+        state.select_thread(0);
+        assert_eq!(state.messages[0].content, "primera pregunta");
+        assert_eq!(state.chat_threads[0].title(), "primera pregunta");
+
+        let mut otro = AppState::new_for_tests(workspace.root_path());
+        otro.restore_chat_threads();
+        let titulos: Vec<String> = otro.chat_threads.iter().map(|t| t.title()).collect();
+        assert_eq!(titulos, vec!["primera pregunta".to_string(), "segunda".to_string()]);
+        assert!(otro.messages.is_empty(), "arranca con un hilo nuevo");
     }
 
     #[test]

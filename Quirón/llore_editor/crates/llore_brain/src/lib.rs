@@ -200,6 +200,10 @@ impl Quiron {
 
         let mut messages = vec![ChatTurnMessage::text("user", request)];
         let mut trace: Vec<ToolTraceEntry> = Vec::new();
+        // Tras varias herramientas, la CLI de Claude devolvió alguna vez un
+        // cierre de juguete («Prueba corta.») en lugar de la respuesta. Una
+        // sola vez se le pide que redacte de verdad con lo ya leído.
+        let mut reclamada = false;
         // El cerebro adjunta las fichas al primer turno, el que lleva la
         // pregunta; los turnos de resultados de herramientas no las repiten.
         let mut code_hints: Vec<client::CodeHint> = Vec::new();
@@ -226,8 +230,28 @@ impl Quiron {
             let pide_herramientas =
                 response.stop_reason.as_deref() == Some("tool_use") && !tool_uses.is_empty();
             if !pide_herramientas {
+                let texto = response.text();
+                // Una respuesta legítima puede ser breve («No puedo leer
+                // credenciales.», 27 caracteres); un marcador, más aún.
+                if !reclamada && !trace.is_empty() && texto.trim().chars().count() < 16 {
+                    reclamada = true;
+                    messages.push(ChatTurnMessage {
+                        role: "assistant".to_string(),
+                        content: vec![ChatBlock::Text { text: texto.clone() }],
+                    });
+                    messages.push(ChatTurnMessage::text(
+                        "user",
+                        &format!(
+                            "Tu última respuesta quedó en «{}». Redacta ahora la respuesta \
+                             completa a la pregunta con lo que ya has leído, citando ruta y \
+                             línea; no llames a más herramientas.",
+                            texto.trim()
+                        ),
+                    ));
+                    continue;
+                }
                 return Ok(ChatOutcome {
-                    text: response.text(),
+                    text: texto,
                     tool_trace: trace,
                     code_hints,
                 });
@@ -608,6 +632,54 @@ mod tests {
             .unwrap()
             .contains("acceso denegado"));
         assert_eq!(outcome.text, "No puedo leer credenciales.");
+    }
+
+    #[tokio::test]
+    async fn un_cierre_de_juguete_tras_herramientas_se_reclama_una_vez() {
+        // Turno 1: herramienta. Turno 2: «Prueba corta.». Turno 3: la respuesta.
+        let (url, cuerpos) = cerebro_simulado(vec![
+            serde_json::json!({
+                "content": [
+                    { "type": "tool_use", "id": "call_1", "name": "read_file",
+                      "input": { "path": "README.md" } }
+                ],
+                "stop_reason": "tool_use"
+            })
+            .to_string(),
+            serde_json::json!({
+                "content": [ { "type": "text", "text": "Prueba corta." } ],
+                "stop_reason": "end_turn"
+            })
+            .to_string(),
+            serde_json::json!({
+                "content": [ { "type": "text", "text": "La versión es 0.4.2, según README.md línea 1." } ],
+                "stop_reason": "end_turn"
+            })
+            .to_string(),
+        ]);
+
+        let quiron = quiron_contra(&url);
+        let outcome = quiron
+            .chat_with_tools(
+                "¿qué versión es?",
+                "sonnet",
+                "",
+                None,
+                herramientas_de_prueba(),
+                |_, _| ("# Quirón v0.4.2".to_string(), false),
+            )
+            .await
+            .expect("el bucle debe cerrar");
+
+        assert_eq!(outcome.text, "La versión es 0.4.2, según README.md línea 1.");
+        let cuerpos = cuerpos.lock().unwrap();
+        assert_eq!(cuerpos.len(), 3, "una sola reclamación");
+        let tercero: serde_json::Value = serde_json::from_str(&cuerpos[2]).unwrap();
+        let mensajes = tercero["messages"].as_array().unwrap();
+        let ultimo = mensajes.last().unwrap();
+        assert_eq!(ultimo["role"], "user");
+        let texto = ultimo["content"][0]["text"].as_str().unwrap();
+        assert!(texto.contains("Prueba corta.") && texto.contains("Redacta ahora"), "{texto}");
     }
 
     #[test]
