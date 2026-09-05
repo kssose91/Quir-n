@@ -32,6 +32,12 @@ const READ_FILE_MAX_CHARS: usize = 24_000;
 const LIST_FILES_MAX: usize = 400;
 /// Máximo de coincidencias que devuelve `search_text`.
 const SEARCH_MAX_HITS: usize = 60;
+/// Cada coincidencia se recorta a esta longitud: una línea de una maqueta HTML
+/// o de un JSON de evidencia puede medir cientos de kilobytes, y dos búsquedas
+/// así llevaron el contexto del modelo a 349 KB (5 de septiembre).
+const SEARCH_LINE_MAX_CHARS: usize = 200;
+/// Tope de la salida completa de `search_text`.
+const SEARCH_MAX_CHARS: usize = 12_000;
 
 /// Una herramienta ofrecida al modelo, en formato Anthropic (`input_schema`).
 pub struct ToolSpec {
@@ -288,7 +294,15 @@ fn search_text(ctx: &ToolContext, input: &Value) -> ToolOutcome {
         };
         for (n, linea) in contenido.lines().enumerate() {
             if linea.contains(query) {
-                hits.push(format!("{}:{}: {}", rel, n + 1, linea.trim()));
+                let linea = linea.trim();
+                let recortada = if linea.chars().count() > SEARCH_LINE_MAX_CHARS {
+                    let mut corta: String = linea.chars().take(SEARCH_LINE_MAX_CHARS).collect();
+                    corta.push('…');
+                    corta
+                } else {
+                    linea.to_string()
+                };
+                hits.push(format!("{}:{}: {}", rel, n + 1, recortada));
                 if hits.len() >= SEARCH_MAX_HITS {
                     break;
                 }
@@ -297,10 +311,24 @@ fn search_text(ctx: &ToolContext, input: &Value) -> ToolOutcome {
     }
 
     if hits.is_empty() {
-        ToolOutcome::ok(format!("sin coincidencias de «{query}»"))
-    } else {
-        ToolOutcome::ok(hits.join("\n"))
+        return ToolOutcome::ok(format!("sin coincidencias de «{query}»"));
     }
+    let mut salida = String::new();
+    let mut omitidas = 0;
+    for hit in &hits {
+        if salida.len() + hit.len() + 1 > SEARCH_MAX_CHARS {
+            omitidas += 1;
+            continue;
+        }
+        if !salida.is_empty() {
+            salida.push('\n');
+        }
+        salida.push_str(hit);
+    }
+    if omitidas > 0 {
+        salida.push_str(&format!("\n\n[salida recortada: {omitidas} coincidencias más]"));
+    }
+    ToolOutcome::ok(salida)
 }
 
 #[cfg(test)]
@@ -389,6 +417,26 @@ mod tests {
         assert!(r.content.contains("src/main.rs"));
         assert!(!r.content.contains(".env"), "{}", r.content);
         assert!(!r.content.contains("target/"), "{}", r.content);
+    }
+
+    #[test]
+    fn search_text_recorta_lineas_largas_y_la_salida_total() {
+        let p = Proyecto::nuevo("buscar_largo");
+        p.archivo("maqueta.html", &format!("<div>{}</div>\n", "gateway ".repeat(2000)));
+        let r = execute(&p.ctx(), "search_text", &json!({ "query": "gateway" }));
+        assert!(!r.is_error);
+        assert!(r.content.chars().count() < SEARCH_LINE_MAX_CHARS + 80, "{}", r.content.len());
+        assert!(r.content.ends_with('…'), "{}", r.content);
+
+        // Muchas coincidencias largas: la salida total queda acotada y lo dice.
+        let lineas = (0..SEARCH_MAX_HITS)
+            .map(|i| format!("gateway {} {}", i, "y".repeat(300)))
+            .collect::<Vec<_>>()
+            .join("\n");
+        p.archivo("src/muchas.rs", &lineas);
+        let r = execute(&p.ctx(), "search_text", &json!({ "query": "gateway" }));
+        assert!(r.content.len() <= SEARCH_MAX_CHARS + 80, "{}", r.content.len());
+        assert!(r.content.contains("[salida recortada:"), "{}", r.content);
     }
 
     #[test]

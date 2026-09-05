@@ -15,6 +15,7 @@ parser.add_argument('--chat',help='Pregunta ASCII que se teclea en el chat con e
 parser.add_argument('--stay',type=float,default=0.0,help='Segundos extra con la ventana abierta antes de capturar (p. ej. para ver el índice avanzar)')
 parser.add_argument('--enter',action='store_true',help='Pulsa Intro en la bienvenida (Empezar) y captura el programa sin proyecto')
 parser.add_argument('--cursor',nargs=2,type=int,metavar=('X','Y'),help='Mueve el cursor a esa posición relativa a la ventana y captura gui-cursor.png')
+parser.add_argument('--panel',help='Arranca con un panel lateral abierto (conexion)')
 parser.add_argument('--output-dir',type=Path,required=True)
 args=parser.parse_args()
 if args.edit_smoke and args.project:
@@ -104,7 +105,8 @@ def indexed(project,predicate):
         if progress['phase']=='watching' and predicate(progress): return progress
         time.sleep(1)
     raise AssertionError(progress)
-env=dict(os.environ,QUIRON_FRAME_TIMING='1',XDG_DATA_HOME=isolated_data.name)
+env=dict(os.environ,QUIRON_FRAME_TIMING='1',QUIRON_UI_TRACE='1',XDG_DATA_HOME=isolated_data.name)
+if args.panel: env['QUIRON_UI_START_PANEL']=args.panel
 env.pop('WAYLAND_DISPLAY',None)
 log=open(args.output_dir/'gui-smoke.log','w')
 p=subprocess.Popen([str(args.binary.resolve())]+([str(args.project.resolve())] if args.project else []),env=env,stdout=log,stderr=log)

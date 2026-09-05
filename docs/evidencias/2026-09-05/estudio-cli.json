@@ -1,0 +1,158 @@
+{
+ "antes": [
+  {
+   "entrada_total_chars": 15180,
+   "prompt_chars": 57,
+   "historia_items": 0,
+   "resultados_de_herramienta_chars": [],
+   "turnos_cli": 3,
+   "tokens_salida": 1505,
+   "contenido_chars": 839,
+   "tool_calls": 2
+  },
+  {
+   "entrada_total_chars": 116669,
+   "prompt_chars": 48008,
+   "historia_items": 6,
+   "resultados_de_herramienta_chars": [
+    25001,
+    24666
+   ],
+   "turnos_cli": 2,
+   "tokens_salida": 3388,
+   "contenido_chars": 2517,
+   "tool_calls": 3
+  },
+  {
+   "entrada_total_chars": 746698,
+   "prompt_chars": 338212,
+   "historia_items": 13,
+   "resultados_de_herramienta_chars": [
+    25001,
+    24666,
+    153593,
+    152357,
+    6295
+   ],
+   "turnos_cli": 2,
+   "tokens_salida": 3796,
+   "contenido_chars": 2960,
+   "tool_calls": 1
+  },
+  {
+   "entrada_total_chars": 770123,
+   "prompt_chars": 349426,
+   "historia_items": 16,
+   "resultados_de_herramienta_chars": [
+    25001,
+    24666,
+    153593,
+    152357,
+    6295,
+    8613
+   ],
+   "turnos_cli": 3,
+   "tokens_salida": 3405,
+   "contenido_chars": 3299,
+   "tool_calls": 0
+  }
+ ],
+ "despues_recorte": [
+  {
+   "entrada_total_chars": 15274,
+   "prompt_chars": 57,
+   "historia_items": 0,
+   "resultados_de_herramienta_chars": [],
+   "turnos_cli": 2,
+   "tokens_salida": 1552,
+   "contenido_chars": 1393,
+   "tool_calls": 2
+  },
+  {
+   "entrada_total_chars": 61484,
+   "prompt_chars": 22156,
+   "historia_items": 6,
+   "resultados_de_herramienta_chars": [
+    16637,
+    4775
+   ],
+   "turnos_cli": 3,
+   "tokens_salida": 4458,
+   "contenido_chars": 3085,
+   "tool_calls": 2
+  },
+  {
+   "entrada_total_chars": 91881,
+   "prompt_chars": 37008,
+   "historia_items": 11,
+   "resultados_de_herramienta_chars": [
+    16637,
+    4775,
+    7183,
+    4832
+   ],
+   "turnos_cli": 3,
+   "tokens_salida": 4217,
+   "contenido_chars": 3492,
+   "tool_calls": 0
+  }
+ ],
+ "despues_recorte_y_prompt": [
+  {
+   "entrada_total_chars": 15329,
+   "prompt_chars": 57,
+   "historia_items": 0,
+   "resultados_de_herramienta_chars": [],
+   "turnos_cli": 2,
+   "tokens_salida": 658,
+   "contenido_chars": 539,
+   "tool_calls": 2
+  },
+  {
+   "entrada_total_chars": 39425,
+   "prompt_chars": 0,
+   "historia_items": 6,
+   "resultados_de_herramienta_chars": [
+    16653,
+    6451
+   ],
+   "turnos_cli": 3,
+   "tokens_salida": 4522,
+   "contenido_chars": 2556,
+   "tool_calls": 2
+  },
+  {
+   "entrada_total_chars": 54524,
+   "prompt_chars": 0,
+   "historia_items": 11,
+   "resultados_de_herramienta_chars": [
+    16653,
+    6451,
+    7202,
+    4994
+   ],
+   "turnos_cli": 3,
+   "tokens_salida": 6234,
+   "contenido_chars": 3110,
+   "tool_calls": 3
+  },
+  {
+   "entrada_total_chars": 67800,
+   "prompt_chars": 0,
+   "historia_items": 18,
+   "resultados_de_herramienta_chars": [
+    16653,
+    6451,
+    7202,
+    4994,
+    4321,
+    3840,
+    1533
+   ],
+   "turnos_cli": 3,
+   "tokens_salida": 4948,
+   "contenido_chars": 3390,
+   "tool_calls": 0
+  }
+ ]
+}

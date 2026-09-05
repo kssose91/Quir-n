@@ -345,6 +345,10 @@ pub enum ClickTargetAction {
     SelectThread(usize),
     /// Pliega o despliega la lista de repositorios de la lateral.
     ToggleRepositories,
+    /// Panel Conexión: inicia sesión en una CLI, usa un proveedor, o vuelve a sondear.
+    ProviderLogin(ProviderKind),
+    ProviderUse(ProviderKind),
+    ProviderRefresh,
     Citation(Citation),
     /// Abre el archivo de una ficha de código en su primera línea.
     CodeSource(CodeHint),
@@ -475,6 +479,63 @@ pub enum SidebarPanel {
     Outline,
     Appearance,
     Security,
+    /// Proveedores de modelo: sesión y elección.
+    Connection,
+}
+
+/// Proveedor de modelo que se puede elegir desde el panel Conexión.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderKind {
+    /// CLI oficial de Claude con la sesión de claude.ai.
+    ClaudeCli,
+    /// Sesión de ChatGPT a través de Codex (adaptador directo).
+    CodexDirect,
+    /// Endpoint compatible con clave de API, configurado en el archivo privado.
+    OpenAiCompatible,
+}
+
+impl ProviderKind {
+    pub const ALL: [ProviderKind; 3] = [
+        ProviderKind::ClaudeCli,
+        ProviderKind::CodexDirect,
+        ProviderKind::OpenAiCompatible,
+    ];
+
+    /// Valor de `QUIRON_GATEWAY_BACKEND`.
+    pub fn backend(self) -> &'static str {
+        match self {
+            ProviderKind::ClaudeCli => "claude_cli",
+            ProviderKind::CodexDirect => "codex_direct",
+            ProviderKind::OpenAiCompatible => "openai_compatible",
+        }
+    }
+
+    /// Nombre que entiende `scripts/configure-provider.py`.
+    pub fn script_name(self) -> &'static str {
+        match self {
+            ProviderKind::ClaudeCli => "claude-cli",
+            ProviderKind::CodexDirect => "codex-direct",
+            ProviderKind::OpenAiCompatible => "openai-compatible",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            ProviderKind::ClaudeCli => "Claude · suscripción claude.ai",
+            ProviderKind::CodexDirect => "ChatGPT · suscripción vía Codex",
+            ProviderKind::OpenAiCompatible => "Endpoint compatible · clave de API",
+        }
+    }
+}
+
+/// Lo que se sabe de cada proveedor tras sondear este equipo.
+#[derive(Debug, Clone, Default)]
+pub struct ProviderProbe {
+    pub claude_cli: Option<PathBuf>,
+    pub claude_logged_in: Option<bool>,
+    pub codex_cli: Option<PathBuf>,
+    pub codex_session: Option<String>,
+    pub compatible_endpoint: Option<String>,
 }
 
 /// Lado de acoplamiento de un panel principal.
@@ -511,6 +572,7 @@ impl SidebarPanel {
             SidebarPanel::Outline => "outline",
             SidebarPanel::Appearance => "appearance",
             SidebarPanel::Security => "security",
+            SidebarPanel::Connection => "connection",
         }
     }
 
@@ -523,6 +585,7 @@ impl SidebarPanel {
             "outline" => Some(SidebarPanel::Outline),
             "appearance" => Some(SidebarPanel::Appearance),
             "security" => Some(SidebarPanel::Security),
+            "connection" => Some(SidebarPanel::Connection),
             _ => None,
         }
     }
@@ -1808,6 +1871,11 @@ pub struct AppState {
     /// Pestañas plegables de la barra lateral.
     pub sidebar_conversations_open: bool,
     pub sidebar_repos_open: bool,
+    /// Sondeo de proveedores para el panel Conexión y la acción en curso.
+    pub provider_probe: Option<ProviderProbe>,
+    provider_probe_task: Option<JoinHandle<ProviderProbe>>,
+    provider_apply_task: Option<JoinHandle<Result<String, String>>>,
+    pub provider_notice: Option<String>,
     /// Bounds de la columna sidebar (explorer)
     pub sidebar_bounds: Option<Bounds>,
     /// Panel activo del sidebar (explorer/search/git).
@@ -2177,6 +2245,10 @@ impl AppState {
         // una pregunta. Las pestañas de la sesión quedan abiertas, pero el foco
         // no se lo lleva el editor hasta que el usuario lo pida.
         self.set_focus(FocusTarget::ChatInput);
+        // Para el arnés: arrancar con un panel abierto (hoy, «conexion»).
+        if std::env::var("QUIRON_UI_START_PANEL").as_deref() == Ok("conexion") {
+            self.open_connection_panel();
+        }
         self.needs_render = true;
     }
 
@@ -2291,6 +2363,10 @@ impl AppState {
             active_thread: None,
             sidebar_conversations_open: true,
             sidebar_repos_open: true,
+            provider_probe: None,
+            provider_probe_task: None,
+            provider_apply_task: None,
+            provider_notice: None,
             sidebar_bounds: None,
             sidebar_panel: SidebarPanel::Explorer,
             explorer_dock: PanelDock::Left,
@@ -2375,6 +2451,10 @@ impl AppState {
         // Mismo criterio que en `open_workspace`: el chat es la aplicación y
         // lo que se teclea al arrancar con un proyecto es una pregunta.
         state.set_focus(FocusTarget::ChatInput);
+        // Para el arnés: arrancar con un panel abierto (hoy, «conexion»).
+        if std::env::var("QUIRON_UI_START_PANEL").as_deref() == Ok("conexion") {
+            state.open_connection_panel();
+        }
         let _ = state.poll_quiron_health();
         state
     }
@@ -3651,6 +3731,12 @@ impl AppState {
 
     pub fn selected_ai_model(&self) -> &str {
         &self.selected_ai_model
+    }
+
+    /// Backend del gateway en uso (`claude_cli`, `codex_direct`…), tal como
+    /// está en el archivo privado; vacío si no hay ninguno.
+    pub fn ai_provider(&self) -> &str {
+        &self.ai_provider
     }
 
     pub fn cycle_ai_model(&mut self) {
@@ -5198,6 +5284,7 @@ impl AppState {
             SidebarPanel::Outline => "sidebar: outline".to_string(),
             SidebarPanel::Appearance => "sidebar: appearance".to_string(),
             SidebarPanel::Security => "sidebar: passwords".to_string(),
+            SidebarPanel::Connection => "sidebar: conexión".to_string(),
         };
         if panel == SidebarPanel::Git {
             self.last_git_status_poll = Instant::now() - GIT_STATUS_POLL_INTERVAL;
@@ -7500,7 +7587,10 @@ impl AppState {
             CommandPaletteAction::OpenFolderPicker => self.open_folder_picker(),
             CommandPaletteAction::NewChat => self.new_chat(),
             CommandPaletteAction::ToggleBackgroundPanel => self.toggle_background_panel(),
-            CommandPaletteAction::QuickOpen => self.begin_quick_open(),
+            CommandPaletteAction::QuickOpen => {
+                Self::trace_ui("quick open ← paleta");
+                self.begin_quick_open()
+            }
             CommandPaletteAction::GoToLine => self.begin_go_to_line_overlay(),
             CommandPaletteAction::FindInWorkspace => self.begin_workspace_text_search_overlay(),
             CommandPaletteAction::GoToSymbol => self.begin_symbol_overlay(),
@@ -7699,6 +7789,7 @@ impl AppState {
             }
             CommandPaletteAction::ShowQuironConnectionStatus => {
                 self.post_connection_status_message("command-palette");
+                self.open_connection_panel();
             }
         }
     }
@@ -8088,6 +8179,243 @@ impl AppState {
         }
     }
 
+    /// Abre el panel Conexión y sondea los proveedores del equipo.
+    pub fn open_connection_panel(&mut self) {
+        self.set_sidebar_panel(SidebarPanel::Connection);
+        self.refresh_provider_probe();
+        self.needs_render = true;
+    }
+
+    pub fn refresh_provider_probe(&mut self) {
+        if self.provider_probe_task.is_some() {
+            return;
+        }
+        self.provider_probe_task = Some(self.runtime.spawn_blocking(Self::probe_providers));
+        self.needs_render = true;
+    }
+
+    fn busca_en_path(nombre: &str) -> Option<PathBuf> {
+        std::env::var_os("PATH").and_then(|path| {
+            std::env::split_paths(&path)
+                .map(|dir| dir.join(nombre))
+                .find(|candidato| candidato.is_file())
+        })
+    }
+
+    /// Sondea el equipo: CLI de Claude y su sesión, Codex y su sesión de
+    /// ChatGPT, y el endpoint compatible configurado. Corre fuera del hilo de
+    /// la interfaz. No lee ni guarda credenciales: solo si existen.
+    fn probe_providers() -> ProviderProbe {
+        let mut probe = ProviderProbe::default();
+        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+        let claude = Self::provider_setting("QUIRON_CLAUDE_CLI")
+            .map(PathBuf::from)
+            .filter(|p| p.is_file())
+            .or_else(|| Self::busca_en_path("claude"))
+            .or_else(|| Some(home.join(".local/bin/claude")).filter(|p| p.is_file()));
+        if let Some(cli) = &claude {
+            probe.claude_logged_in = std::process::Command::new(cli)
+                .args(["auth", "status"])
+                .output()
+                .ok()
+                .and_then(|salida| serde_json::from_slice::<serde_json::Value>(&salida.stdout).ok())
+                .map(|estado| {
+                    estado["loggedIn"].as_bool().unwrap_or(false)
+                        && estado["authMethod"].as_str() == Some("claude.ai")
+                });
+        }
+        probe.claude_cli = claude;
+
+        // Codex: en PATH o dentro de la extensión de VS Code.
+        let extension = home.join(".vscode/extensions");
+        let codex_extension = fs::read_dir(&extension).ok().and_then(|entradas| {
+            entradas
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_name().to_string_lossy().starts_with("openai.chatgpt-"))
+                .map(|e| e.path().join("bin/linux-x86_64/codex"))
+                .find(|p| p.is_file())
+        });
+        probe.codex_cli = Self::busca_en_path("codex").or(codex_extension);
+        probe.codex_session = fs::read_to_string(home.join(".codex/auth.json"))
+            .ok()
+            .and_then(|texto| serde_json::from_str::<serde_json::Value>(&texto).ok())
+            .map(|auth| {
+                if auth["tokens"]["access_token"].as_str().is_some() {
+                    let modo = auth["auth_mode"].as_str().unwrap_or("?");
+                    let renovada: String = auth["last_refresh"]
+                        .as_str()
+                        .unwrap_or("")
+                        .chars()
+                        .take(10)
+                        .collect();
+                    format!("sesión {modo}, renovada el {renovada}")
+                } else {
+                    "sin sesión".to_string()
+                }
+            });
+        probe.compatible_endpoint = Self::provider_setting("QUIRON_LLM_ENDPOINT_PRIMARY");
+        probe
+    }
+
+    fn poll_provider_tasks(&mut self) -> bool {
+        let mut changed = false;
+        if self.provider_probe_task.as_ref().is_some_and(|t| t.is_finished()) {
+            let task = self.provider_probe_task.take().unwrap();
+            if let Ok(probe) = self.runtime.block_on(task) {
+                self.provider_probe = Some(probe);
+            }
+            changed = true;
+        }
+        if self.provider_apply_task.as_ref().is_some_and(|t| t.is_finished()) {
+            let task = self.provider_apply_task.take().unwrap();
+            self.provider_notice = Some(match self.runtime.block_on(task) {
+                Ok(Ok(mensaje)) => {
+                    self.reload_provider_settings();
+                    mensaje
+                }
+                Ok(Err(error)) => error,
+                Err(error) => format!("fallo interno: {error}"),
+            });
+            changed = true;
+        }
+        if changed {
+            self.needs_render = true;
+        }
+        changed
+    }
+
+    /// Relee proveedor y modelo del archivo privado tras aplicar un cambio.
+    pub fn reload_provider_settings(&mut self) {
+        self.ai_provider = Self::provider_setting("QUIRON_GATEWAY_BACKEND").unwrap_or_default();
+        self.selected_ai_model = Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY")
+            .unwrap_or_else(|| AI_MODEL_OPTIONS[0].to_string());
+        self.refresh_provider_probe();
+    }
+
+    /// Lanza el inicio de sesión de la CLI en una terminal: el flujo abre el
+    /// navegador y pide confirmar; aquí no se lee ni se guarda ninguna
+    /// credencial. Sin terminal conocida, se enseña la orden para copiarla.
+    pub fn provider_login(&mut self, kind: ProviderKind) {
+        let probe = self.provider_probe.clone().unwrap_or_default();
+        let (programa, args): (Option<PathBuf>, Vec<&str>) = match kind {
+            ProviderKind::ClaudeCli => (probe.claude_cli, vec!["auth", "login"]),
+            ProviderKind::CodexDirect => (probe.codex_cli, vec!["login"]),
+            ProviderKind::OpenAiCompatible => (None, Vec::new()),
+        };
+        self.provider_notice = Some(match programa {
+            None if kind == ProviderKind::OpenAiCompatible => {
+                "El endpoint compatible se configura en el archivo privado: endpoint, modelo y clave.".to_string()
+            }
+            None => "No encuentro esa CLI en este equipo.".to_string(),
+            Some(programa) => {
+                let orden = format!("{} {}", programa.display(), args.join(" "));
+                match Self::abrir_terminal(&programa, &args) {
+                    Ok(()) => format!("Terminal abierta con «{orden}». Sigue sus pasos y pulsa «Comprobar»."),
+                    Err(error) => format!("Ejecuta en una terminal: {orden} ({error})."),
+                }
+            }
+        });
+        self.needs_render = true;
+    }
+
+    fn abrir_terminal(programa: &Path, args: &[&str]) -> Result<(), String> {
+        let preferida = std::env::var("TERMINAL").ok();
+        let candidatas = preferida
+            .iter()
+            .map(String::as_str)
+            .chain(["kitty", "foot", "alacritty", "wezterm", "ghostty", "gnome-terminal", "konsole", "xterm"]);
+        for terminal in candidatas {
+            let Some(bin) = Self::busca_en_path(terminal) else { continue };
+            let mut orden = std::process::Command::new(bin);
+            if terminal == "gnome-terminal" {
+                orden.arg("--");
+            } else {
+                orden.arg("-e");
+            }
+            orden.arg(programa).args(args);
+            if orden.spawn().is_ok() {
+                return Ok(());
+            }
+        }
+        Err("no hay una terminal conocida en PATH".to_string())
+    }
+
+    fn configure_provider_script() -> Option<PathBuf> {
+        let mut candidatos = Vec::new();
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(raiz) = exe.parent().and_then(|p| p.parent()) {
+                candidatos.push(raiz.join("scripts/configure-provider.py"));
+            }
+        }
+        if let Ok(cwd) = std::env::current_dir() {
+            candidatos.push(cwd.join("scripts/configure-provider.py"));
+        }
+        candidatos.into_iter().find(|p| p.is_file())
+    }
+
+    /// Aplica el proveedor con `scripts/configure-provider.py --apply`, que
+    /// reescribe el archivo privado y reinicia el cerebro; el editor reconecta
+    /// solo. Corre fuera del hilo de la interfaz.
+    pub fn provider_use(&mut self, kind: ProviderKind) {
+        if self.provider_apply_task.is_some() {
+            return;
+        }
+        let Some(script) = Self::configure_provider_script() else {
+            self.provider_notice = Some("No encuentro scripts/configure-provider.py junto al programa.".to_string());
+            self.needs_render = true;
+            return;
+        };
+        let mut args = vec![script.to_string_lossy().into_owned(), kind.script_name().to_string()];
+        match kind {
+            ProviderKind::ClaudeCli => args.extend(["--model".to_string(), "sonnet".to_string()]),
+            ProviderKind::CodexDirect => args.extend(["--model".to_string(), "gpt-5.5".to_string()]),
+            ProviderKind::OpenAiCompatible => {
+                let endpoint = Self::provider_setting("QUIRON_LLM_ENDPOINT_PRIMARY");
+                let modelo = Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY");
+                match (endpoint, modelo) {
+                    (Some(endpoint), Some(modelo)) => {
+                        args.extend(["--endpoint".to_string(), endpoint, "--model".to_string(), modelo]);
+                    }
+                    _ => {
+                        self.provider_notice = Some(
+                            "Configura QUIRON_LLM_ENDPOINT_PRIMARY, el modelo y la clave en el archivo privado.".to_string(),
+                        );
+                        self.needs_render = true;
+                        return;
+                    }
+                }
+            }
+        }
+        args.push("--apply".to_string());
+        self.provider_notice = Some(format!("Aplicando {}…", kind.label()));
+        self.provider_apply_task = Some(self.runtime.spawn_blocking(move || {
+            let salida = std::process::Command::new("python3")
+                .args(&args)
+                .output()
+                .map_err(|e| e.to_string())?;
+            let texto = format!(
+                "{}{}",
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
+            let ultima = texto.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").to_string();
+            if salida.status.success() {
+                Ok(if ultima.is_empty() { "Proveedor guardado.".to_string() } else { ultima })
+            } else {
+                Err(if ultima.is_empty() { "No se pudo aplicar.".to_string() } else { ultima })
+            }
+        }));
+        self.needs_render = true;
+    }
+
+    /// Traza de interfaz, solo con QUIRON_UI_TRACE=1: para cazar acciones que
+    /// aparecen sin que nadie las haya pedido (p. ej. un Quick Open abierto).
+    pub fn trace_ui(evento: &str) {
+        if std::env::var_os("QUIRON_UI_TRACE").is_some() {
+            eprintln!("ui: {evento}");
+        }
+    }
+
     /// La bienvenida se enseña sin proyecto y hasta que se pulsa «Empezar».
     pub fn welcome_visible(&self) -> bool {
         !self.workspace_is_open() && !self.welcome_dismissed
@@ -8121,6 +8449,7 @@ impl AppState {
             SidebarPanel::Outline => self.scroll_sidebar_outline_lines(delta_lines),
             SidebarPanel::Appearance => {}
             SidebarPanel::Security => {}
+            SidebarPanel::Connection => {}
         }
     }
 
@@ -9839,6 +10168,7 @@ impl AppState {
                 if self.overlay_mode == Some(OverlayMode::QuickOpen) {
                     self.close_overlay();
                 } else {
+                    Self::trace_ui("quick open ← clic en Buscar");
                     self.begin_quick_open();
                 }
             }
@@ -9854,6 +10184,12 @@ impl AppState {
             ClickTargetAction::ToggleRepositories => {
                 self.sidebar_repos_open = !self.sidebar_repos_open;
                 self.needs_render = true;
+            }
+            ClickTargetAction::ProviderLogin(kind) => self.provider_login(kind),
+            ClickTargetAction::ProviderUse(kind) => self.provider_use(kind),
+            ClickTargetAction::ProviderRefresh => {
+                self.provider_notice = None;
+                self.refresh_provider_probe();
             }
             ClickTargetAction::WelcomeOpenRecent(path) => {
                 if path.is_dir() {
@@ -10463,6 +10799,10 @@ where
                     let ctrl = self.state.modifiers.control_key();
                     let shift = self.state.modifiers.shift_key();
                     let alt = self.state.modifiers.alt_key();
+                    AppState::trace_ui(&format!(
+                        "tecla {:?} ctrl={ctrl} shift={shift} alt={alt}",
+                        event.logical_key
+                    ));
                     // En la bienvenida, Intro equivale a «Empezar».
                     if self.state.welcome_visible()
                         && event.logical_key == Key::Named(NamedKey::Enter)
@@ -10760,6 +11100,7 @@ where
                                 if shift {
                                     self.state.begin_command_palette();
                                 } else {
+                                    AppState::trace_ui("quick open ← Ctrl+P");
                                     self.state.begin_quick_open();
                                 }
                                 if let Some(window) = &self.window {
@@ -11133,6 +11474,9 @@ where
             should_redraw = true;
         }
         if self.state.poll_quiron_health() {
+            should_redraw = true;
+        }
+        if self.state.poll_provider_tasks() {
             should_redraw = true;
         }
         if should_redraw {

@@ -136,10 +136,30 @@ async fn invoke(
         .filter(|m| claude_model(m))
         .or(configured.as_deref().filter(|m| claude_model(m)))
         .unwrap_or("sonnet");
+    // Con historial estructurado, `req.prompt` es el aplanado de toda la
+    // conversación: mandarlo además de `history` duplicaba el contexto (747 KB
+    // en la tercera llamada del estudio del 5 de septiembre). Con historial,
+    // la pregunta vigente ya va dentro de él.
+    let prompt_vigente = if req.input_items.is_empty() { req.prompt.as_str() } else { "" };
     let prompt =
-        serde_json::json!({"system":req.system,"prompt":req.prompt,"history":req.input_items,
+        serde_json::json!({"system":req.system,"prompt":prompt_vigente,"history":req.input_items,
         "available_quiron_tools":req.tools,"requested_max_output_tokens":req.max_tokens})
         .to_string();
+    // Estudio: con QUIRON_CLAUDE_CLI_DUMP_DIR se guardan la entrada y la salida
+    // de cada llamada, para reproducir cierres anómalos fuera del editor.
+    let volcado = std::env::var_os("QUIRON_CLAUDE_CLI_DUMP_DIR").map(|dir| {
+        let sello = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|t| t.as_millis())
+            .unwrap_or(0);
+        std::path::PathBuf::from(dir).join(format!("claude-{sello}"))
+    });
+    if let Some(base) = &volcado {
+        if let Some(dir) = base.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(base.with_extension("in.json"), &prompt);
+    }
     if prompt.len() > 1_000_000 || req.tools.len() > 32 {
         return Err("Petición demasiado grande para Claude CLI".into());
     }
@@ -217,6 +237,9 @@ async fn invoke(
     }
     if !status.success() {
         return Err(format!("Claude CLI terminó con {:?}; ejecuta claude auth status o claude auth login en una terminal",status.code()));
+    }
+    if let Some(base) = &volcado {
+        let _ = std::fs::write(base.with_extension("out.json"), &bytes);
     }
     let value: Value =
         serde_json::from_slice(&bytes).map_err(|_| "Respuesta no JSON de Claude CLI")?;

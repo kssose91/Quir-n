@@ -7,7 +7,8 @@
 use llore_ui::app::{
     run, top_menu_entries, AppState, ChatMessage, ClickTargetAction, CommandPaletteAction,
     EditorPane, OverlayMode, PanelDock, SearchInputFocus, SessionTelemetryTimelineSource,
-    SidebarPanel, SidebarProblemSeverity, TabSnapshot, TelemetryTimelineFilter, TopMenuKind, UiAppearancePreset,
+    ProviderKind, SidebarPanel, SidebarProblemSeverity, TabSnapshot, TelemetryTimelineFilter, TopMenuKind,
+    UiAppearancePreset,
     UiDensity, EDITOR_BODY_BOTTOM_PADDING, EDITOR_BODY_TOP_PADDING, EDITOR_GUTTER_WIDTH,
     EDITOR_TAB_BAR_HEIGHT, OVERLAY_RESULTS_MAX, SEARCH_RESULTS_MAX_ROWS,
 };
@@ -593,6 +594,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         SidebarPanel::Outline => "ESQUEMA",
         SidebarPanel::Appearance => "APARIENCIA",
         SidebarPanel::Security => "SEGURIDAD",
+        SidebarPanel::Connection => "CONEXIÓN",
     };
     let sidebar_title =
         state
@@ -1432,6 +1434,16 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 Color::from_hex(palette.accent),
             );
             state.add_click_target(reset_bounds, ClickTargetAction::ActivityResetAppearance);
+        }
+        SidebarPanel::Connection => {
+            render_connection_panel(
+                canvas,
+                state,
+                &palette,
+                sidebar_content_x,
+                sidebar_content_width,
+                explorer_start_y,
+            );
         }
         SidebarPanel::Security => {
             let section_gap = (8.0 * density_scale).clamp(6.0, 12.0);
@@ -2896,6 +2908,115 @@ fn render_top_menu_dropdown(
 /// Enseña el estado real del índice —no un eslogan— porque es lo que decide si
 /// una consulta al chat va a servir de algo: sin Qdrant no hay recuperación, y
 /// sin grafo no hay dependencias.
+/// Panel Conexión: proveedor en uso y, por cada proveedor posible, su estado en
+/// este equipo con dos acciones —iniciar sesión (en una terminal; el flujo lo
+/// lleva la CLI) y usar—. Aplicar reescribe el archivo privado y reinicia el
+/// cerebro; el editor reconecta solo.
+fn render_connection_panel(
+    canvas: &mut Canvas,
+    state: &mut AppState,
+    palette: &ThemePalette,
+    x: f32,
+    w: f32,
+    top: f32,
+) {
+    let mut y = top + 4.0;
+    let en_uso = state.ai_provider().replace('-', "_");
+    let actual = format!(
+        "En uso: {} · {}",
+        if en_uso.is_empty() { "sin proveedor" } else { en_uso.as_str() },
+        state.selected_ai_model()
+    );
+    let buf = state.text_system.create_line_buffer(&actual, design::type_scale::SM, w);
+    state.text_system.draw_buffer(canvas, &buf, x, y + 12.0, Color::from_hex(palette.text));
+    y += 20.0;
+    let salud = format!("cerebro: {}", state.quiron_connection_health_label());
+    let buf = state.text_system.create_line_buffer(&salud, design::type_scale::XS, w);
+    state.text_system.draw_buffer(canvas, &buf, x, y + 10.0, Color::from_hex(palette.text_muted));
+    y += 24.0;
+
+    let probe = state.provider_probe.clone();
+    for kind in ProviderKind::ALL {
+        let activo = en_uso == kind.backend();
+        let alto = 82.0;
+        let tarjeta = Bounds::new(x, y, w, alto);
+        canvas.fill_rounded_rect(tarjeta, design::radius::MD, Color::from_hex(palette.surface));
+        if activo {
+            canvas.stroke_rect(tarjeta, Color::from_hex(palette.accent).with_alpha(160), 1.0);
+        }
+        let nombre = state
+            .text_system
+            .create_heading_buffer(kind.label(), design::type_scale::SM, w - 20.0);
+        state.text_system.draw_buffer(canvas, &nombre, x + 10.0, y + 18.0, Color::from_hex(palette.text));
+
+        let (estado, ok) = match (&probe, kind) {
+            (None, _) => ("comprobando…".to_string(), None),
+            (Some(p), ProviderKind::ClaudeCli) => match (&p.claude_cli, p.claude_logged_in) {
+                (None, _) => ("CLI de Claude no encontrada".to_string(), Some(false)),
+                (Some(_), Some(true)) => ("CLI encontrada · sesión de claude.ai activa".to_string(), Some(true)),
+                (Some(_), Some(false)) => ("CLI encontrada · sin sesión: inicia sesión".to_string(), Some(false)),
+                (Some(_), None) => ("CLI encontrada · estado desconocido".to_string(), None),
+            },
+            (Some(p), ProviderKind::CodexDirect) => match (&p.codex_cli, &p.codex_session) {
+                (None, _) => ("Codex no encontrado (PATH o extensión de VS Code)".to_string(), Some(false)),
+                (Some(_), Some(s)) => (format!("Codex encontrado · {s}"), Some(!s.starts_with("sin"))),
+                (Some(_), None) => ("Codex encontrado · sin sesión: inicia sesión".to_string(), Some(false)),
+            },
+            (Some(p), ProviderKind::OpenAiCompatible) => match &p.compatible_endpoint {
+                Some(e) => (format!("endpoint {}", truncate_chars(e, 34)), Some(true)),
+                None => ("sin endpoint configurado".to_string(), Some(false)),
+            },
+        };
+        let color_estado = match ok {
+            Some(true) => Color::from_hex(palette.success),
+            Some(false) => Color::from_hex(palette.warning),
+            None => Color::from_hex(palette.text_muted),
+        };
+        let buf = state
+            .text_system
+            .create_line_buffer(&estado, design::type_scale::XS, w - 20.0);
+        state.text_system.draw_buffer(canvas, &buf, x + 10.0, y + 36.0, color_estado);
+
+        let botones: [(&str, f32, ClickTargetAction); 2] = [
+            (
+                if kind == ProviderKind::OpenAiCompatible { "Configurar" } else { "Iniciar sesión" },
+                104.0,
+                ClickTargetAction::ProviderLogin(kind),
+            ),
+            (if activo { "En uso" } else { "Usar" }, 64.0, ClickTargetAction::ProviderUse(kind)),
+        ];
+        let mut bx = x + 10.0;
+        for (texto, ancho, accion) in botones {
+            let boton = Bounds::new(bx, y + 48.0, ancho, 24.0);
+            canvas.fill_rounded_rect(boton, 4.0, Color::from_hex(palette.accent).with_alpha(38));
+            canvas.stroke_rect(boton, Color::from_hex(palette.accent).with_alpha(90), 1.0);
+            let buf = state
+                .text_system
+                .create_line_buffer(texto, design::type_scale::XS, ancho - 8.0);
+            state.text_system.draw_buffer(canvas, &buf, bx + 8.0, y + 64.0, Color::from_hex(palette.text));
+            state.add_click_target(boton, accion);
+            bx += ancho + 6.0;
+        }
+        y += alto + 8.0;
+    }
+
+    // Aviso de la última acción y botón para volver a sondear.
+    if let Some(aviso) = state.provider_notice.clone() {
+        let (_, alto) = state.text_system.measure(&aviso, design::type_scale::XS, w);
+        let buf = state.text_system.create_buffer(&aviso, design::type_scale::XS, w);
+        state.text_system.draw_buffer(canvas, &buf, x, y + design::type_scale::XS, Color::from_hex(palette.text_muted));
+        y += alto + 10.0;
+    }
+    let boton = Bounds::new(x, y, 104.0, 24.0);
+    canvas.fill_rounded_rect(boton, 4.0, Color::from_hex(palette.background).with_alpha(120));
+    canvas.stroke_rect(boton, Color::from_hex(palette.border).with_alpha(160), 1.0);
+    let buf = state
+        .text_system
+        .create_line_buffer("Comprobar", design::type_scale::XS, 96.0);
+    state.text_system.draw_buffer(canvas, &buf, boton.x + 8.0, y + 16.0, Color::from_hex(palette.text_muted));
+    state.add_click_target(boton, ClickTargetAction::ProviderRefresh);
+}
+
 /// Secciones de la lateral entre «Nuevo chat» y la búsqueda: el historial de
 /// conversaciones y el repositorio de trabajo con sus recientes, como pestañas
 /// plegables. Devuelve la `y` donde sigue la columna.

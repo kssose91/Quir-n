@@ -1,0 +1,27 @@
+{
+  "checks": {
+    "chat_answered": true
+  },
+  "chat": {
+    "question": "que hace la funcion ensure current y quien la llama",
+    "seconds": 222.9,
+    "llamadas": 4,
+    "gateway_log": [
+      "[claude_cli] model=claude-opus-5 turns=2 output_tokens=658 content_chars=545 tool_calls=2",
+      "[claude_cli] model=claude-opus-5 turns=3 output_tokens=4522 content_chars=2602 tool_calls=2",
+      "[claude_cli] model=claude-opus-5 turns=3 output_tokens=6234 content_chars=3156 tool_calls=3",
+      "[claude_cli] model=claude-opus-5 turns=3 output_tokens=4948 content_chars=3437 tool_calls=0"
+    ]
+  },
+  "index_after_chat": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "watching",
+    "files_total": 178,
+    "files_done": 178,
+    "units_written": 0,
+    "summaries_generated": 0,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  }
+}

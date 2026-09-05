@@ -108,6 +108,19 @@ pub struct ToolTraceEntry {
     pub is_error: bool,
 }
 
+/// Tope por resultado de herramienta que vuelve al modelo.
+const TOOL_OUTPUT_MAX_CHARS: usize = 16_000;
+
+/// Recorta un resultado de herramienta declarándolo, sin partir un carácter.
+fn recorta_resultado(salida: String, max_chars: usize) -> String {
+    if salida.chars().count() <= max_chars {
+        return salida;
+    }
+    let mut corta: String = salida.chars().take(max_chars).collect();
+    corta.push_str(&format!("\n\n[resultado recortado a {max_chars} caracteres]"));
+    corta
+}
+
 /// `read_file({"path":"src/main.rs"})` → `read_file(src/main.rs)`.
 fn summarize_tool_call(name: &str, input: &serde_json::Value) -> String {
     let argumento = input
@@ -281,8 +294,12 @@ impl Quiron {
                 });
 
                 // La ejecución ocurre AQUÍ, en manos del editor y tras su
-                // arnés. El resultado —o la negativa— vuelve al modelo.
+                // arnés. El resultado —o la negativa— vuelve al modelo, acotado:
+                // cada turno reenvía toda la conversación, y dos resultados de
+                // 150 KB llevaron el contexto a 349 KB y al modelo a cerrar con
+                // un marcador (5 de septiembre).
                 let (output, is_error) = execute(&name, &input);
+                let output = recorta_resultado(output, TOOL_OUTPUT_MAX_CHARS);
                 trace.push(ToolTraceEntry {
                     summary: summarize_tool_call(&name, &input),
                     is_error,
@@ -680,6 +697,15 @@ mod tests {
         assert_eq!(ultimo["role"], "user");
         let texto = ultimo["content"][0]["text"].as_str().unwrap();
         assert!(texto.contains("Prueba corta.") && texto.contains("Redacta ahora"), "{texto}");
+    }
+
+    #[test]
+    fn un_resultado_enorme_vuelve_recortado_y_declarado() {
+        let largo = "línea\n".repeat(10_000);
+        let corto = recorta_resultado(largo, 100);
+        assert!(corto.chars().count() < 160, "{}", corto.chars().count());
+        assert!(corto.ends_with("[resultado recortado a 100 caracteres]"), "{corto}");
+        assert_eq!(recorta_resultado("breve".to_string(), 100), "breve");
     }
 
     #[test]
