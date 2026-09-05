@@ -1,0 +1,131 @@
+{
+  "model": "Qwen2.5-Coder-1.5B-Instruct Q4_K_M",
+  "embeddings": "BGE-M3",
+  "checks": {
+    "requires_auth": true,
+    "requires_worker_auth": true,
+    "project_isolation": true,
+    "qdrant_retrieval": true,
+    "neo4j_projection": true,
+    "secrets_and_symlinks_excluded": true,
+    "unchanged_skips_inference": true,
+    "stale_results_rejected": true,
+    "changed_logic_replaced": true,
+    "deletion_scoped_to_project": true
+  },
+  "initial": [
+    {
+      "seconds": 5.44,
+      "progress": {
+        "project_id": "0YR42WV0C6H64M8Z5BN1XBN1CP",
+        "phase": "watching",
+        "files_total": 1,
+        "files_done": 1,
+        "units_written": 2,
+        "summaries_generated": 2,
+        "structural_fallbacks": 0,
+        "current_path": "",
+        "error": null
+      },
+      "hits": [
+        {
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "915505d0-aae3-0762-006e-ba809e44e2cf",
+          "kind": "function",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0YR42WV0C6H64M8Z5BN1XBN1CP",
+          "score": 0.6857938,
+          "signature": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str>",
+          "start_line": 1,
+          "summary": {
+            "purpose": "This function calculates the total price of a list of prices after applying a discount. It takes a slice of f64 representing the prices and a f64 representing the discount. It returns a Result containing the total price or an error message if the discount is invalid. The function uses the iter() method to iterate over the prices, the sum() method to calculate the total, and the multiplication operator to apply the discount. The function also includes a validation check to see",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "total"
+        },
+        {
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "865e2f5c-2e1d-bfe0-fb57-8879f14251b5",
+          "kind": "file",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0YR42WV0C6H64M8Z5BN1XBN1CP",
+          "score": 0.6762494,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "purpose": "This function calculates the total price of a list of prices after applying a discount. It takes a slice of f64 representing the prices and a f64 representing the discount. It returns a Result containing the total price or an error message if the discount is invalid. The function uses the iter() method to iterate over the prices, the sum() method to calculate the total, and the multiplication operator to apply the discount. The function also includes a check to ensure that 0.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": ""
+        }
+      ]
+    },
+    {
+      "seconds": 3.12,
+      "progress": {
+        "project_id": "0D0BD2KKK8DDMNTEPDEV7MMQ6V",
+        "phase": "watching",
+        "files_total": 1,
+        "files_done": 1,
+        "units_written": 2,
+        "summaries_generated": 2,
+        "structural_fallbacks": 0,
+        "current_path": "",
+        "error": null
+      },
+      "hits": [
+        {
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "f50f3cba-a14b-be4b-0913-c2a3ac873618",
+          "kind": "function",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0D0BD2KKK8DDMNTEPDEV7MMQ6V",
+          "score": 0.6857938,
+          "signature": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str>",
+          "start_line": 1,
+          "summary": {
+            "purpose": "This function calculates the total price of a list of prices after applying a discount. It takes a slice of f64 representing the prices and a f64 representing the discount. It returns a Result containing the total price or an error message if the discount is invalid. The function uses the iter() method to iterate over the prices, the sum() method to calculate the total, and the multiplication operator to apply the discount. The function also includes a validation check to see",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "total"
+        },
+        {
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "f0c3677a-fd2f-8dd1-5a3b-b693d0188720",
+          "kind": "file",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0D0BD2KKK8DDMNTEPDEV7MMQ6V",
+          "score": 0.6762494,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "purpose": "This function calculates the total price of a list of prices after applying a discount. It takes a slice of f64 representing the prices and a f64 representing the discount. It returns a Result containing the total price or an error message if the discount is invalid. The function uses the iter() method to iterate over the prices, the sum() method to calculate the total, and the multiplication operator to apply the discount. The function also includes a check to ensure that 0.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": ""
+        }
+      ]
+    }
+  ],
+  "ok": true
+}

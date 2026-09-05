@@ -1,5 +1,20 @@
 # QUIRÓN — MEMORIA DEL TRABAJO FIN DE MÁSTER (BORRADOR v1)
 
+> **Actualización de cierre — 5 de septiembre de 2026.** El cuerpo conserva el
+> borrador de julio para revisión. Se ha implementado y probado un worker local
+> Qwen2.5-Coder-1.5B Q4_K_M con BGE-M3 separado: apertura de proyecto, fichas,
+> firmas Rust, vectores Qdrant, proyección Neo4j, cambios y borrados. También se
+> ha probado Claude mediante su CLI oficial con sesión de suscripción y retorno
+> de herramientas de Quirón. Evidencias y límites en
+> `docs/WORKER_Y_PROVEEDORES.md` y `docs/CIERRE_2026-09-05.md`.
+> Las fichas v4 distinguen resumen neuronal de ficha estructural cuando falla
+> la validación. El modelo pequeño sirve como ayuda de localización: omitió una rama de error
+> en la muestra, por lo que no se afirma fidelidad semántica completa. No hay
+> entrenamiento propio ni corpus descargado. La reconstrucción del índice desde
+> el ledger, la expansión AST y la evaluación en proyectos grandes siguen
+> pendientes. Existe un candidato de instalador Linux; falta probarlo en equipo
+> limpio. La hipótesis de ahorro de contexto todavía necesita mediciones.
+
 > **[NOTA PARA EL TUTOR: este documento es el borrador de control de julio. Las marcas
 > `[COMPLETAR]` señalan datos administrativos pendientes y las marcas `[PENDIENTE · sept]`
 > señalan resultados cuya medición final está planificada antes del 10 de septiembre de 2026,
@@ -305,7 +320,7 @@ Respecto al objetivo general, el trabajo ha construido y verificado la infraestr
 # Capítulo 9. ANEXOS
 
 - **Anexo A.** Estudio: la matemática de la red obrera de Quirón — algoritmos y ecuaciones de los LLM recientes y su reutilización, con etiquetas de evidencia y verificación adversarial (documento íntegro: `docs/ESTUDIO_RED_OBRERA.md`).
-- **Anexo B.** Arquitectura de la memoria: registro inmutable, proyecciones, identidad de proyecto, ciclo de vida, invariantes y criterios de aceptación (`docs/ARQUITECTURA_MEMORIA.md`).
-- **Anexo C.** Arquitectura del índice de código y contrato de la API HTTP (`docs/ARQUITECTURA_INDICE.md`).
+- **Anexo B.** Arquitectura de la memoria: desarrollada en §4.2.1. **[PENDIENTE: extraer el anexo; el archivo `docs/ARQUITECTURA_MEMORIA.md` citado en julio no existe.]**
+- **Anexo C.** Arquitectura del índice y API: descritas en §4.2.2–4.2.6 y README. **[PENDIENTE: consolidar el contrato implementado; el archivo `docs/ARQUITECTURA_INDICE.md` citado en julio no existe.]**
 - **Anexo D.** Evidencias de medición: verificación de la cadena de eventos, conteos de los almacenes, pruebas de confinamiento y coste de fotograma del editor. **[PENDIENTE · sept: añadir las mediciones finales del plan de pruebas.]**
 - **Anexo E.** Repositorio del código en GitHub **[COMPLETAR: URL]** — vía de entrega del programa acordada con el tutor.

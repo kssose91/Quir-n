@@ -1,0 +1,59 @@
+{
+  "editor": {
+    "passed": 301,
+    "failed": 0,
+    "ignored": 2
+  },
+  "brain": {
+    "passed": 167,
+    "failed": 0,
+    "ignored": 0
+  },
+  "delivery": {
+    "passed": 8,
+    "failed": 0
+  },
+  "gui": {
+    "backend": "X11/XWayland sobre Hyprland",
+    "profile": [
+      "dev optimizado",
+      "release"
+    ],
+    "sizes": [
+      [
+        1280,
+        720
+      ],
+      [
+        900,
+        600
+      ]
+    ],
+    "exit_code": 0,
+    "scope": "bienvenida, redimensionado y cierre sin proyecto"
+  },
+  "live_brain": {
+    "health": "ok",
+    "chain_valid": true,
+    "event_count": 5057,
+    "internal_nodes": 1055,
+    "unauthenticated_event_status": 401
+  },
+  "package": {
+    "staged_install": true,
+    "desktop_entry_valid": true,
+    "checksums_valid": true,
+    "glibc_build": "2.44",
+    "clean_machine_test": false
+  },
+  "qdrant": {
+    "quiron_events": {
+      "exact_count": 4236,
+      "status": "green"
+    },
+    "quiron_code": {
+      "exact_count": 2570,
+      "status": "green"
+    }
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "model": "Qwen2.5-Coder-1.5B-Instruct Q4_K_M",
+  "embeddings": "BGE-M3",
+  "checks": {
+    "requires_auth": true,
+    "project_isolation": true,
+    "qdrant_retrieval": true,
+    "neo4j_projection": true,
+    "secrets_and_symlinks_excluded": true,
+    "unchanged_skips_inference": true,
+    "stale_results_rejected": true,
+    "changed_logic_replaced": true,
+    "deletion_scoped_to_project": true
+  },
+  "initial": [
+    {
+      "seconds": 14.39,
+      "progress": {
+        "project_id": "0MC8GXW79XTMGG444BNXXNRZNJ",
+        "phase": "watching",
+        "files_total": 1,
+        "files_done": 1,
+        "units_written": 2,
+        "summaries_generated": 2,
+        "current_path": "",
+        "error": null
+      },
+      "hits": [
+        {
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "a531f464-ce92-7202-2e6a-8572684fc00a",
+          "kind": "function",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0MC8GXW79XTMGG444BNXXNRZNJ",
+          "score": 0.7332098,
+          "start_line": 1,
+          "summary": {
+            "effects": [
+              "Calcula el total de una lista de precios aplicando un descuento.",
+              "Verifica que el descuento sea válido (0.0 a 1.0).",
+              "Devuelve un resultado o un error si el descuento es inválido."
+            ],
+            "inputs": [
+              "prices: &[f64]",
+              "Our array of prices."
+            ],
+            "outputs": [
+              "total: f64",
+              "Our total price after discount."
+            ],
+            "purpose": "Calcula el total de una lista de precios aplicando un descuento.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v2",
+          "symbol": "total"
+        },
+        {
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "2ec11e44-f79b-537d-0f19-09f35dd56965",
+          "kind": "file",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0MC8GXW79XTMGG444BNXXNRZNJ",
+          "score": 0.7257052,
+          "start_line": 1,
+          "summary": {
+            "effects": [
+              "Calcula el total de una lista de precios con un descuento aplicado.",
+              "Verifica que el descuento sea válido (0.0 a 1.0).",
+              "Devuelve un resultado o un error si el descuento es inválido."
+            ],
+            "inputs": [
+              "prices: &[f64]",
+              "Our array of prices."
+            ],
+            "outputs": [
+              "total: f64",
+              "Our total price after discount."
+            ],
+            "purpose": "Calcula el total de una lista de precios con un descuento aplicado.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v2",
+          "symbol": ""
+        }
+      ]
+    },
+    {
+      "seconds": 3.09,
+      "progress": {
+        "project_id": "0SF154M4YR7DE6D3T7HEDSZWN4",
+        "phase": "watching",
+        "files_total": 1,
+        "files_done": 1,
+        "units_written": 2,
+        "summaries_generated": 2,
+        "current_path": "",
+        "error": null
+      },
+      "hits": [
+        {
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "c541dd74-3ff8-38a2-d5dd-ae5808169adf",
+          "kind": "function",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0SF154M4YR7DE6D3T7HEDSZWN4",
+          "score": 0.7332098,
+          "start_line": 1,
+          "summary": {
+            "effects": [
+              "Calcula el total de una lista de precios aplicando un descuento.",
+              "Verifica que el descuento sea válido (0.0 a 1.0).",
+              "Devuelve un resultado o un error si el descuento es inválido."
+            ],
+            "inputs": [
+              "prices: &[f64]",
+              "Our array of prices."
+            ],
+            "outputs": [
+              "total: f64",
+              "Our total price after discount."
+            ],
+            "purpose": "Calcula el total de una lista de precios aplicando un descuento.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v2",
+          "symbol": "total"
+        },
+        {
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "0a35c667-adc4-7be0-4083-c1c28741fa91",
+          "kind": "file",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0SF154M4YR7DE6D3T7HEDSZWN4",
+          "score": 0.7257052,
+          "start_line": 1,
+          "summary": {
+            "effects": [
+              "Calcula el total de una lista de precios con un descuento aplicado.",
+              "Verifica que el descuento sea válido (0.0 a 1.0).",
+              "Devuelve un resultado o un error si el descuento es inválido."
+            ],
+            "inputs": [
+              "prices: &[f64]",
+              "Our array of prices."
+            ],
+            "outputs": [
+              "total: f64",
+              "Our total price after discount."
+            ],
+            "purpose": "Calcula el total de una lista de precios con un descuento aplicado.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v2",
+          "symbol": ""
+        }
+      ]
+    }
+  ],
+  "ok": true
+}

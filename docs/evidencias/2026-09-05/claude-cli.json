@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "seconds": 15.89,
+  "first": {
+    "ok": true,
+    "content": "Voy a leer el archivo prueba.rs para obtener la información que necesitas.",
+    "tool_calls": [
+      {
+        "call_id": "1",
+        "name": "read_file",
+        "arguments": "{\"path\":\"prueba.rs\"}"
+      }
+    ],
+    "input_tokens": 2932,
+    "output_tokens": 593,
+    "model": "claude-haiku-4-5-20251001"
+  },
+  "second": {
+    "ok": true,
+    "content": "f(3) devuelve 6, porque la función f(x) = x * 2, entonces f(3) = 3 * 2 = 6.",
+    "input_tokens": 1427,
+    "output_tokens": 582,
+    "model": "claude-haiku-4-5-20251001"
+  },
+  "checks": [
+    "official_session",
+    "requested_quiron_tool",
+    "tool_result_roundtrip",
+    "no_native_cli_tools"
+  ]
+}

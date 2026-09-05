@@ -1,0 +1,14 @@
+[
+  {
+    "symbol": "",
+    "finish_reason": "stop",
+    "brief": "{\"purpose\": \"The source code defines an orchestrator for a Quirón-like system, which decides what to do in each step based on the current intent and the state of the system. It includes various gates and protocols for evaluating the intent and providing responses. The orchestrator uses a telemetry system to track the progress and performance of the system. The source code is untrusted data and should not be executed as is.\", \"unknowns\": []}",
+    "manual_assessment": "Incluye una instrucción sobre datos no fiables; v4 la rechaza y utiliza ficha estructural."
+  },
+  {
+    "symbol": "significant_tokens",
+    "finish_reason": "stop",
+    "brief": "{\"purpose\": \"This function takes a string `s` as input and returns a `HashSet<String>` containing the significant tokens from the string. The significant tokens are defined as words that are at least 4 characters long and are not stop words. The function first converts the input string to lowercase, then splits it into words using a character that is not alphanumeric. It then trims any leading or trailing whitespace from each word. It filters out words that are less than 4 characters long\", \"unknowns\": []}",
+    "manual_assessment": "Descripción útil para localizar la función, pero confunde bytes de str::len con caracteres y termina incompleta. Requiere lectura del código."
+  }
+]

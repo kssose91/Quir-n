@@ -1,5 +1,12 @@
 # Proyecto TFM: editor con índice de código, grafo y red obrera
 
+**Revisión de cierre, 5 de septiembre de 2026:** consultar
+[`docs/CIERRE_2026-09-05.md`](docs/CIERRE_2026-09-05.md) para el estado comprobado,
+los defectos corregidos y el plan de los cinco días. Las descripciones de diseño
+de este documento no implican que todos los objetivos estén implementados.
+El candidato de instalación Linux se construye con `bash scripts/package-linux.sh`;
+requisitos y límites en [`deploy/LINUX.md`](deploy/LINUX.md).
+
 Trabajar con repositorios grandes exige saber qué hace cada archivo, de qué
 depende, qué cambió y por qué. Quirón construye ese conocimiento como un índice
 consultable y lo entrega al modelo de lenguaje como evidencia verificable, en
@@ -23,73 +30,38 @@ Cada proyecto debe tener su propio mundo. Al abrir la carpeta de Quirón, el
 contexto es el de Quirón. Al abrir Templaris, el de Templaris. Ningún fragmento
 de un proyecto puede aparecer en las respuestas de otro.
 
-El mecanismo existe y está a medias. Cada unidad lleva un campo `project`, y la
-recuperación filtra por él —aunque tarde: la búsqueda trae los candidatos más
-parecidos de toda la colección y descarta después los de otro proyecto, en
-memoria, en lugar de filtrar dentro de Qdrant.
+El editor asigna un ULID persistente en `.llore/project.id`. El nuevo worker
+mantiene fichas en segundo plano con Qwen2.5-Coder-1.5B Q4_K_M y embeddings
+BGE-M3 separados. La firma y los símbolos Rust proceden de Tree-sitter; el modelo
+solo propone un resumen. Este experimento no entrena un backbone propio.
 
-Hay además dos defectos medidos que nada tienen que ver con el campo `project`:
-
-- El identificador que envía el editor es la **ruta canónica** del proyecto
-  (`/home/kssose/Quirón`), mientras que los eventos lo guardan como **nombre**
-  (`quiron`). Dos vocabularios para la misma cosa.
-- La colección mezcla el índice con **memoria personal del agente y restos de
-  pruebas**, de ámbito `global`. No pertenecen al índice de código y deben vivir
-  aparte.
-
-Un mundo contaminado no es un mundo.
-
-Antes de la red obrera hay dos correcciones deterministas que no admiten espera:
-separar la memoria personal a su propia colección, y filtrar por proyecto dentro
-de Qdrant en lugar de después, con un índice de carga útil sobre `project`.
-
-La red obrera es la pieza que mantiene el orden una vez restablecido. Es una red
-neuronal pequeña, propia, entrenada sobre las unidades del índice, y su trabajo
-es continuo:
-
-1. **Asignar y mantener el proyecto** de cada unidad. Ninguna unidad sin mundo.
-2. **Clasificar unidades** por tipo y responsabilidad.
-3. **Producir el resumen estructurado** de cada archivo y cada lógica.
-4. **Priorizar candidatos** a lógica duplicada para revisión.
-
-Restricciones que no se negocian: toda salida cumple un esquema, se refiere al
-hash vigente de la unidad, y pasa validaciones deterministas antes de escribirse.
-La red obrera no controla el sistema de archivos, ni Qdrant, ni el grafo. Propone;
-no ejecuta.
-
-Su tamaño y arquitectura se deciden midiendo sobre un corpus de proyectos
-reales, no por estimación previa.
-
-Es un vectorizador con sentido: el mismo backbone etiqueta y vectoriza, de modo
-que el vector de una unidad es el estado del último token del resumen que ella
-misma ha escrito. Ficha y embedding salen alineados de una sola pasada.
-
-No confundirla con el reranker (`bge-reranker-v2-m3`), que solo ordena
-resultados, ni con el worker de recuperación, que es determinista.
+Al abrir un proyecto se inicia su monitor. Revisa cambios cada diez segundos,
+reutiliza la caché y retira unidades borradas. La interfaz muestra el avance sin
+bloquear el chat. La consulta de código filtra dentro de Qdrant por identidad y
+modelo y comprueba el hash actual antes de devolver resultados.
 
 ## El índice
 
-Tres tipos de unidad, definidos en la memoria (§4.2.2): **Archivo**, **Lógica**
-y **Cambio**. Cada unidad tiene identificador estable, hash y proyecto.
+Qdrant contiene `quiron_code_worker_v1`, separado de la memoria de eventos y del
+índice antiguo `quiron_code`. Neo4j recibe archivos y unidades Rust enlazadas
+mediante `HAS_UNIT` y `DEFINED_IN`. El chat principal puede recuperar fichas con
+ruta, símbolo, firma, rango y hash como pistas para leer el código.
 
-- **Qdrant** almacena los vectores y el texto semántico. Responde a «qué se
-  parece a esto».
-- **Neo4j** almacena las relaciones estructurales —`IMPORTS`, `CALLS`,
-  `DEPENDS_ON`— extraídas por análisis estático. Responde a «de qué depende esto
-  y qué se rompe si lo cambio».
+Se probaron dos proyectos, cambios, borrados y exclusión de secretos. Las fichas
+pequeñas son útiles para localizar código, pero pueden omitir detalles: no
+constituyen pruebas de comportamiento. La expansión AST de dependencias, la
+reconstrucción completa desde el ledger y las métricas sobre proyectos grandes
+siguen pendientes. La recuperación antigua de eventos necesita su propia
+revisión; las pruebas del nuevo índice no certifican esa ruta.
 
-Los dos almacenes no se integran entre sí. El **worker de recuperación** es el
-cable que falta: filtra por proyecto, busca por similitud en Qdrant, expande cada
-candidato por el grafo en Neo4j, reordena con el reranker y recorta al
-presupuesto de contexto. Escribirlo es parte del trabajo.
-
-Cada fragmento entregado al modelo incluye ruta, símbolo, rango y hash, de modo
-que toda afirmación pueda verificarse contra el código de origen.
+Configuración, API, resultados y límites:
+[`docs/WORKER_Y_PROVEEDORES.md`](docs/WORKER_Y_PROVEEDORES.md).
 
 ## Contrato de la API HTTP
 
-`quiron-brain` escucha en `127.0.0.1:8766` y exige autenticación por *bearer
-token*. Es la única puerta al índice: el editor no habla con Qdrant ni con Neo4j.
+`quiron-brain` escucha en `127.0.0.1:8766`. Las mutaciones configuradas y todas
+las rutas `/index/*` exigen autenticación por *bearer token*; algunos GET antiguos
+siguen siendo accesibles sin token. Es la única puerta al índice: el editor no habla con Qdrant ni con Neo4j.
 
 Recuperación:
 
@@ -115,7 +87,7 @@ enrutado autónomo.
 Escritura:
 
 ```
-POST /event  /events/batch  /invariants
+POST /event  /invariants
 ```
 
 Adoptar el formato de mensajes de Anthropic sobre un modelo de OpenAI demuestra
@@ -170,8 +142,9 @@ se lee: es una plantilla, no una clave.
 Antes de esto, el editor tomaba como raíz el directorio de trabajo del proceso.
 Lanzado desde el menú de aplicaciones, eso era el directorio personal completo.
 
-Queda pendiente el empaquetado distribuible (AppImage o Flatpak). Lo instalado
-sirve solo a este usuario.
+Existe un generador de paquete Linux con instalador por usuario, binarios release,
+código correspondiente y memoria. Pendiente certificarlo en una máquina limpia;
+todavía no es un AppImage ni un Flatpak.
 
 No se adopta Tauri. Tauri sustituiría la interfaz nativa por un webview con
 HTML, y obligaría a reescribir las diecisiete mil líneas de `llore_ui`.
@@ -180,8 +153,8 @@ HTML, y obligaría a reescribir las diecisiete mil líneas de `llore_ui`.
 
 `vertex-gateway` concentra el tráfico hacia proveedores externos en un único
 punto de egreso. Eso es una propiedad de topología, no una restricción de
-alcance: el gateway admite hoy cuatro backends —`openai_compatible`,
-`ollama_native`, `openclaw` y `codex_direct`— seleccionables por configuración.
+alcance: el gateway admite `openai_compatible`,
+`ollama_native`, `openclaw`, `codex_direct` y `claude_cli` seleccionables por configuración.
 Añadir otro proveedor consiste en añadir un backend; no obliga a tocar el índice,
 el grafo ni la API.
 
@@ -193,7 +166,9 @@ mantiene Codex en `~/.codex/auth.json`, extrae el testigo de acceso y el
 identificador de cuenta, y envía la petición a la API de respuestas de Codex.
 Modelo: `gpt-5.6-sol`.
 
-No se emplea ninguna clave de API. El coste queda cubierto por la suscripción.
+La sesión de este equipo no usa una clave de API. La disponibilidad y los
+límites dependen del proveedor. Claude se conecta mediante su CLI oficial; no
+se reutiliza su OAuth como clave de API ni basta un ID de suscripción.
 
 Configuración en una única fuente de verdad:
 
@@ -227,9 +202,10 @@ systemctl --user stop  quiron-brain      # para cerebro + almacenes
 ```
 
 El servicio (`deploy/quiron-brain.service`) invoca `scripts/quiron-stores.sh up`
-en `ExecStartPre` y `... down` en `ExecStopPost`. Ese script descubre los
-contenedores por puerto, los arranca (o los crea con `--restart no`) y espera a
-que respondan antes de ceder el paso al cerebro.
+en `ExecStartPre` y `... down` en `ExecStopPost`. Ese script gestiona solo los
+nombres configurados, los arranca (o los crea con `--restart no`, imágenes fijadas
+por digest y puertos en loopback) y exige que Qdrant y una consulta Bolt
+autenticada respondan antes de ceder el paso al cerebro. Un timeout es un error.
 
 Docker es *rootful* en esta máquina: el usuario debe pertenecer al grupo
 `docker` (`sudo usermod -aG docker $USER` y reiniciar sesión) para que el
@@ -238,9 +214,11 @@ política de reinicio automático, se corrige una sola vez con
 `docker update --restart no <contenedor>` para que no reviva al arrancar la
 máquina.
 
-Qdrant y Neo4j escuchan hoy en `0.0.0.0`, y Qdrant carece de autenticación;
-conviene restringirlos a la interfaz local antes de exponer la máquina a una red
-no confiable.
+Los contenedores antiguos conservan sus puertos y volúmenes; actualizar el script
+no los migra. En el equipo auditado todavía publican en todas las interfaces.
+La instalación nueva solo publica en `127.0.0.1`. Cerrar la ventana del editor
+todavía no para systemd: para cerrar también los almacenes, usar
+`systemctl --user stop quiron-brain`.
 
 ## Documentos
 

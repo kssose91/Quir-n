@@ -1,0 +1,47 @@
+{
+  "removed": [
+    {
+      "path": "Quirón/llore_editor/target/debug/incremental",
+      "allocated_bytes_removed": 3524177920,
+      "reason": "caché regenerable de compilación/pruebas"
+    },
+    {
+      "path": "Quirón/quiron-brain/target/debug/incremental",
+      "allocated_bytes_removed": 488349696,
+      "reason": "caché regenerable de compilación/pruebas"
+    },
+    {
+      "path": "Quirón/vertex-gateway/target/debug/incremental",
+      "allocated_bytes_removed": 45580288,
+      "reason": "caché regenerable de compilación/pruebas"
+    },
+    {
+      "path": "scripts/tests/__pycache__",
+      "allocated_bytes_removed": 20480,
+      "reason": "caché regenerable de compilación/pruebas"
+    },
+    {
+      "path": "scripts/__pycache__",
+      "allocated_bytes_removed": 45056,
+      "reason": "caché regenerable de compilación/pruebas"
+    },
+    {
+      "path": "deploy/__pycache__",
+      "allocated_bytes_removed": 16384,
+      "reason": "caché regenerable de compilación/pruebas"
+    }
+  ],
+  "allocated_bytes_removed": 4058189824,
+  "obsolete_tracked_scripts": [
+    "scripts/arranque_unificado_quiron.sh",
+    "scripts/arranque_semantic_5070ti.sh",
+    "scripts/codex_exec_quiron.sh"
+  ],
+  "preserved": [
+    "datos Qdrant/Neo4j/Sled",
+    "modelos descargados",
+    "fuentes e interfaz del usuario",
+    "memoria",
+    "binarios de respaldo"
+  ]
+}

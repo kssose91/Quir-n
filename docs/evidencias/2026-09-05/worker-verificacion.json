@@ -1,0 +1,91 @@
+{
+  "tests": {
+    "editor": {
+      "passed": 299,
+      "failed": 0,
+      "ignored": 2
+    },
+    "brain": {
+      "passed": 175,
+      "failed": 0,
+      "ignored": 0
+    },
+    "gateway": {
+      "passed": 22,
+      "failed": 0,
+      "ignored": 0
+    },
+    "delivery": {
+      "passed": 8,
+      "failed": 0
+    }
+  },
+  "test_scope": "editor --workspace --lib; brain --lib; gateway; scripts/tests",
+  "release_scope": [
+    "llore_gui",
+    "quiron-brain full",
+    "vertex-gateway",
+    "index_repo"
+  ],
+  "limits": [
+    "falta instalación en equipo limpio",
+    "falta evaluación semántica sobre proyectos reales"
+  ],
+  "gpu_processes": [
+    "/home/KSSOSE/Quirón/data/worker/llama-b10816/llama-b10816/llama-server, 1130 MiB"
+  ],
+  "health": {
+    "status": "ok",
+    "service": "quiron-brain",
+    "event_count": 5057,
+    "node_count": 1055,
+    "invariant_count": 5
+  },
+  "chain": {
+    "valid": true,
+    "event_count": 5057,
+    "message": "Hash chain integrity verified"
+  },
+  "installer_staging": {
+    "ok": true,
+    "with_worker_flag": true,
+    "downloads_in_staging": false,
+    "checks": [
+      "SHA256SUMS",
+      "private config 600",
+      "worker unit PartOf/ConditionPathExists",
+      "worker and provider scripts",
+      "existing config refused"
+    ],
+    "clean_machine_tested": false
+  },
+  "gui": {
+    "opened_project_automatically": true,
+    "status_after_window_close": {
+      "project_id": "01M1RDCXN4QZ7HNF8ZXYK3759T",
+      "phase": "watching",
+      "files_total": 1,
+      "files_done": 1,
+      "units_written": 2,
+      "summaries_generated": 2,
+      "current_path": "",
+      "error": null
+    },
+    "window_exit": 0,
+    "sizes": [
+      "1280x720",
+      "900x600"
+    ],
+    "screenshots": [
+      "gui-worker/gui-1280.png",
+      "gui-worker/gui-900.png"
+    ]
+  },
+  "worker_profile": "ficha-v4",
+  "integration_v4": "worker-integracion.json",
+  "quality_evidence": [
+    "worker-ficha-v2-evaluacion.json",
+    "worker-caso-real.json",
+    "worker-english-evaluacion.json"
+  ]
+}
