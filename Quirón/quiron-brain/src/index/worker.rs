@@ -6,7 +6,7 @@ use crate::storage::cf::CF_KV;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -17,6 +17,9 @@ use tokio::sync::Semaphore;
 
 const VERSION: &str = "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4";
 const MAX_FILE_BYTES: u64 = 512 * 1024;
+/// Forma de las proyecciones (propiedades de nodo, aristas). Al cambiar, el
+/// barrido reescribe todas las unidades desde la caché, sin llamar al modelo.
+const MANIFEST_SCHEMA: u32 = 3;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Progress {
@@ -100,6 +103,9 @@ pub struct CodeRecord {
     pub start_line: usize,
     pub end_line: usize,
     pub content_hash: String,
+    /// Llamadas del cuerpo tal como las anota el extractor (ver `LogicUnit`).
+    #[serde(default)]
+    pub calls: Vec<String>,
     pub summary: Brief,
     pub summary_origin: String,
     pub partial: bool,
@@ -123,6 +129,8 @@ struct Manifest {
     files: BTreeMap<String, String>,
     #[serde(default)]
     unit_ids: BTreeMap<String, Vec<String>>,
+    #[serde(default)]
+    schema: u32,
 }
 
 struct UnitInput {
@@ -133,6 +141,7 @@ struct UnitInput {
     start: usize,
     end: usize,
     source: String,
+    calls: Vec<String>,
 }
 
 pub fn validate_project(root: &Path, project: &str) -> Result<PathBuf> {
@@ -287,11 +296,13 @@ impl ProjectWorker {
         if collection_created
             || manifest.configuration != configuration
             || manifest.root != job.root
+            || manifest.schema != MANIFEST_SCHEMA
         {
             manifest = Manifest {
                 root: job.root.clone(),
                 configuration: configuration.clone(),
                 unit_ids: manifest.unit_ids,
+                schema: MANIFEST_SCHEMA,
                 ..Default::default()
             };
         }
@@ -324,6 +335,7 @@ impl ProjectWorker {
             p.files_done = 0;
             p.error = None;
         }
+        let written_before = job.progress.lock().unwrap().units_written;
         let current_paths: Vec<String> = files.iter().map(|f| f.rel_path.clone()).collect();
         for file in files {
             if job.stop.load(Ordering::Relaxed) {
@@ -370,7 +382,7 @@ impl ProjectWorker {
                 if cached.structural { job.progress.lock().unwrap().structural_fallbacks += 1; }
                 let record = CodeRecord { id: input.id.clone(), project: project.into(), path: file.rel_path.clone(),
                     symbol: input.symbol, signature: input.signature, kind: input.kind, start_line: input.start, end_line: input.end,
-                    content_hash: hash.clone(), summary: cached.summary, summary_origin: if cached.structural { "parser" } else { "model" }.into(), partial: input.source.chars().count() > 6000,
+                    content_hash: hash.clone(), calls: input.calls, summary: cached.summary, summary_origin: if cached.structural { "parser" } else { "model" }.into(), partial: input.source.chars().count() > 6000,
                     summary_model: VERSION.into(), embedding_model: semantic.embedding_model().into() };
                 job.progress.lock().unwrap().phase = "writing".into();
                 store.upsert(&record, cached.vector).await?;
@@ -428,6 +440,13 @@ impl ProjectWorker {
             .storage
             .put(CF_KV, key.as_bytes(), &serde_json::to_vec(&manifest)?)?;
         state.storage.flush()?;
+        // Las aristas CALLS se resuelven con todas las unidades escritas; solo
+        // hace falta cuando este barrido escribió algo.
+        #[cfg(feature = "neo4j")]
+        if job.progress.lock().unwrap().units_written != written_before {
+            job.progress.lock().unwrap().phase = "linking".into();
+            link_calls(graph, project).await?;
+        }
         let mut p = job.progress.lock().unwrap();
         p.phase = if p.error.is_some() {
             "partial"
@@ -501,6 +520,56 @@ impl ProjectWorker {
                 break;
             }
         }
+        // Expansión por grafo: a cada acierto se le añade un vecino por CALLS
+        // (primero quien lo llama), revalidado por hash como los demás. Es lo
+        // que la búsqueda vectorial no ve: el punto de llamada.
+        #[cfg(feature = "neo4j")]
+        if let Some(graph) = state.neo4j.as_ref() {
+            let mut known: HashSet<String> = hits
+                .iter()
+                .filter_map(|h| h["id"].as_str().map(str::to_string))
+                .collect();
+            let mut expanded = Vec::new();
+            for hit in &hits {
+                let Some(id) = hit["id"].as_str() else { continue };
+                let rows = graph
+                    .fetch_all_query(
+                        neo4rs::query(
+                            "MATCH (u:CodeUnit {id:$id})-[r:CALLS]-(v:CodeUnit) \
+                             RETURN v.id AS id, v.path AS path, v.symbol AS symbol, v.signature AS signature, \
+                                    v.kind AS kind, v.start_line AS start_line, v.end_line AS end_line, \
+                                    v.content_hash AS content_hash, v.summary AS summary, \
+                                    v.summary_origin AS summary_origin, \
+                                    CASE WHEN startNode(r) = u THEN 'calls' ELSE 'called_by' END AS relation \
+                             ORDER BY relation ASC LIMIT 6",
+                        )
+                        .param("id", id),
+                    )
+                    .await?;
+                for row in rows {
+                    let vid: String = row.get("id")?;
+                    if known.contains(&vid) {
+                        continue;
+                    }
+                    let path: String = row.get("path")?;
+                    let hash: String = row.get("content_hash")?;
+                    if ensure_current(&root, &path, &hash).is_err() {
+                        continue;
+                    }
+                    known.insert(vid.clone());
+                    expanded.push(json!({
+                        "id": vid, "project": project, "path": path,
+                        "symbol": row.get::<String>("symbol")?, "signature": row.get::<String>("signature")?,
+                        "kind": row.get::<String>("kind")?, "start_line": row.get::<i64>("start_line")?,
+                        "end_line": row.get::<i64>("end_line")?, "content_hash": hash,
+                        "summary": row.get::<String>("summary")?, "summary_origin": row.get::<String>("summary_origin")?,
+                        "partial": false, "relation": row.get::<String>("relation")?, "via": hit["symbol"].clone(),
+                    }));
+                    break;
+                }
+            }
+            hits.extend(expanded);
+        }
         Ok(hits)
     }
 }
@@ -553,6 +622,7 @@ fn inputs(project: &str, path: &str, source: &str) -> Vec<UnitInput> {
         start: 1,
         end: source.lines().count().max(1),
         source: source.into(),
+        calls: Vec::new(),
     }];
     if let Some((_, logic)) = extract::extract(project, path, source) {
         for l in logic {
@@ -570,6 +640,7 @@ fn inputs(project: &str, path: &str, source: &str) -> Vec<UnitInput> {
                 start: l.start_line,
                 end: l.end_line,
                 source: snippet,
+                calls: l.calls,
             });
         }
     }
@@ -797,14 +868,44 @@ fn project_stale_filter(project: &str, paths: &[String]) -> Value {
 
 #[cfg(feature = "neo4j")]
 async fn project_record(graph: &crate::neo4j::Neo4jConnector, r: &CodeRecord) -> Result<()> {
-    graph.run(neo4rs::query("MERGE (p:CodeProject {id: $project}) MERGE (u:CodeUnit {id: $id}) SET u.project=$project, u.path=$path, u.symbol=$symbol, u.signature=$signature, u.kind=$kind, u.content_hash=$hash, u.start_line=$start, u.end_line=$end, u.summary=$summary, u.summary_origin=$origin MERGE (p)-[:HAS_UNIT]->(u)")
+    graph.run(neo4rs::query("MERGE (p:CodeProject {id: $project}) MERGE (u:CodeUnit {id: $id}) SET u.project=$project, u.path=$path, u.symbol=$symbol, u.signature=$signature, u.kind=$kind, u.content_hash=$hash, u.start_line=$start, u.end_line=$end, u.summary=$summary, u.summary_origin=$origin, u.name=$name, u.calls=$calls MERGE (p)-[:HAS_UNIT]->(u)")
         .param("project",r.project.clone()).param("id",r.id.clone()).param("path",r.path.clone())
         .param("symbol",r.symbol.clone()).param("signature",r.signature.clone()).param("kind",r.kind.clone()).param("hash",r.content_hash.clone())
-        .param("start",r.start_line as i64).param("end",r.end_line as i64).param("summary",r.summary.text()).param("origin",r.summary_origin.clone())).await?;
+        .param("start",r.start_line as i64).param("end",r.end_line as i64).param("summary",r.summary.text()).param("origin",r.summary_origin.clone()).param("name", r.symbol.rsplit("::").next().unwrap_or("").to_string()).param("calls", r.calls.clone())).await?;
     if r.kind != "file" {
         graph.run(neo4rs::query("MATCH (u:CodeUnit {id:$id}), (f:CodeUnit {id:$file}) MERGE (u)-[:DEFINED_IN]->(f)")
             .param("id",r.id.clone()).param("file",uuid(unit::stable_id(&r.project,&r.path,"")))).await?;
     }
+    Ok(())
+}
+
+/// Aristas CALLS del proyecto, desde `u.calls` de cada unidad. Se enlaza solo
+/// cuando el destino es único para esa llamada: `Tipo::metodo` y `funcion` por
+/// símbolo exacto en todo el proyecto (ante varios, gana el del mismo archivo);
+/// `.metodo` solo dentro del mismo archivo, porque por nombre suelto `push`,
+/// `get` o `new` chocan con la biblioteca estándar. Lo ambiguo no se inventa.
+#[cfg(feature = "neo4j")]
+async fn link_calls(graph: &crate::neo4j::Neo4jConnector, project: &str) -> Result<()> {
+    graph.execute("CREATE INDEX quiron_code_unit_symbol IF NOT EXISTS FOR (u:CodeUnit) ON (u.project, u.symbol)").await?;
+    graph.execute("CREATE INDEX quiron_code_unit_name IF NOT EXISTS FOR (u:CodeUnit) ON (u.project, u.name)").await?;
+    graph.run(neo4rs::query("MATCH (:CodeUnit {project:$project})-[r:CALLS]->() DELETE r").param("project", project)).await?;
+    // La agregación va por (unidad, llamada): agrupar solo por unidad mezclaba
+    // los destinos de todas sus llamadas y casi nunca quedaba uno solo.
+    const SELECT: &str = "WITH u, callee, collect(v) AS targets \
+         WITH u, targets, [t IN targets WHERE t.path = u.path] AS same \
+         WITH u, CASE WHEN size(same) = 1 THEN same WHEN size(targets) = 1 THEN targets ELSE [] END AS chosen \
+         UNWIND chosen AS v MERGE (u)-[:CALLS]->(v)";
+    graph.run(neo4rs::query(&format!(
+        "MATCH (u:CodeUnit {{project:$project}}) WHERE u.calls IS NOT NULL \
+         UNWIND u.calls AS callee WITH u, callee WHERE NOT callee STARTS WITH '.' \
+         MATCH (v:CodeUnit {{project:$project, symbol: callee}}) WHERE v.id <> u.id {SELECT}"
+    )).param("project", project)).await?;
+    graph.run(neo4rs::query(&format!(
+        "MATCH (u:CodeUnit {{project:$project}}) WHERE u.calls IS NOT NULL \
+         UNWIND u.calls AS callee WITH u, callee WHERE callee STARTS WITH '.' \
+         MATCH (v:CodeUnit {{project:$project, name: substring(callee, 1)}}) \
+         WHERE v.id <> u.id AND v.path = u.path AND v.kind IN ['method', 'function'] {SELECT}"
+    )).param("project", project)).await?;
     Ok(())
 }
 

@@ -76,8 +76,9 @@ class Brain:
 
 
 def resumen(hit):
-    return {k: hit[k] for k in ("path", "symbol", "kind", "start_line", "end_line",
-                                 "content_hash", "summary_origin", "partial", "score")}
+    campos = ("path", "symbol", "kind", "start_line", "end_line", "content_hash",
+              "summary_origin", "partial", "score", "relation", "via")
+    return {k: hit[k] for k in campos if k in hit}
 
 
 def main():

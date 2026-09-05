@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-09-05T14:56:19+0200",
+  "fecha": "2026-09-05T16:15:44+0200",
   "proyecto": "01KX61WD5MPKNFGF4849N79CXE",
   "raiz": "/home/KSSOSE/Quirón",
   "modelo_pedido": "sonnet",
@@ -11,12 +11,23 @@
           "path": "Quirón/quiron-brain/src/index/worker.rs",
           "symbol": "ensure_current",
           "kind": "function",
-          "start_line": 570,
-          "end_line": 596,
-          "content_hash": "ab5db08f5d97c8404984eb8b39851750d62f6478164fb51520da8f337e8c18e2",
+          "start_line": 650,
+          "end_line": 676,
+          "content_hash": "1add1742886922643839df41eb1dbd0289adbd50d8b055514d4576afc4726c35",
           "summary_origin": "model",
           "partial": false,
           "score": 0.59239477
+        },
+        {
+          "path": "Quirón/quiron-brain/src/api/server.rs",
+          "symbol": "resolve_cached_chain_validity_result",
+          "kind": "function",
+          "start_line": 438,
+          "end_line": 450,
+          "content_hash": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9",
+          "summary_origin": "model",
+          "partial": false,
+          "score": 0.57102215
         },
         {
           "path": "Quirón/quiron-brain/src/ledger/writer.rs",
@@ -30,6 +41,17 @@
           "score": 0.5701439
         },
         {
+          "path": "Quirón/quiron-brain/src/api/server.rs",
+          "symbol": "refresh_chain_validity",
+          "kind": "function",
+          "start_line": 425,
+          "end_line": 436,
+          "content_hash": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9",
+          "summary_origin": "model",
+          "partial": false,
+          "score": 0.56670797
+        },
+        {
           "path": "Quirón/quiron-brain/src/types/artifact.rs",
           "symbol": "ArtifactMeta::is_valid_hash",
           "kind": "method",
@@ -41,36 +63,62 @@
           "score": 0.5631359
         },
         {
-          "path": "Quirón/llore_editor/crates/llore_buffer/src/history.rs",
-          "symbol": "History::is_modified",
+          "path": "Quirón/quiron-brain/src/index/worker.rs",
+          "symbol": "ProjectWorker::scan",
           "kind": "method",
-          "start_line": 79,
-          "end_line": 81,
-          "content_hash": "860aa6bb9cef9e8977bc30ba36e1c9c66b511616a9393b47d1b39d09f2659e69",
+          "start_line": 255,
+          "end_line": 459,
+          "content_hash": "1add1742886922643839df41eb1dbd0289adbd50d8b055514d4576afc4726c35",
           "summary_origin": "model",
           "partial": false,
-          "score": 0.5577807
+          "relation": "called_by",
+          "via": "ensure_current"
         },
         {
-          "path": "Quirón/quiron-brain/src/types/artifact.rs",
-          "symbol": "hash_file",
+          "path": "Quirón/quiron-brain/src/api/server.rs",
+          "symbol": "resolve_cached_chain_validity",
           "kind": "function",
-          "start_line": 120,
-          "end_line": 136,
-          "content_hash": "f036abcd1fd2851f59e6521ea72faccb085fc2fe8e84764a34be202e6b002537",
+          "start_line": 669,
+          "end_line": 673,
+          "content_hash": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9",
           "summary_origin": "model",
           "partial": false,
-          "score": 0.55734277
+          "relation": "called_by",
+          "via": "resolve_cached_chain_validity_result"
+        },
+        {
+          "path": "Quirón/quiron-brain/src/ledger/writer.rs",
+          "symbol": "LedgerWriter::hash_event",
+          "kind": "method",
+          "start_line": 41,
+          "end_line": 77,
+          "content_hash": "810481d3b75614a554ab227dc9ef2693206a18555dcac61c9e426e06314bc0d3",
+          "summary_origin": "model",
+          "partial": false,
+          "relation": "calls",
+          "via": "LedgerWriter::verify_chain"
+        },
+        {
+          "path": "Quirón/quiron-brain/src/api/server.rs",
+          "symbol": "verify_chain",
+          "kind": "function",
+          "start_line": 901,
+          "end_line": 933,
+          "content_hash": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9",
+          "summary_origin": "model",
+          "partial": false,
+          "relation": "calls",
+          "via": "refresh_chain_validity"
         }
       ],
       "chat": {
         "http": 200,
-        "segundos": 11.7,
+        "segundos": 23.9,
         "modelo_real": "claude-sonnet-5",
         "usage": {
-          "input_tokens": 4010,
-          "output_tokens": 865,
-          "total_tokens": 4875
+          "input_tokens": 13975,
+          "output_tokens": 2061,
+          "total_tokens": 16036
         },
         "stop_reason": "end_turn",
         "fichas_inyectadas": [
@@ -78,12 +126,23 @@
             "path": "Quirón/quiron-brain/src/index/worker.rs",
             "symbol": "ensure_current",
             "kind": "function",
-            "start_line": 570,
-            "end_line": 596,
-            "content_hash": "ab5db08f5d97c8404984eb8b39851750d62f6478164fb51520da8f337e8c18e2",
+            "start_line": 650,
+            "end_line": 676,
+            "content_hash": "1add1742886922643839df41eb1dbd0289adbd50d8b055514d4576afc4726c35",
             "summary_origin": "model",
             "partial": false,
             "score": 0.59239477
+          },
+          {
+            "path": "Quirón/quiron-brain/src/api/server.rs",
+            "symbol": "resolve_cached_chain_validity_result",
+            "kind": "function",
+            "start_line": 438,
+            "end_line": 450,
+            "content_hash": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9",
+            "summary_origin": "model",
+            "partial": false,
+            "score": 0.57102215
           },
           {
             "path": "Quirón/quiron-brain/src/ledger/writer.rs",
@@ -97,29 +156,66 @@
             "score": 0.5701439
           },
           {
-            "path": "Quirón/quiron-brain/src/types/artifact.rs",
-            "symbol": "ArtifactMeta::is_valid_hash",
-            "kind": "method",
-            "start_line": 94,
-            "end_line": 96,
-            "content_hash": "f036abcd1fd2851f59e6521ea72faccb085fc2fe8e84764a34be202e6b002537",
+            "path": "Quirón/quiron-brain/src/api/server.rs",
+            "symbol": "refresh_chain_validity",
+            "kind": "function",
+            "start_line": 425,
+            "end_line": 436,
+            "content_hash": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9",
             "summary_origin": "model",
             "partial": false,
-            "score": 0.5631359
+            "score": 0.56670797
           },
           {
-            "path": "Quirón/llore_editor/crates/llore_buffer/src/history.rs",
-            "symbol": "History::is_modified",
+            "path": "Quirón/quiron-brain/src/index/worker.rs",
+            "symbol": "ProjectWorker::scan",
             "kind": "method",
-            "start_line": 79,
-            "end_line": 81,
-            "content_hash": "860aa6bb9cef9e8977bc30ba36e1c9c66b511616a9393b47d1b39d09f2659e69",
+            "start_line": 255,
+            "end_line": 459,
+            "content_hash": "1add1742886922643839df41eb1dbd0289adbd50d8b055514d4576afc4726c35",
             "summary_origin": "model",
             "partial": false,
-            "score": 0.5577807
+            "relation": "called_by",
+            "via": "ensure_current"
+          },
+          {
+            "path": "Quirón/quiron-brain/src/api/server.rs",
+            "symbol": "resolve_cached_chain_validity",
+            "kind": "function",
+            "start_line": 669,
+            "end_line": 673,
+            "content_hash": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9",
+            "summary_origin": "model",
+            "partial": false,
+            "relation": "called_by",
+            "via": "resolve_cached_chain_validity_result"
+          },
+          {
+            "path": "Quirón/quiron-brain/src/ledger/writer.rs",
+            "symbol": "LedgerWriter::hash_event",
+            "kind": "method",
+            "start_line": 41,
+            "end_line": 77,
+            "content_hash": "810481d3b75614a554ab227dc9ef2693206a18555dcac61c9e426e06314bc0d3",
+            "summary_origin": "model",
+            "partial": false,
+            "relation": "calls",
+            "via": "LedgerWriter::verify_chain"
+          },
+          {
+            "path": "Quirón/quiron-brain/src/api/server.rs",
+            "symbol": "verify_chain",
+            "kind": "function",
+            "start_line": 901,
+            "end_line": 933,
+            "content_hash": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9",
+            "summary_origin": "model",
+            "partial": false,
+            "relation": "calls",
+            "via": "refresh_chain_validity"
           }
         ],
-        "texto": "La comprobación de vigencia se realiza en la función `ensure_current(root, path, hash)`, en `Quirón/quiron-brain/src/index/worker.rs:570-596` (content_hash `ab5db08f5d97c8404984eb8b39851750d62f6478164fb51520da8f337e8c18e2`).\n\nSegún su ficha, esta función valida que la ruta sea correcta, no sea un secreto ni un symlink fuera del proyecto, y **compara el hash de contenido actual del archivo con el hash esperado**. Si el hash no coincide (el archivo cambió), la función devuelve un `Err`, lo que indica que el acierto se descarta/rechaza en lugar de devolverse como válido.\n\nNo tengo en el contexto recuperado el fragmento exacto del código que muestre la línea de comparación del hash ni el punto donde se invoca `ensure_current` dentro del flujo de búsqueda para filtrar el resultado; solo dispongo del resumen funcional de la ficha indexada, así que no puedo citar esa parte literal del código.",
+        "texto": "**Comprobación de vigencia del hash**\n\nLa única ficha que respalda un chequeo de hash de archivo es:\n\n- `ensure_current(root: &Path, path: &str, hash: &str) -> Result<()>`\n  Ficha: `Quirón/quiron-brain/src/index/worker.rs:650-676`\n  content_hash: `1add1742886922643839df41eb1dbd0289adbd50d8b055514d4576afc4726c35`\n\nSegún su resumen, esta función valida que la ruta esté dentro del proyecto, no sea un secreto ni un symlink fuera del directorio, y **compara el hash de contenido actual del archivo (leído del disco) con el hash esperado que se pasa como parámetro**. Si algo falla —incluido el hash— devuelve `Err(...)` en el `Result<()>`.\n\n**Relación con la búsqueda**\n\nLa ficha de relación `called_by` indica que `ensure_current` es invocada desde:\n\n- `ProjectWorker::scan(...)` — `Quirón/quiron-brain/src/index/worker.rs:255-459`\n  content_hash: `1add1742886922643839df41eb1dbd0289adbd50d8b055514d4576afc4726c35`\n\nEsto sitúa la comprobación en el **flujo de indexación/escaneo del proyecto**, no directamente en el endpoint de búsqueda. No hay ninguna ficha en el contexto recuperado que muestre el código del handler de búsqueda de código (p. ej. un endpoint `search` o similar) invocando `ensure_current` antes de devolver un acierto.\n\n**Qué ocurre si el archivo cambió**\n\nCon la evidencia disponible solo puedo confirmar que `ensure_current` devuelve un `Err` cuando el hash no coincide (fallo de vigencia). No hay ficha que muestre explícitamente qué hace el llamador con ese error en el contexto de un \"acierto de búsqueda\" (p. ej. si se descarta el resultado, se re-indexa el archivo o se marca como obsoleto). Afirmar ese comportamiento concreto para la ruta de búsqueda sería especular sin respaldo de código, así que lo dejo explícitamente sin confirmar.",
         "respuesta_sospechosamente_corta": false
       }
     },
@@ -180,16 +276,40 @@
           "summary_origin": "model",
           "partial": false,
           "score": 0.62895525
+        },
+        {
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "symbol": "main",
+          "kind": "function",
+          "start_line": 554,
+          "end_line": 709,
+          "content_hash": "5d1c9167b1ef7a53bf3f8dd2c209b233bcd23a33a9f5c5ccb652ab36f87ebf38",
+          "summary_origin": "model",
+          "partial": false,
+          "relation": "called_by",
+          "via": "GatewayConfig::from_env"
+        },
+        {
+          "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+          "symbol": "process_request_claude_cli",
+          "kind": "function",
+          "start_line": 111,
+          "end_line": 123,
+          "content_hash": "0f3b1cacc7058ff98216f048a593e843487c84dcdf316dde800011503a9a64d7",
+          "summary_origin": "model",
+          "partial": false,
+          "relation": "calls",
+          "via": "process_request"
         }
       ],
       "chat": {
         "http": 200,
-        "segundos": 18.8,
+        "segundos": 16.7,
         "modelo_real": "claude-sonnet-5",
         "usage": {
-          "input_tokens": 8356,
-          "output_tokens": 1767,
-          "total_tokens": 10123
+          "input_tokens": 5261,
+          "output_tokens": 1629,
+          "total_tokens": 6890
         },
         "stop_reason": "end_turn",
         "fichas_inyectadas": [
@@ -236,9 +356,33 @@
             "summary_origin": "model",
             "partial": false,
             "score": 0.6315088
+          },
+          {
+            "path": "Quirón/vertex-gateway/src/main.rs",
+            "symbol": "main",
+            "kind": "function",
+            "start_line": 554,
+            "end_line": 709,
+            "content_hash": "5d1c9167b1ef7a53bf3f8dd2c209b233bcd23a33a9f5c5ccb652ab36f87ebf38",
+            "summary_origin": "model",
+            "partial": false,
+            "relation": "called_by",
+            "via": "GatewayConfig::from_env"
+          },
+          {
+            "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+            "symbol": "process_request_claude_cli",
+            "kind": "function",
+            "start_line": 111,
+            "end_line": 123,
+            "content_hash": "0f3b1cacc7058ff98216f048a593e843487c84dcdf316dde800011503a9a64d7",
+            "summary_origin": "model",
+            "partial": false,
+            "relation": "calls",
+            "via": "process_request"
           }
         ],
-        "texto": "**Backend por defecto:** Las fichas disponibles no incluyen el código fuente literal de `GatewayBackend::from_env`, solo un resumen generado por modelo. Ese resumen no especifica explícitamente qué ocurre cuando `value` es `None` (es decir, cuando `QUIRON_GATEWAY_BACKEND` no está definida), por lo que **no puedo confirmar con certeza cuál es el backend por defecto** sin ver las líneas literales del archivo.\n\nLo que sí respalda la ficha (`Quirón/vertex-gateway/src/main.rs:34-61`, content_hash=`5d1c9167b1ef7a53bf3f8dd2c209b233bcd23a33a9f5c5ccb652ab36f87ebf38`, symbol=`GatewayBackend::from_env`):\n\n- La firma es `fn from_env(value: Option<String>) -> Result<Self, String>`.\n- Normaliza el valor de entrada a minúsculas y recorta espacios.\n- **Valores aceptados** (según el resumen): OpenAI, Ollama, Claude, OpenClaw y Codex Direct.\n- Si el valor no coincide con ninguno de esos nombres, devuelve un `Err` con un mensaje descriptivo.\n\n**Recomendación:** para confirmar el valor por defecto exacto (qué rama toma cuando `value == None`) y las cadenas literales aceptadas (p. ej. `\"openai\"`, `\"ollama\"`, etc.), habría que inspeccionar directamente las líneas 34-61 de `Quirón/vertex-gateway/src/main.rs`, ya que el resumen indexado no lo detalla.",
+        "texto": "**No tengo evidencia suficiente sobre el backend por defecto.** Las fichas recuperadas solo contienen el *resumen* generado por el indexador de la función `GatewayBackend::from_env`, no el código fuente literal, así que no puedo confirmar con certeza qué variante se devuelve cuando `value` es `None` (es decir, cuando `QUIRON_GATEWAY_BACKEND` no está definida).\n\nLo que sí respalda la ficha:\n- La función que resuelve esta variable es `GatewayBackend::from_env(value: Option<String>) -> Result<Self, String>`, en `Quirón/vertex-gateway/src/main.rs:34-61` (content_hash=5d1c9167b1ef7a53bf3f8dd2c209b233bcd23a33a9f5c5ccb652ab36f87ebf38).\n- Según el resumen de esa ficha, la función normaliza el valor de entrada (minúsculas, recorte de espacios) y acepta los siguientes nombres de backend: **OpenAI, Ollama, Claude, OpenClaw y Codex Direct**. Si el valor no coincide con ninguno, devuelve un `Err` con un mensaje descriptivo.\n- Esta función se invoca desde `GatewayConfig::from_env()` en `Quirón/vertex-gateway/src/main.rs:92-181` (mismo content_hash), que construye la configuración completa del gateway a partir de variables de entorno.\n\nPara confirmar el valor por defecto exacto (qué variante se asigna cuando `value` es `None`) sería necesario ver el cuerpo literal de la función en `main.rs:34-61`, ya que la ficha disponible solo aporta el resumen, no el código fuente.",
         "respuesta_sospechosamente_corta": false
       }
     }
@@ -246,29 +390,40 @@
   "control_negativo": {
     "archivo": "Quirón/quiron-brain/src/types/artifact.rs",
     "antes": [
-      "Quirón/quiron-brain/src/index/worker.rs:570-596",
+      "Quirón/quiron-brain/src/index/worker.rs:650-676",
+      "Quirón/quiron-brain/src/api/server.rs:438-450",
       "Quirón/quiron-brain/src/ledger/writer.rs:200-250",
+      "Quirón/quiron-brain/src/api/server.rs:425-436",
       "Quirón/quiron-brain/src/types/artifact.rs:94-96",
-      "Quirón/llore_editor/crates/llore_buffer/src/history.rs:79-81",
-      "Quirón/quiron-brain/src/types/artifact.rs:120-136"
+      "Quirón/quiron-brain/src/index/worker.rs:255-459",
+      "Quirón/quiron-brain/src/api/server.rs:669-673",
+      "Quirón/quiron-brain/src/ledger/writer.rs:41-77",
+      "Quirón/quiron-brain/src/api/server.rs:901-933"
     ],
     "alterado": [
-      "Quirón/quiron-brain/src/index/worker.rs:570-596",
+      "Quirón/quiron-brain/src/index/worker.rs:650-676",
+      "Quirón/quiron-brain/src/api/server.rs:438-450",
       "Quirón/quiron-brain/src/ledger/writer.rs:200-250",
+      "Quirón/quiron-brain/src/api/server.rs:425-436",
       "Quirón/llore_editor/crates/llore_buffer/src/history.rs:79-81",
-      "Quirón/quiron-brain/src/vct.rs:699-706",
-      "Quirón/llore_editor/crates/llore_buffer/src/buffer.rs:209-211"
+      "Quirón/quiron-brain/src/index/worker.rs:255-459",
+      "Quirón/quiron-brain/src/api/server.rs:669-673",
+      "Quirón/quiron-brain/src/ledger/writer.rs:41-77",
+      "Quirón/quiron-brain/src/api/server.rs:901-933"
     ],
     "restaurado": [
-      "Quirón/quiron-brain/src/index/worker.rs:570-596",
+      "Quirón/quiron-brain/src/index/worker.rs:650-676",
+      "Quirón/quiron-brain/src/api/server.rs:438-450",
       "Quirón/quiron-brain/src/ledger/writer.rs:200-250",
+      "Quirón/quiron-brain/src/api/server.rs:425-436",
       "Quirón/quiron-brain/src/types/artifact.rs:94-96",
-      "Quirón/llore_editor/crates/llore_buffer/src/history.rs:79-81",
-      "Quirón/quiron-brain/src/types/artifact.rs:120-136"
+      "Quirón/quiron-brain/src/index/worker.rs:255-459",
+      "Quirón/quiron-brain/src/api/server.rs:669-673",
+      "Quirón/quiron-brain/src/ledger/writer.rs:41-77",
+      "Quirón/quiron-brain/src/api/server.rs:901-933"
     ],
     "unidades_del_archivo_antes": [
-      "Quirón/quiron-brain/src/types/artifact.rs:94-96",
-      "Quirón/quiron-brain/src/types/artifact.rs:120-136"
+      "Quirón/quiron-brain/src/types/artifact.rs:94-96"
     ],
     "desaparecen_al_alterar": true,
     "vuelven_al_restaurar": true
@@ -276,13 +431,13 @@
   "hash_externo": {
     "herramienta": "/tmp/claude-1000/-home-KSSOSE-Quir-n/9335510e-363c-46ca-ac60-0df332fc0cc3/scratchpad/b3/target/release/b3",
     "archivos": {
-      "Quirón/llore_editor/crates/llore_buffer/src/history.rs": {
-        "indice": "860aa6bb9cef9e8977bc30ba36e1c9c66b511616a9393b47d1b39d09f2659e69",
-        "externo": "860aa6bb9cef9e8977bc30ba36e1c9c66b511616a9393b47d1b39d09f2659e69"
+      "Quirón/quiron-brain/src/api/server.rs": {
+        "indice": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9",
+        "externo": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9"
       },
       "Quirón/quiron-brain/src/index/worker.rs": {
-        "indice": "ab5db08f5d97c8404984eb8b39851750d62f6478164fb51520da8f337e8c18e2",
-        "externo": "ab5db08f5d97c8404984eb8b39851750d62f6478164fb51520da8f337e8c18e2"
+        "indice": "1add1742886922643839df41eb1dbd0289adbd50d8b055514d4576afc4726c35",
+        "externo": "1add1742886922643839df41eb1dbd0289adbd50d8b055514d4576afc4726c35"
       },
       "Quirón/quiron-brain/src/ledger/writer.rs": {
         "indice": "810481d3b75614a554ab227dc9ef2693206a18555dcac61c9e426e06314bc0d3",
@@ -295,6 +450,10 @@
       "Quirón/quiron-brain/src/types/artifact.rs": {
         "indice": "f036abcd1fd2851f59e6521ea72faccb085fc2fe8e84764a34be202e6b002537",
         "externo": "f036abcd1fd2851f59e6521ea72faccb085fc2fe8e84764a34be202e6b002537"
+      },
+      "Quirón/vertex-gateway/src/claude_cli.rs": {
+        "indice": "0f3b1cacc7058ff98216f048a593e843487c84dcdf316dde800011503a9a64d7",
+        "externo": "0f3b1cacc7058ff98216f048a593e843487c84dcdf316dde800011503a9a64d7"
       },
       "Quirón/vertex-gateway/src/main.rs": {
         "indice": "5d1c9167b1ef7a53bf3f8dd2c209b233bcd23a33a9f5c5ccb652ab36f87ebf38",

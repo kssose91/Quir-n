@@ -153,6 +153,12 @@ pub struct LogicUnit {
     /// Texto semántico (≤180 palabras): propósito, entradas, salidas, efectos.
     /// Lo redacta la red obrera.
     pub semantic_text: Option<String>,
+    /// Nombres a los que llama el cuerpo, tal como aparecen: `foo` (función
+    /// libre o de módulo), `Tipo::metodo` (ruta con tipo) o `.metodo` (método
+    /// sin receptor resuelto). Se resuelven contra las unidades del proyecto al
+    /// proyectar el grafo; lo ambiguo no se enlaza.
+    #[serde(default)]
+    pub calls: Vec<String>,
 }
 
 impl LogicUnit {

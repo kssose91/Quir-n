@@ -134,6 +134,7 @@ mod tests {
             end_line: 20,
             normalized_hash: "abc".into(),
             semantic_text: None,
+            calls: Vec::new(),
         };
         let p = logic_payload(&l);
         assert!(p.contains_key("path"));

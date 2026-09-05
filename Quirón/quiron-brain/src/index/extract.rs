@@ -103,6 +103,22 @@ fn collect_item(
         .map(|b| slice(source, b.start_byte(), b.end_byte()))
         .unwrap_or_else(|| slice(source, node.start_byte(), node.end_byte()));
 
+    // Las llamadas solo tienen sentido en cuerpos ejecutables. `Self::x` se
+    // escribe con el tipo del impl, que es como se llama la unidad destino.
+    let calls = match kind {
+        LogicKind::Function | LogicKind::Method => node
+            .child_by_field_name("body")
+            .map(|body| collect_calls(body, source))
+            .unwrap_or_default()
+            .into_iter()
+            .map(|call| match (impl_type, call.strip_prefix("Self::")) {
+                (Some(ty), Some(method)) => format!("{ty}::{method}"),
+                _ => call,
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+
     out.push(LogicUnit {
         id: stable_id(project_id, path, &symbol),
         project_id: project_id.to_string(),
@@ -114,7 +130,60 @@ fn collect_item(
         end_line: node.end_position().row + 1,
         normalized_hash: content_hash(normalize(&body_text).as_bytes()),
         semantic_text: None,
+        calls,
     });
+}
+
+/// Nombres llamados dentro de un cuerpo, deduplicados y ordenados. Solo cuenta
+/// las `call_expression` del árbol; las macros no se consideran llamadas.
+fn collect_calls(body: TsNode, source: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut stack = vec![body];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "call_expression" {
+            if let Some(name) = node
+                .child_by_field_name("function")
+                .and_then(|function| callee_name(function, source))
+            {
+                out.push(name);
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            stack.push(child);
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// Nombre del destino de una llamada según la forma de la expresión.
+fn callee_name(node: TsNode, source: &str) -> Option<String> {
+    match node.kind() {
+        "identifier" => Some(slice(source, node.start_byte(), node.end_byte())),
+        // `x.metodo(...)`: el receptor no se resuelve sin tipos; se anota el método.
+        "field_expression" => node
+            .child_by_field_name("field")
+            .map(|field| format!(".{}", slice(source, field.start_byte(), field.end_byte()))),
+        "scoped_identifier" => {
+            let text = slice(source, node.start_byte(), node.end_byte());
+            let segments: Vec<&str> = text.split("::").collect();
+            let name = (*segments.last()?).to_string();
+            match segments.iter().rev().nth(1) {
+                // `Tipo::metodo`: el tipo forma parte del símbolo de la unidad.
+                Some(owner) if owner.chars().next().is_some_and(char::is_uppercase) => {
+                    Some(format!("{owner}::{name}"))
+                }
+                // `modulo::funcion`: la unidad se llama solo `funcion`.
+                _ => Some(name),
+            }
+        }
+        "generic_function" => node
+            .child_by_field_name("function")
+            .and_then(|function| callee_name(function, source)),
+        _ => None,
+    }
 }
 
 /// Texto del campo `name` de un item.
@@ -222,6 +291,22 @@ trait Ruido {
         let acelera = logic.iter().find(|l| l.symbol == "Motor::acelera").unwrap();
         assert!(acelera.start_line < acelera.end_line);
         assert!(acelera.signature.contains("acelera"));
+    }
+
+    #[test]
+    fn las_llamadas_del_cuerpo_se_registran_por_su_forma() {
+        let (_f, logic) = extract("proj", "src/motor.rs", SRC).unwrap();
+        let arranca = logic.iter().find(|l| l.symbol == "arranca").unwrap();
+        assert_eq!(arranca.calls, vec![".acelera"]);
+        let new = logic.iter().find(|l| l.symbol == "Motor::new").unwrap();
+        assert!(new.calls.is_empty());
+
+        let src = "impl A { fn f(&self) { Self::g(); helper(); modulo::otra(); x.m::<u8>(); helper(); } fn g() {} }\nfn helper() {}";
+        let (_f, logic) = extract("p", "a.rs", src).unwrap();
+        let f = logic.iter().find(|l| l.symbol == "A::f").unwrap();
+        assert_eq!(f.calls, vec![".m", "A::g", "helper", "otra"]);
+        let g = logic.iter().find(|l| l.symbol == "A::g").unwrap();
+        assert!(g.calls.is_empty());
     }
 
     #[test]
