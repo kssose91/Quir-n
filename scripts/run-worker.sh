@@ -23,9 +23,11 @@ fi
 # hasta 8 GiB (b10816). En el barrido del 05-09-2026 llegó a 7,8 GB y dejó el
 # portátil sin memoria. Con un solo slot basta un tope pequeño.
 # El modelo puede cambiarse desde la paleta Agentes (QUIRON_WORKER_MODEL_FILE).
+# Contexto de 8192: las fichas caben en 4096, pero como «servidor en red local»
+# del chat recibe el sistema, las fichas y las herramientas (≈4 700 tokens).
 MODEL_FILE="${QUIRON_WORKER_MODEL_FILE:-$WORKER_DIR/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf}"
 exec "$SERVER" --device "$DEVICE" --model "$MODEL_FILE" \
   --alias quiron-worker --host 127.0.0.1 --port "${QUIRON_LOCAL_WORKER_PORT:-8092}" \
-  --ctx-size 4096 --parallel 1 --n-gpu-layers "${QUIRON_WORKER_GPU_LAYERS:-99}" \
+  --ctx-size "${QUIRON_WORKER_CTX:-8192}" --parallel 1 --n-gpu-layers "${QUIRON_WORKER_GPU_LAYERS:-99}" \
   --cache-ram "${QUIRON_WORKER_CACHE_RAM_MIB:-256}" \
   --threads "${QUIRON_WORKER_THREADS:-4}" --no-webui

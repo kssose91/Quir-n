@@ -153,15 +153,18 @@ def chat_round(question):
     t0=time.monotonic()
     while time.monotonic()-t0<300:
         out=subprocess.run(['journalctl','--user','-u','quiron-brain','--since',since,'-o','cat'],capture_output=True,text=True).stdout
-        lines=[l for l in out.splitlines() if '[claude_cli]' in l and 'model=' in l]
-        # Con manos hay varias llamadas: la última es la que no pide herramientas.
+        # Cada llamada deja una línea `[gateway] backend=… tool_calls=N` (todos
+        # los adaptadores); con manos hay varias y la última es la que no pide
+        # herramientas. Las líneas `[claude_cli]` antiguas siguen valiendo.
+        lines=[l for l in out.splitlines() if '[gateway]' in l and 'tool_calls=' in l]
+        if not lines: lines=[l for l in out.splitlines() if '[claude_cli]' in l and 'tool_calls=' in l]
         if lines and 'tool_calls=0' in lines[-1]:
             # La respuesta aún viaja gateway → cerebro → editor; y el editor solo
             # repinta ante un evento: una tecla inerte lo provoca.
             time.sleep(3); key('Shift_L'); time.sleep(1); step_shot('3-respuesta')
             return {'seconds':round(time.monotonic()-t0,1),'llamadas':len(lines),'gateway_log':lines}
         time.sleep(1)
-    raise AssertionError('sin respuesta del modelo en 180 s')
+    raise AssertionError('sin respuesta del modelo en 300 s')
 def close():
     subprocess.run(['hyprctl','dispatch','closewindow','pid:'+str(p.pid)],check=True,stdout=subprocess.DEVNULL)
     try:

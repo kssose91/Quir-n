@@ -1,0 +1,36 @@
+[
+ {
+  "hora": "20:55:59",
+  "ruta": "/v1/chat/completions",
+  "clave_correcta": null,
+  "modelo": "mock-coder:7b",
+  "roles": [
+   "system",
+   "user"
+  ],
+  "herramientas_ofrecidas": [
+   "read_file",
+   "list_files",
+   "search_text"
+  ],
+  "con_resultado_de_herramienta": false
+ },
+ {
+  "hora": "20:56:01",
+  "ruta": "/v1/chat/completions",
+  "clave_correcta": null,
+  "modelo": "mock-coder:7b",
+  "roles": [
+   "system",
+   "user",
+   "assistant",
+   "tool"
+  ],
+  "herramientas_ofrecidas": [
+   "read_file",
+   "list_files",
+   "search_text"
+  ],
+  "con_resultado_de_herramienta": true
+ }
+]

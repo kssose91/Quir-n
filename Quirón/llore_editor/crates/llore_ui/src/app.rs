@@ -348,6 +348,7 @@ pub enum ClickTargetAction {
     /// Panel Conexión: inicia sesión en una CLI, usa un proveedor, o vuelve a sondear.
     ProviderLogin(ProviderKind),
     ProviderUse(ProviderKind),
+    ProviderInstall(ProviderKind),
     ProviderRefresh,
     /// Paleta Agentes: configurar una conexión por campos, elegir modelo del
     /// worker (abrir la lista / elegir uno) y cerrar.
@@ -503,13 +504,13 @@ pub enum ProviderKind {
 }
 
 impl ProviderKind {
-    /// Valor de `QUIRON_GATEWAY_BACKEND`.
+    /// Valor de `QUIRON_GATEWAY_BACKEND`. Ollama va por su API compatible con
+    /// OpenAI (`/v1`), que es la que transporta las manos del chat.
     pub fn backend(self) -> &'static str {
         match self {
             ProviderKind::ClaudeCli => "claude_cli",
             ProviderKind::CodexDirect => "codex_direct",
-            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => "openai_compatible",
-            ProviderKind::Ollama => "ollama_native",
+            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer | ProviderKind::Ollama => "openai_compatible",
         }
     }
 
@@ -518,8 +519,29 @@ impl ProviderKind {
         match self {
             ProviderKind::ClaudeCli => "claude-cli",
             ProviderKind::CodexDirect => "codex-direct",
-            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => "openai-compatible",
-            ProviderKind::Ollama => "ollama-native",
+            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer | ProviderKind::Ollama => "openai-compatible",
+        }
+    }
+
+    /// Los tres que van por `openai_compatible` se distinguen por el endpoint
+    /// guardado: Ollama por su puerto, la red local por su dirección.
+    pub fn from_compatible_endpoint(endpoint: &str) -> ProviderKind {
+        if endpoint.contains(":11434") {
+            ProviderKind::Ollama
+        } else if es_endpoint_local(endpoint) {
+            ProviderKind::LocalServer
+        } else {
+            ProviderKind::OpenAiCompatible
+        }
+    }
+
+    /// Cómo instalar el programa que falta (para «Instalar» en la tarjeta).
+    pub fn install_command(self) -> Option<(&'static str, &'static [&'static str])> {
+        match self {
+            ProviderKind::ClaudeCli => Some(("npm", &["install", "-g", "@anthropic-ai/claude-code"])),
+            ProviderKind::CodexDirect => Some(("npm", &["install", "-g", "@openai/codex"])),
+            ProviderKind::Ollama => Some(("sh", &["-c", "curl -fsSL https://ollama.com/install.sh | sh"])),
+            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => None,
         }
     }
 
@@ -544,6 +566,27 @@ impl ProviderKind {
     }
 }
 
+/// Direcciones de la red local o de este equipo: `localhost`, `*.local` y los
+/// rangos privados (10/8, 172.16/12, 192.168/16, 127/8). Un nombre de dominio
+/// que empiece por cifras no cuenta.
+pub fn es_endpoint_local(endpoint: &str) -> bool {
+    let sin_esquema = endpoint.split("://").nth(1).unwrap_or(endpoint);
+    let host = sin_esquema
+        .split(['/', ':', '?'])
+        .next()
+        .unwrap_or("")
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    if host == "localhost" || host == "::1" || host.ends_with(".local") {
+        return true;
+    }
+    let octetos: Vec<u8> = host.split('.').filter_map(|o| o.parse().ok()).collect();
+    if octetos.len() != 4 || host.split('.').count() != 4 {
+        return false;
+    }
+    matches!(octetos[..], [10, ..] | [127, ..] | [192, 168, ..]) || (octetos[0] == 172 && (16..=31).contains(&octetos[1]))
+}
+
 /// Campos que se piden al configurar una conexión desde la paleta.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentTarget {
@@ -556,15 +599,16 @@ impl AgentTarget {
     pub fn labels(self) -> &'static [&'static str] {
         match self {
             AgentTarget::Compatible => &[
-                "endpoint (p. ej. https://api.openai.com/v1)",
+                "endpoint (p. ej. https://api.openai.com)",
                 "modelo (p. ej. gpt-5.5)",
-                "clave de API (vacío = sin clave; no se muestra)",
+                "clave de API (no se muestra; vacío = sin clave)",
             ],
             AgentTarget::LocalServer => &[
-                "endpoint del servidor en red (p. ej. http://192.168.1.10:8080/v1)",
+                "endpoint del servidor en red (p. ej. http://192.168.1.10:8080)",
                 "modelo que sirve",
+                "clave si el servidor la exige (no se muestra; vacío = sin clave)",
             ],
-            AgentTarget::Ollama => &["modelo de Ollama (de los descargados)"],
+            AgentTarget::Ollama => &["modelo de Ollama (de los descargados, p. ej. qwen2.5-coder:7b)"],
         }
     }
 
@@ -592,10 +636,11 @@ impl AgentField {
     /// clave, que nunca va en la línea de órdenes.
     pub fn plan(target: AgentTarget, values: &[String]) -> Result<(Vec<String>, Option<String>), String> {
         let valor = |i: usize| values.get(i).map(|v| v.trim().to_string()).unwrap_or_default();
+        let clave = |i: usize| Some(valor(i)).filter(|c| !c.is_empty());
         let (endpoint, modelo, clave) = match target {
             AgentTarget::Ollama => ("http://127.0.0.1:11434".to_string(), valor(0), None),
-            AgentTarget::LocalServer => (valor(0), valor(1), None),
-            AgentTarget::Compatible => (valor(0), valor(1), Some(valor(2)).filter(|c| !c.is_empty())),
+            AgentTarget::LocalServer => (valor(0), valor(1), clave(2)),
+            AgentTarget::Compatible => (valor(0), valor(1), clave(2)),
         };
         if endpoint.is_empty() || modelo.is_empty() {
             return Err("Hacen falta endpoint y modelo.".to_string());
@@ -622,6 +667,8 @@ pub struct ProviderProbe {
     pub codex_session: Option<String>,
     pub compatible_endpoint: Option<String>,
     pub compatible_model: Option<String>,
+    /// `npm` en PATH: hace falta para instalar las CLI de Claude y Codex.
+    pub npm_found: bool,
     /// `None`: Ollama no responde; `Some(vec![])`: responde sin modelos.
     pub ollama_models: Option<Vec<String>>,
     pub worker_dir: Option<PathBuf>,
@@ -3810,6 +3857,25 @@ impl AppState {
 
     fn ai_provider_is_claude(&self) -> bool {
         ["claude_cli", "claude-cli", "claude"].contains(&self.ai_provider.as_str())
+    }
+
+    /// OpenAI, un servidor compatible u Ollama: el modelo es el que se
+    /// configuró para ese endpoint, no hay otro.
+    fn ai_provider_is_compatible(&self) -> bool {
+        ["openai_compatible", "openai-compatible", "ollama_native", "ollama-native", "ollama"]
+            .contains(&self.ai_provider.as_str())
+    }
+
+    /// Modelo que viaja con el chat. Con Claude por su CLI lo elige el
+    /// selector; con un endpoint compatible es el configurado (un nombre ajeno
+    /// haría fallar al servidor); con Codex lo fijan las herramientas (ver
+    /// nota en TOOLS_CHAT_MODEL), elija lo que elija el selector.
+    pub fn chat_model(&self) -> String {
+        if self.ai_provider_is_claude() || self.ai_provider_is_compatible() {
+            self.selected_ai_model.clone()
+        } else {
+            chat_tools::TOOLS_CHAT_MODEL.to_string()
+        }
     }
 
     fn ai_model_options(&self) -> &[&str] {
@@ -8349,18 +8415,16 @@ impl AppState {
             .compatible_model
             .clone()
             .filter(|_| Self::provider_setting("QUIRON_GATEWAY_BACKEND").as_deref() == Some("openai_compatible"));
-        let es_local = endpoint.contains("192.168.")
-            || endpoint.contains("10.")
-            || endpoint.contains(".local")
-            || endpoint.contains("localhost")
-            || endpoint.contains("127.0.0.1");
+        let guardado_es = |kind: ProviderKind| {
+            !endpoint.is_empty() && ProviderKind::from_compatible_endpoint(&endpoint) == kind
+        };
         match (target, step) {
             (AgentTarget::Compatible, 0) => {
-                if !endpoint.is_empty() && !es_local { endpoint } else { "https://api.openai.com/v1".to_string() }
+                if guardado_es(ProviderKind::OpenAiCompatible) { endpoint } else { "https://api.openai.com".to_string() }
             }
             (AgentTarget::Compatible, 1) => modelo_guardado.unwrap_or_else(|| "gpt-5.5".to_string()),
             (AgentTarget::LocalServer, 0) => {
-                if es_local { endpoint } else { "http://192.168.1.10:8080/v1".to_string() }
+                if guardado_es(ProviderKind::LocalServer) { endpoint } else { "http://192.168.1.10:8080".to_string() }
             }
             (AgentTarget::LocalServer, 1) => modelo_guardado.unwrap_or_default(),
             (AgentTarget::Ollama, 0) => probe
@@ -8526,6 +8590,7 @@ impl AppState {
             });
         probe.compatible_endpoint = Self::provider_setting("QUIRON_LLM_ENDPOINT_PRIMARY");
         probe.compatible_model = Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY");
+        probe.npm_found = Self::busca_en_path("npm").is_some();
 
         // Ollama: una petición HTTP mínima con tiempo límite corto.
         probe.ollama_models = Self::ollama_models_at("127.0.0.1:11434");
@@ -8698,24 +8763,76 @@ impl AppState {
                 None,
                 kind.label(),
             ),
-            // Sin endpoint y modelo guardados, «Usar» pide los campos.
-            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => {
+            // Si lo guardado ya es de este tipo, «Usar» lo aplica (la clave
+            // guardada se conserva); si no, pide los campos.
+            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer | ProviderKind::Ollama => {
                 let endpoint = Self::provider_setting("QUIRON_LLM_ENDPOINT_PRIMARY");
                 let modelo = Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY");
                 match (endpoint, modelo) {
-                    (Some(endpoint), Some(modelo)) => self.spawn_configure(
-                        vec!["openai-compatible".to_string(), "--endpoint".to_string(), endpoint, "--model".to_string(), modelo],
-                        None,
-                        kind.label(),
-                    ),
-                    _ => self.begin_agent_field(if kind == ProviderKind::LocalServer {
-                        AgentTarget::LocalServer
-                    } else {
-                        AgentTarget::Compatible
+                    (Some(endpoint), Some(modelo)) if ProviderKind::from_compatible_endpoint(&endpoint) == kind => {
+                        self.spawn_configure(
+                            vec!["openai-compatible".to_string(), "--endpoint".to_string(), endpoint, "--model".to_string(), modelo],
+                            None,
+                            kind.label(),
+                        )
+                    }
+                    _ => self.begin_agent_field(match kind {
+                        ProviderKind::LocalServer => AgentTarget::LocalServer,
+                        ProviderKind::Ollama => AgentTarget::Ollama,
+                        _ => AgentTarget::Compatible,
                     }),
                 }
             }
-            ProviderKind::Ollama => self.begin_agent_field(AgentTarget::Ollama),
+        }
+    }
+
+    /// «Instalar» en una tarjeta: abre una terminal con la orden oficial de
+    /// instalación (npm para las CLI, el script de Ollama) o la enseña.
+    pub fn provider_install(&mut self, kind: ProviderKind) {
+        let Some((programa, args)) = kind.install_command() else {
+            return;
+        };
+        let orden = format!("{programa} {}", args.join(" "));
+        let bin: Option<PathBuf> = if programa == "sh" {
+            Some(PathBuf::from("/bin/sh"))
+        } else {
+            Self::busca_en_path(programa).map(PathBuf::from)
+        };
+        self.provider_notice = Some(match bin {
+            None => format!("Hace falta Node.js (npm) para instalar {}. Orden: {orden}", kind.label()),
+            Some(bin) => match Self::abrir_terminal(&bin, args) {
+                Ok(()) => format!("Instalando {} en una terminal ({orden}). Al acabar, pulsa Comprobar.", kind.label()),
+                Err(e) => format!("{e}. Ejecuta en una terminal: {orden}"),
+            },
+        });
+        self.needs_render = true;
+    }
+
+    /// Si el archivo privado apunta a un agente utilizable en este equipo.
+    fn provider_looks_configured() -> bool {
+        let backend = Self::provider_setting("QUIRON_GATEWAY_BACKEND").unwrap_or_default();
+        let claude = Self::provider_setting("QUIRON_CLAUDE_CLI")
+            .map(PathBuf::from)
+            .or_else(|| Self::busca_en_path("claude").map(PathBuf::from))
+            .is_some_and(|p| p.exists());
+        let codex = std::env::var_os("HOME")
+            .map(|h| PathBuf::from(h).join(".codex/auth.json").exists())
+            .unwrap_or(false);
+        Self::provider_configured_for(
+            &backend,
+            Self::provider_setting("QUIRON_LLM_ENDPOINT_PRIMARY").is_some(),
+            Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY").is_some(),
+            claude,
+            codex,
+        )
+    }
+
+    pub fn provider_configured_for(backend: &str, endpoint: bool, modelo: bool, claude_cli: bool, codex_auth: bool) -> bool {
+        match backend {
+            "claude_cli" | "claude-cli" | "claude" => claude_cli,
+            "codex_direct" | "codex-direct" | "codex" => codex_auth,
+            "openai_compatible" | "openai-compatible" | "ollama_native" | "ollama-native" | "ollama" => endpoint && modelo,
+            _ => false,
         }
     }
 
@@ -8739,6 +8856,13 @@ impl AppState {
         self.set_focus(FocusTarget::ChatInput);
         self.status_text = "abre una carpeta desde Archivos o con Ctrl+O".to_string();
         self.needs_render = true;
+        // Primer arranque en un equipo sin agente: la paleta sale sola, que
+        // es lo primero que hay que resolver para que el chat conteste.
+        if std::env::var_os("QUIRON_UI_START_PANEL").is_none() && !Self::provider_looks_configured() {
+            self.open_agents_overlay();
+            self.provider_notice =
+                Some("Sin agente configurado: elige uno para que el chat pueda responder.".to_string());
+        }
     }
 
     /// Desplaza el hilo del chat: la rueda hacia arriba (delta negativo)
@@ -10497,6 +10621,7 @@ impl AppState {
             }
             ClickTargetAction::ProviderLogin(kind) => self.provider_login(kind),
             ClickTargetAction::ProviderUse(kind) => self.provider_use(kind),
+            ClickTargetAction::ProviderInstall(kind) => self.provider_install(kind),
             ClickTargetAction::ProviderRefresh => {
                 self.provider_notice = None;
                 self.refresh_provider_probe();
@@ -10844,14 +10969,8 @@ impl AppState {
 
         // Con proyecto abierto, el chat lleva manos: el catálogo de
         // herramientas viaja con la pregunta y el modelo puede leer el
-        // proyecto en vez de inventárselo. Con Claude por su CLI el modelo lo
-        // elige el selector; con el resto de proveedores lo fijan las
-        // herramientas (ver nota en TOOLS_CHAT_MODEL), elija lo que elija.
-        let model = if self.ai_provider_is_claude() {
-            self.selected_ai_model.clone()
-        } else {
-            chat_tools::TOOLS_CHAT_MODEL.to_string()
-        };
+        // proyecto en vez de inventárselo.
+        let model = self.chat_model();
 
         // Cada herramienta se cronometra aquí, en el editor: es el único sitio
         // que ve empezar y terminar la llamada. Y las métricas de delegación se
@@ -11838,14 +11957,56 @@ mod tests {
 
     #[test]
     fn el_plan_de_ollama_fija_su_endpoint_y_exige_modelo() {
+        // Ollama va por su API compatible (/v1), que es la que lleva las manos.
         let (args, clave) = AgentField::plan(AgentTarget::Ollama, &["qwen2.5-coder:7b".to_string()]).unwrap();
         assert_eq!(
             args,
-            vec!["ollama-native", "--endpoint", "http://127.0.0.1:11434", "--model", "qwen2.5-coder:7b"]
+            vec!["openai-compatible", "--endpoint", "http://127.0.0.1:11434", "--model", "qwen2.5-coder:7b"]
         );
         assert!(clave.is_none());
         assert!(AgentField::plan(AgentTarget::Ollama, &[String::new()]).is_err());
-        assert!(AgentField::plan(AgentTarget::LocalServer, &["http://192.168.1.10:8080/v1".to_string()]).is_err());
+        assert!(AgentField::plan(AgentTarget::LocalServer, &["http://192.168.1.10:8080".to_string()]).is_err());
+        let (_, clave) = AgentField::plan(
+            AgentTarget::LocalServer,
+            &["http://192.168.1.10:8080".to_string(), "qwen".to_string(), "clave-lan".to_string()],
+        )
+        .unwrap();
+        assert_eq!(clave.as_deref(), Some("clave-lan"));
+    }
+
+    #[test]
+    fn con_un_endpoint_compatible_el_chat_pide_el_modelo_configurado() {
+        let workspace = TestWorkspace::new("modelo_chat");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        state.selected_ai_model = "qwen2.5-coder:7b".to_string();
+        state.ai_provider = "openai_compatible".to_string();
+        assert_eq!(state.chat_model(), "qwen2.5-coder:7b");
+        state.ai_provider = "codex_direct".to_string();
+        assert_eq!(state.chat_model(), chat_tools::TOOLS_CHAT_MODEL);
+        state.ai_provider = "claude_cli".to_string();
+        state.selected_ai_model = "sonnet".to_string();
+        assert_eq!(state.chat_model(), "sonnet");
+    }
+
+    #[test]
+    fn el_endpoint_guardado_dice_que_tarjeta_esta_en_uso() {
+        assert_eq!(ProviderKind::from_compatible_endpoint("http://127.0.0.1:11434"), ProviderKind::Ollama);
+        assert_eq!(ProviderKind::from_compatible_endpoint("http://192.168.1.10:8080"), ProviderKind::LocalServer);
+        assert_eq!(ProviderKind::from_compatible_endpoint("http://127.0.0.1:8092"), ProviderKind::LocalServer);
+        assert_eq!(ProviderKind::from_compatible_endpoint("https://api.openai.com"), ProviderKind::OpenAiCompatible);
+        assert_eq!(ProviderKind::from_compatible_endpoint("https://10.example.com"), ProviderKind::OpenAiCompatible);
+        assert!(es_endpoint_local("http://172.20.0.5:8000/v1") && es_endpoint_local("http://torre.local:8080"));
+        assert!(!es_endpoint_local("https://172.32.1.1") && !es_endpoint_local("https://api.openai.com"));
+    }
+
+    #[test]
+    fn un_equipo_sin_agente_utilizable_no_cuenta_como_configurado() {
+        assert!(!AppState::provider_configured_for("openai_compatible", false, false, true, true));
+        assert!(AppState::provider_configured_for("openai_compatible", true, true, false, false));
+        assert!(AppState::provider_configured_for("claude_cli", false, false, true, false));
+        assert!(!AppState::provider_configured_for("claude_cli", true, true, false, true));
+        assert!(AppState::provider_configured_for("codex_direct", false, false, false, true));
+        assert!(!AppState::provider_configured_for("", true, true, true, true));
     }
 
     #[test]

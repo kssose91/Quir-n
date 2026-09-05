@@ -1,0 +1,166 @@
+{
+  "fecha": "2026-09-05T20:53:17+0200",
+  "pregunta": "que hace la funcion ensure current y en que archivo esta",
+  "proveedor_original": "claude_cli",
+  "escenarios": {
+    "compatible": {
+      "inicio": "20:53:17",
+      "configuracion": [
+        "openai-compatible",
+        "--endpoint",
+        "http://127.0.0.1:18081",
+        "--model",
+        "mock-gpt",
+        "--api-key-from-stdin",
+        "--apply"
+      ],
+      "configure_provider": "Proveedor guardado. Reabre el editor para actualizar su selector de modelos.",
+      "chat": {
+        "exit": 0,
+        "ultimas_lineas": [
+          "docs/evidencias/2026-09-05/agentes/compatible/gui-chat.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/compatible/gui-1280.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/compatible/gui-900.png 900 600",
+          "GUI exit: 0"
+        ],
+        "segundos": 7.1,
+        "llamadas_al_modelo": 2
+      },
+      "gateway": [
+        "[gateway] backend=openai_compatible model=mock-gpt ok=true tool_calls=1 content_chars=0",
+        "[gateway] backend=openai_compatible model=mock-gpt ok=true tool_calls=0 content_chars=193"
+      ],
+      "servidor_simulado": {
+        "peticiones": 2,
+        "clave_correcta_en_todas": true,
+        "pidio_herramienta_y_recibio_resultado": true
+      },
+      "ok": true
+    },
+    "red-local": {
+      "inicio": "20:54:09",
+      "configuracion": [
+        "openai-compatible",
+        "--endpoint",
+        "http://127.0.0.1:8092",
+        "--model",
+        "quiron-worker",
+        "--api-key-from-stdin",
+        "--apply"
+      ],
+      "configure_provider": "Proveedor guardado. Reabre el editor para actualizar su selector de modelos.",
+      "chat": {
+        "exit": 0,
+        "ultimas_lineas": [
+          "docs/evidencias/2026-09-05/agentes/red-local/gui-chat.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/red-local/gui-1280.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/red-local/gui-900.png 900 600",
+          "GUI exit: 0"
+        ],
+        "segundos": 10.1,
+        "llamadas_al_modelo": 1
+      },
+      "gateway": [
+        "[gateway] backend=openai_compatible model=quiron-worker ok=true tool_calls=0 content_chars=2062"
+      ],
+      "ok": true
+    },
+    "ollama": {
+      "inicio": "20:55:03",
+      "configuracion": [
+        "openai-compatible",
+        "--endpoint",
+        "http://127.0.0.1:11434",
+        "--model",
+        "mock-coder:7b",
+        "--apply"
+      ],
+      "configure_provider": "Proveedor guardado. Reabre el editor para actualizar su selector de modelos.",
+      "paleta": {
+        "exit": 0,
+        "ultimas_lineas": [
+          "docs/evidencias/2026-09-05/agentes/ollama/paleta/gui-1280.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/ollama/paleta/gui-900.png 900 600",
+          "GUI exit: 0"
+        ]
+      },
+      "chat": {
+        "exit": 0,
+        "ultimas_lineas": [
+          "docs/evidencias/2026-09-05/agentes/ollama/gui-chat.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/ollama/gui-1280.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/ollama/gui-900.png 900 600",
+          "GUI exit: 0"
+        ],
+        "segundos": 7.1,
+        "llamadas_al_modelo": 2
+      },
+      "gateway": [
+        "[gateway] backend=openai_compatible model=mock-coder:7b ok=true tool_calls=1 content_chars=0",
+        "[gateway] backend=openai_compatible model=mock-coder:7b ok=true tool_calls=0 content_chars=198"
+      ],
+      "servidor_simulado": {
+        "peticiones": 2,
+        "clave_correcta_en_todas": true,
+        "pidio_herramienta_y_recibio_resultado": true
+      },
+      "ok": true
+    },
+    "codex": {
+      "inicio": "20:48:26",
+      "configuracion": [
+        "codex-direct",
+        "--model",
+        "gpt-5.5",
+        "--apply"
+      ],
+      "configure_provider": "Proveedor guardado. Reabre el editor para actualizar su selector de modelos.",
+      "chat": {
+        "exit": 0,
+        "ultimas_lineas": [
+          "docs/evidencias/2026-09-05/agentes/codex/gui-chat.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/codex/gui-1280.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/codex/gui-900.png 900 600",
+          "GUI exit: 0"
+        ],
+        "segundos": 28.3,
+        "llamadas_al_modelo": 5
+      },
+      "gateway": [
+        "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=1 content_chars=0",
+        "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=1 content_chars=0",
+        "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=1 content_chars=0",
+        "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=1 content_chars=0",
+        "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=0 content_chars=1203"
+      ],
+      "ok": true
+    },
+    "claude": {
+      "inicio": "20:49:41",
+      "configuracion": [
+        "claude-cli",
+        "--model",
+        "sonnet",
+        "--apply"
+      ],
+      "configure_provider": "Proveedor guardado. Reabre el editor para actualizar su selector de modelos.",
+      "chat": {
+        "exit": 0,
+        "ultimas_lineas": [
+          "docs/evidencias/2026-09-05/agentes/claude/gui-chat.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/claude/gui-1280.png 1280 720",
+          "docs/evidencias/2026-09-05/agentes/claude/gui-900.png 900 600",
+          "GUI exit: 0"
+        ],
+        "segundos": 37.4,
+        "llamadas_al_modelo": 4
+      },
+      "gateway": [
+        "[gateway] backend=claude_cli model=claude-sonnet-5 ok=true tool_calls=1 content_chars=104",
+        "[gateway] backend=claude_cli model=claude-sonnet-5 ok=true tool_calls=0 content_chars=1963"
+      ],
+      "ok": true
+    }
+  },
+  "restaurado": true
+}

@@ -2509,11 +2509,11 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                     otro => format!("{otro} {}", run.arg),
                 };
                 let linea = if run.is_error { format!("✗ {linea}") } else { linea };
-                let l_buf = state.text_system.create_code_buffer(
-                    &truncate_chars(&linea, 60),
-                    design::type_scale::XS,
-                    fw,
-                );
+                let texto = truncate_chars(&linea, 60);
+                // Una ruta larga envuelve en dos líneas: la siguiente entrada
+                // empieza donde acaba esta, no a un paso fijo.
+                let (_, alto) = state.text_system.measure_code(&texto, design::type_scale::XS, fw);
+                let l_buf = state.text_system.create_code_buffer(&texto, design::type_scale::XS, fw);
                 state.text_system.draw_buffer(
                     canvas,
                     &l_buf,
@@ -2525,7 +2525,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                         Color::from_hex(palette.text_muted)
                     },
                 );
-                y += paso;
+                y += paso.max(alto + 2.0);
             }
             y += design::space::LG;
 
@@ -2973,22 +2973,32 @@ fn render_agents_overlay(
         for (i, (kind, target)) in tarjetas.iter().enumerate() {
             let cx = x0 + 20.0 + (i % 2) as f32 * (columna + 16.0);
             let cy = y + (i / 2) as f32 * (tarjeta_h + 10.0);
+            let guardado = probe.as_ref().and_then(|p| p.compatible_endpoint.as_deref());
             let activo = en_uso == kind.backend()
                 && match kind {
-                    ProviderKind::LocalServer => probe.as_ref().and_then(|p| p.compatible_endpoint.as_deref()).map_or(false, es_endpoint_local),
-                    ProviderKind::OpenAiCompatible => !probe.as_ref().and_then(|p| p.compatible_endpoint.as_deref()).map_or(false, es_endpoint_local),
-                    _ => true,
+                    ProviderKind::ClaudeCli | ProviderKind::CodexDirect => true,
+                    _ => guardado.map_or(false, |e| ProviderKind::from_compatible_endpoint(e) == *kind),
                 };
             let (estado, ok) = estado_de_proveedor(*kind, probe.as_ref());
+            let usar = (if activo { "En uso" } else { "Usar" }, ClickTargetAction::ProviderUse(*kind));
+            let falta_programa = match (kind, probe.as_ref()) {
+                (ProviderKind::ClaudeCli, Some(p)) => p.claude_cli.is_none(),
+                (ProviderKind::CodexDirect, Some(p)) => p.codex_cli.is_none(),
+                (ProviderKind::Ollama, Some(p)) => p.ollama_models.is_none(),
+                _ => false,
+            };
             let acciones: Vec<(&str, ClickTargetAction)> = match (kind, target) {
-                (ProviderKind::ClaudeCli | ProviderKind::CodexDirect, _) => vec![
-                    ("Iniciar sesión", ClickTargetAction::ProviderLogin(*kind)),
-                    (if activo { "En uso" } else { "Usar" }, ClickTargetAction::ProviderUse(*kind)),
-                ],
-                (_, Some(t)) => vec![
+                (ProviderKind::ClaudeCli | ProviderKind::CodexDirect, _) if falta_programa => {
+                    vec![("Instalar", ClickTargetAction::ProviderInstall(*kind))]
+                }
+                (ProviderKind::ClaudeCli | ProviderKind::CodexDirect, _) => {
+                    vec![("Iniciar sesión", ClickTargetAction::ProviderLogin(*kind)), usar]
+                }
+                (ProviderKind::Ollama, Some(t)) if falta_programa => vec![
+                    ("Instalar", ClickTargetAction::ProviderInstall(*kind)),
                     ("Configurar…", ClickTargetAction::AgentConfigure(*t)),
-                    (if activo { "En uso" } else { "Usar" }, ClickTargetAction::ProviderUse(*kind)),
                 ],
+                (_, Some(t)) => vec![("Configurar…", ClickTargetAction::AgentConfigure(*t)), usar],
                 _ => Vec::new(),
             };
             dibujar_tarjeta_agente(canvas, state, palette, Bounds::new(cx, cy, columna, tarjeta_h), kind.label(), kind.detail(), &estado, ok, activo, acciones);
@@ -3027,10 +3037,6 @@ fn render_agents_overlay(
     state.text_system.draw_buffer(canvas, &pista, x0 + ancho - 90.0, boton.y + 18.0, Color::from_hex(palette.text_muted));
 }
 
-fn es_endpoint_local(endpoint: &str) -> bool {
-    ["192.168.", "10.", ".local", "localhost", "127.0.0.1"].iter().any(|s| endpoint.contains(s))
-}
-
 /// Estado de un proveedor según el sondeo: texto y si está listo.
 fn estado_de_proveedor(kind: ProviderKind, probe: Option<&llore_ui::app::ProviderProbe>) -> (String, Option<bool>) {
     let Some(p) = probe else {
@@ -3038,27 +3044,29 @@ fn estado_de_proveedor(kind: ProviderKind, probe: Option<&llore_ui::app::Provide
     };
     match kind {
         ProviderKind::ClaudeCli => match (&p.claude_cli, p.claude_logged_in) {
-            (None, _) => ("CLI de Claude no encontrada".to_string(), Some(false)),
+            (None, _) if !p.npm_found => ("CLI no encontrada · hace falta Node.js (npm)".to_string(), Some(false)),
+            (None, _) => ("CLI no encontrada · npm install -g @anthropic-ai/claude-code".to_string(), Some(false)),
             (Some(_), Some(true)) => ("CLI encontrada · sesión de claude.ai activa".to_string(), Some(true)),
             (Some(_), Some(false)) => ("CLI encontrada · sin sesión".to_string(), Some(false)),
             (Some(_), None) => ("CLI encontrada · estado desconocido".to_string(), None),
         },
         ProviderKind::CodexDirect => match (&p.codex_cli, &p.codex_session) {
-            (None, _) => ("Codex no encontrado (PATH o extensión de VS Code)".to_string(), Some(false)),
+            (None, _) if !p.npm_found => ("Codex no encontrado · hace falta Node.js (npm)".to_string(), Some(false)),
+            (None, _) => ("Codex no encontrado · npm install -g @openai/codex".to_string(), Some(false)),
             (Some(_), Some(s)) => (format!("Codex · {s}"), Some(!s.starts_with("sin"))),
             (Some(_), None) => ("Codex encontrado · sin sesión".to_string(), Some(false)),
         },
-        ProviderKind::OpenAiCompatible => match p.compatible_endpoint.as_deref().filter(|e| !es_endpoint_local(e)) {
-            Some(e) => (format!("{} · {}", truncate_chars(e, 30), p.compatible_model.clone().unwrap_or_default()), Some(true)),
-            None => ("sin configurar".to_string(), Some(false)),
-        },
-        ProviderKind::LocalServer => match p.compatible_endpoint.as_deref().filter(|e| es_endpoint_local(e)) {
+        ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => match p
+            .compatible_endpoint
+            .as_deref()
+            .filter(|e| ProviderKind::from_compatible_endpoint(e) == kind)
+        {
             Some(e) => (format!("{} · {}", truncate_chars(e, 30), p.compatible_model.clone().unwrap_or_default()), Some(true)),
             None => ("sin configurar".to_string(), Some(false)),
         },
         ProviderKind::Ollama => match &p.ollama_models {
-            None => ("no responde en 127.0.0.1:11434".to_string(), Some(false)),
-            Some(m) if m.is_empty() => ("en marcha · sin modelos descargados".to_string(), Some(false)),
+            None => ("no responde en 127.0.0.1:11434 · instálalo o arráncalo".to_string(), Some(false)),
+            Some(m) if m.is_empty() => ("en marcha · sin modelos: ollama pull qwen2.5-coder:7b".to_string(), Some(false)),
             Some(m) => (format!("en marcha · {}", truncate_chars(&m.join(", "), 40)), Some(true)),
         },
     }

@@ -1,0 +1,36 @@
+[
+ {
+  "hora": "20:53:59",
+  "ruta": "/v1/chat/completions",
+  "clave_correcta": true,
+  "modelo": "mock-gpt",
+  "roles": [
+   "system",
+   "user"
+  ],
+  "herramientas_ofrecidas": [
+   "read_file",
+   "list_files",
+   "search_text"
+  ],
+  "con_resultado_de_herramienta": false
+ },
+ {
+  "hora": "20:54:01",
+  "ruta": "/v1/chat/completions",
+  "clave_correcta": true,
+  "modelo": "mock-gpt",
+  "roles": [
+   "system",
+   "user",
+   "assistant",
+   "tool"
+  ],
+  "herramientas_ofrecidas": [
+   "read_file",
+   "list_files",
+   "search_text"
+  ],
+  "con_resultado_de_herramienta": true
+ }
+]

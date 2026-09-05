@@ -399,6 +399,10 @@ struct LlamaRequest {
     max_tokens: u32,
     temperature: f32,
     stream: bool,
+    /// Herramientas en el formato de OpenAI (`type: function`). Ausente si no
+    /// se ofrece ninguna, para no cambiar el cuerpo de las llamadas de siempre.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<OpenAiToolDef>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -407,6 +411,64 @@ struct Message {
     content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     thinking: Option<String>,
+    /// Llamadas que el asistente emitió en un turno anterior (se le devuelven).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<OpenAiToolCall>>,
+    /// En un mensaje `tool`, la llamada a la que responde.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<String>,
+}
+
+impl Message {
+    fn text(role: &str, content: impl Into<String>) -> Self {
+        Self {
+            role: role.to_string(),
+            content: content.into(),
+            thinking: None,
+            tool_calls: None,
+            tool_call_id: None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct OpenAiToolDef {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    function: OpenAiFunctionDef,
+}
+
+#[derive(Debug, Serialize)]
+struct OpenAiFunctionDef {
+    name: String,
+    description: String,
+    parameters: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OpenAiToolCall {
+    #[serde(default)]
+    id: String,
+    #[serde(rename = "type", default = "function_kind")]
+    kind: String,
+    function: OpenAiFunctionCall,
+}
+
+fn function_kind() -> String {
+    "function".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OpenAiFunctionCall {
+    name: String,
+    /// Cadena JSON tal cual la emite el modelo.
+    #[serde(default)]
+    arguments: String,
+}
+
+/// `content` llega como `null` cuando el modelo solo pide herramientas.
+fn nullable_string<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+    Ok(Option::<String>::deserialize(d)?.unwrap_or_default())
 }
 
 /// Response de llama.cpp
@@ -430,10 +492,12 @@ struct Choice {
 
 #[derive(Debug, Deserialize)]
 struct ChoiceMessage {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "nullable_string")]
     content: String,
     #[serde(default)]
     reasoning: Option<String>,
+    #[serde(default)]
+    tool_calls: Option<Vec<OpenAiToolCall>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -788,7 +852,14 @@ async fn process_request(req: GatewayRequest, config: &GatewayConfig) -> Gateway
         Route::Worker => config.worker_backend,
     };
 
-    match backend {
+    let etiqueta = match backend {
+        GatewayBackend::ClaudeCli => "claude_cli",
+        GatewayBackend::OpenAiCompatible => "openai_compatible",
+        GatewayBackend::OllamaNative => "ollama_native",
+        GatewayBackend::OpenClaw => "openclaw",
+        GatewayBackend::CodexDirect => "codex_direct",
+    };
+    let respuesta = match backend {
         GatewayBackend::ClaudeCli => process_request_claude_cli(req, route, config).await,
         GatewayBackend::OpenAiCompatible => {
             process_request_openai_compatible(req, route, config).await
@@ -796,7 +867,23 @@ async fn process_request(req: GatewayRequest, config: &GatewayConfig) -> Gateway
         GatewayBackend::OllamaNative => process_request_ollama_native(req, route, config).await,
         GatewayBackend::OpenClaw => process_request_openclaw(req, route, config).await,
         GatewayBackend::CodexDirect => process_request_codex_direct(req, route, config).await,
-    }
+    };
+    // Una línea por llamada, igual para todos los adaptadores: el cerebro la
+    // vuelca a su registro y el arnés sabe por ella cuándo terminó un turno.
+    eprintln!(
+        "[gateway] backend={} model={} ok={} tool_calls={} content_chars={}{}",
+        etiqueta,
+        respuesta.model.as_deref().unwrap_or("?"),
+        respuesta.ok,
+        respuesta.tool_calls.as_ref().map_or(0, Vec::len),
+        respuesta.content.as_ref().map_or(0, |c| c.chars().count()),
+        respuesta
+            .error
+            .as_ref()
+            .map(|e| format!(" error={}", truncate_for_error(e, 160).replace('\n', " ")))
+            .unwrap_or_default()
+    );
+    respuesta
 }
 
 /// Backend legacy OpenAI-compatible (`/v1/chat/completions`).
@@ -840,26 +927,30 @@ async fn process_request_openai_compatible(
 
     let mut messages = Vec::new();
     if let Some(system) = req.system {
-        messages.push(Message {
-            role: "system".to_string(),
-            content: system,
-            thinking: None,
-        });
+        messages.push(Message::text("system", system));
     }
-    messages.push(Message {
-        role: "user".to_string(),
-        content: req.prompt,
-        thinking: None,
-    });
+    // Con conversación estructurada, `prompt` es su aplanado: se ignora para
+    // no duplicar el contexto (misma regla que en Codex y Claude CLI).
+    if req.input_items.is_empty() {
+        messages.push(Message::text("user", req.prompt));
+    } else {
+        messages.extend(openai_messages_from_items(&req.input_items));
+    }
 
+    let tools_ofrecidas = req.tools;
     let llama_req = LlamaRequest {
         model: model.clone(),
         messages,
         max_tokens: req.max_tokens,
         temperature: route_temperature(route, config),
         stream: false,
+        tools: if tools_ofrecidas.is_empty() {
+            None
+        } else {
+            Some(tools_ofrecidas.iter().map(openai_tool_def).collect())
+        },
     };
-    let url = format!("{}/v1/chat/completions", endpoint);
+    let url = openai_chat_url(&endpoint);
 
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(timeout_secs))
@@ -958,10 +1049,10 @@ async fn process_request_openai_compatible(
         };
     }
 
-    let text = llama_resp
+    let (mut text, estructuradas) = llama_resp
         .choices
         .and_then(|c| c.into_iter().next())
-        .map(|c| c.message.content)
+        .map(|c| (c.message.content, c.message.tool_calls.unwrap_or_default()))
         .unwrap_or_default();
     let usage = llama_resp
         .usage
@@ -969,15 +1060,126 @@ async fn process_request_openai_compatible(
         .map(llama_usage_split)
         .unwrap_or_default();
 
+    let mut llamadas: Vec<ToolCall> = estructuradas
+        .into_iter()
+        .enumerate()
+        .map(|(i, c)| ToolCall {
+            call_id: if c.id.is_empty() { format!("call_{}_{}", now_epoch_secs(), i) } else { c.id },
+            name: c.function.name,
+            arguments: if c.function.arguments.is_empty() { "{}".to_string() } else { c.function.arguments },
+        })
+        .collect();
+    if llamadas.is_empty() {
+        if let Some(llamada) = tool_call_from_text(&text, &tools_ofrecidas) {
+            llamadas.push(llamada);
+            text.clear();
+        }
+    }
+
     GatewayResponse {
         ok: true,
-        tool_calls: None,
+        tool_calls: if llamadas.is_empty() { None } else { Some(llamadas) },
         content: Some(text),
         error: None,
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
         model: Some(model),
     }
+}
+
+/// `endpoint` puede venir con o sin `/v1` (OpenAI, Ollama y llama-server lo
+/// sirven bajo `/v1`); no se duplica.
+fn openai_chat_url(endpoint: &str) -> String {
+    let base = endpoint.trim_end_matches('/');
+    if base.ends_with("/v1") {
+        format!("{base}/chat/completions")
+    } else {
+        format!("{base}/v1/chat/completions")
+    }
+}
+
+fn openai_tool_def(tool: &ToolDef) -> OpenAiToolDef {
+    OpenAiToolDef {
+        kind: "function",
+        function: OpenAiFunctionDef {
+            name: tool.name.clone(),
+            description: tool.description.clone(),
+            parameters: tool.parameters.clone(),
+        },
+    }
+}
+
+/// La conversación del cerebro en mensajes de OpenAI: las llamadas
+/// consecutivas del asistente van juntas en un mensaje `assistant` con
+/// `tool_calls`, y cada resultado es un mensaje `tool` con su `tool_call_id`.
+fn openai_messages_from_items(items: &[GatewayInputItem]) -> Vec<Message> {
+    let mut out: Vec<Message> = Vec::new();
+    for item in items {
+        match item {
+            GatewayInputItem::Message { role, text } => out.push(Message::text(role, text.clone())),
+            GatewayInputItem::FunctionCall { call_id, name, arguments } => {
+                let llamada = OpenAiToolCall {
+                    id: call_id.clone(),
+                    kind: "function".to_string(),
+                    function: OpenAiFunctionCall { name: name.clone(), arguments: arguments.clone() },
+                };
+                match out.last_mut() {
+                    Some(m) if m.role == "assistant" && m.tool_calls.is_some() => {
+                        m.tool_calls.as_mut().expect("comprobado").push(llamada);
+                    }
+                    _ => out.push(Message {
+                        role: "assistant".to_string(),
+                        content: String::new(),
+                        thinking: None,
+                        tool_calls: Some(vec![llamada]),
+                        tool_call_id: None,
+                    }),
+                }
+            }
+            GatewayInputItem::FunctionCallOutput { call_id, output } => out.push(Message {
+                role: "tool".to_string(),
+                content: output.clone(),
+                thinking: None,
+                tool_calls: None,
+                tool_call_id: Some(call_id.clone()),
+            }),
+        }
+    }
+    out
+}
+
+/// Los modelos pequeños servidos en local (p. ej. Qwen2.5-Coder 1.5B en
+/// llama-server) no siempre emiten la llamada por el canal estructurado: la
+/// escriben como un objeto JSON, a veces dentro de un bloque de código o de
+/// etiquetas `<tool_call>`. Si el contenido es solo eso y nombra una
+/// herramienta ofrecida, se acepta como llamada; cualquier otra cosa es texto.
+fn tool_call_from_text(content: &str, tools: &[ToolDef]) -> Option<ToolCall> {
+    if tools.is_empty() {
+        return None;
+    }
+    let mut limpio = content.trim();
+    for marca in ["<tool_call>", "</tool_call>", "```json", "```"] {
+        limpio = limpio.trim_start_matches(marca).trim_end_matches(marca).trim();
+    }
+    if !limpio.starts_with('{') || !limpio.ends_with('}') {
+        return None;
+    }
+    let valor: Value = serde_json::from_str(limpio).ok()?;
+    let cuerpo = valor.get("function").unwrap_or(&valor);
+    let name = cuerpo.get("name").and_then(Value::as_str)?;
+    if !tools.iter().any(|t| t.name == name) {
+        return None;
+    }
+    let argumentos = cuerpo
+        .get("arguments")
+        .or_else(|| cuerpo.get("parameters"))
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let arguments = match argumentos {
+        Value::String(s) => s,
+        otro => otro.to_string(),
+    };
+    Some(ToolCall { call_id: format!("call_{}", now_epoch_secs()), name: name.to_string(), arguments })
 }
 
 async fn process_request_ollama_native(
@@ -1016,17 +1218,9 @@ async fn process_request_ollama_native(
 
     let mut messages = Vec::new();
     if let Some(system) = req.system {
-        messages.push(Message {
-            role: "system".to_string(),
-            content: system,
-            thinking: None,
-        });
+        messages.push(Message::text("system", system));
     }
-    messages.push(Message {
-        role: "user".to_string(),
-        content: req.prompt,
-        thinking: None,
-    });
+    messages.push(Message::text("user", req.prompt));
 
     let options = match route {
         Route::Primary => Some(OllamaOptions {
@@ -1159,6 +1353,7 @@ async fn process_request_ollama_native(
     let message = ollama_resp.message.unwrap_or(ChoiceMessage {
         content: String::new(),
         reasoning: None,
+        tool_calls: None,
     });
     if message.content.trim().is_empty() && message.reasoning.is_some() {
         return GatewayResponse {
@@ -2088,6 +2283,61 @@ async fn process_request_codex_direct(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn herramientas_de_prueba() -> Vec<ToolDef> {
+        vec![ToolDef {
+            name: "search_text".into(),
+            description: "busca".into(),
+            parameters: serde_json::json!({"type":"object"}),
+        }]
+    }
+
+    #[test]
+    fn los_items_se_vuelven_mensajes_openai_con_llamadas_agrupadas() {
+        let items = vec![
+            GatewayInputItem::Message { role: "user".into(), text: "hola".into() },
+            GatewayInputItem::FunctionCall { call_id: "c1".into(), name: "search_text".into(), arguments: "{\"query\":\"a\"}".into() },
+            GatewayInputItem::FunctionCall { call_id: "c2".into(), name: "read_file".into(), arguments: "{}".into() },
+            GatewayInputItem::FunctionCallOutput { call_id: "c1".into(), output: "3 líneas".into() },
+            GatewayInputItem::FunctionCallOutput { call_id: "c2".into(), output: "fn x".into() },
+            GatewayInputItem::Message { role: "assistant".into(), text: "listo".into() },
+        ];
+        let mensajes = openai_messages_from_items(&items);
+        let roles: Vec<&str> = mensajes.iter().map(|m| m.role.as_str()).collect();
+        assert_eq!(roles, ["user", "assistant", "tool", "tool", "assistant"]);
+        assert_eq!(mensajes[1].tool_calls.as_ref().unwrap().len(), 2);
+        assert_eq!(mensajes[2].tool_call_id.as_deref(), Some("c1"));
+        let json = serde_json::to_string(&mensajes[1]).unwrap();
+        assert!(json.contains("\"type\":\"function\"") && !json.contains("tool_call_id"), "{json}");
+    }
+
+    #[test]
+    fn una_llamada_escrita_como_json_se_acepta_si_nombra_una_herramienta_ofrecida() {
+        let tools = herramientas_de_prueba();
+        let en_bloque = "```json\n{\n  \"name\": \"search_text\",\n  \"arguments\": {\"query\": \"ensure_current\"}\n}\n```";
+        let llamada = tool_call_from_text(en_bloque, &tools).expect("bloque JSON");
+        assert_eq!(llamada.name, "search_text");
+        assert_eq!(llamada.arguments, "{\"query\":\"ensure_current\"}");
+        let qwen = "<tool_call>{\"name\":\"search_text\",\"arguments\":{\"query\":\"x\"}}</tool_call>";
+        assert!(tool_call_from_text(qwen, &tools).is_some());
+        // Texto normal, JSON de otra cosa o herramienta desconocida: es respuesta.
+        assert!(tool_call_from_text("La función está en walk.rs.", &tools).is_none());
+        assert!(tool_call_from_text("{\"name\":\"borrar_todo\",\"arguments\":{}}", &tools).is_none());
+        assert!(tool_call_from_text("Ejemplo: {\"name\":\"search_text\"} y más texto", &tools).is_none());
+        assert!(tool_call_from_text("{\"name\":\"search_text\"}", &[]).is_none());
+    }
+
+    #[test]
+    fn la_url_del_chat_no_duplica_v1_y_el_contenido_nulo_se_lee() {
+        assert_eq!(openai_chat_url("https://api.openai.com"), "https://api.openai.com/v1/chat/completions");
+        assert_eq!(openai_chat_url("https://api.openai.com/v1/"), "https://api.openai.com/v1/chat/completions");
+        assert_eq!(openai_chat_url("http://127.0.0.1:11434"), "http://127.0.0.1:11434/v1/chat/completions");
+        let cuerpo = r#"{"choices":[{"message":{"content":null,"tool_calls":[{"id":"call_1","type":"function","function":{"name":"search_text","arguments":"{\"query\":\"a\"}"}}]}}]}"#;
+        let resp: LlamaResponse = serde_json::from_str(cuerpo).unwrap();
+        let msg = resp.choices.unwrap().remove(0).message;
+        assert_eq!(msg.content, "");
+        assert_eq!(msg.tool_calls.unwrap()[0].function.name, "search_text");
+    }
 
     #[test]
     fn parse_route_accepts_aliases() {

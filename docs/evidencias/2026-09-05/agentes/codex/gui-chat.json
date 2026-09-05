@@ -1,0 +1,28 @@
+{
+  "checks": {
+    "chat_answered": true
+  },
+  "chat": {
+    "question": "que hace la funcion ensure current y en que archivo esta",
+    "seconds": 28.3,
+    "llamadas": 5,
+    "gateway_log": [
+      "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=1 content_chars=0",
+      "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=1 content_chars=0",
+      "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=1 content_chars=0",
+      "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=1 content_chars=0",
+      "[gateway] backend=codex_direct model=gpt-5.5 ok=true tool_calls=0 content_chars=1203"
+    ]
+  },
+  "index_after_chat": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "linking",
+    "files_total": 181,
+    "files_done": 181,
+    "units_written": 2,
+    "summaries_generated": 2,
+    "structural_fallbacks": 0,
+    "current_path": "docs/WORKER_Y_PROVEEDORES.md",
+    "error": null
+  }
+}

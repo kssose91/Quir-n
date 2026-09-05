@@ -1,0 +1,27 @@
+{
+  "checks": {
+    "chat_answered": true
+  },
+  "chat": {
+    "question": "que hace la funcion ensure current y en que archivo esta",
+    "seconds": 37.4,
+    "llamadas": 4,
+    "gateway_log": [
+      "[claude_cli] model=claude-sonnet-5 turns=3 output_tokens=355 content_chars=106 tool_calls=1",
+      "[gateway] backend=claude_cli model=claude-sonnet-5 ok=true tool_calls=1 content_chars=104",
+      "[claude_cli] model=claude-sonnet-5 turns=2 output_tokens=2330 content_chars=1998 tool_calls=0",
+      "[gateway] backend=claude_cli model=claude-sonnet-5 ok=true tool_calls=0 content_chars=1963"
+    ]
+  },
+  "index_after_chat": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "watching",
+    "files_total": 181,
+    "files_done": 181,
+    "units_written": 0,
+    "summaries_generated": 0,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  }
+}

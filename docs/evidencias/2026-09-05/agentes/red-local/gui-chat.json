@@ -1,0 +1,24 @@
+{
+  "checks": {
+    "chat_answered": true
+  },
+  "chat": {
+    "question": "que hace la funcion ensure current y en que archivo esta",
+    "seconds": 10.1,
+    "llamadas": 1,
+    "gateway_log": [
+      "[gateway] backend=openai_compatible model=quiron-worker ok=true tool_calls=0 content_chars=2062"
+    ]
+  },
+  "index_after_chat": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "watching",
+    "files_total": 181,
+    "files_done": 181,
+    "units_written": 0,
+    "summaries_generated": 0,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  }
+}

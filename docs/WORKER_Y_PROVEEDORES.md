@@ -120,8 +120,15 @@ Cada proveedor determina cómo se inicia sesión y qué uso cubren sus límites.
 |---|---|
 | `claude_cli` | CLI oficial autenticada mediante `claude auth login`; probado con sesión de claude.ai |
 | `codex_direct` | Adaptador existente que lee la sesión de Codex; conserva la limitación de renovación del token |
-| `openai_compatible` | Endpoint, modelo y credencial de API propia (OpenAI o un servidor compatible en la red local); el transporte de herramientas de Quirón sigue pendiente en este adaptador |
-| `ollama_native` | Ollama en `127.0.0.1:11434`; conserva el adaptador existente |
+| `openai_compatible` | Endpoint, modelo y credencial de API propia (OpenAI, un servidor compatible en la red local u Ollama por su `/v1`); transporta la conversación estructurada y las herramientas de Quirón (`tools` de OpenAI; las llamadas escritas como JSON por modelos pequeños también se aceptan) |
+| `ollama_native` | API nativa de Ollama (`/api/chat`), sin herramientas; la paleta usa la compatible |
+
+Cada llamada deja en el registro del cerebro una línea común
+`[gateway] backend=… model=… ok=… tool_calls=N content_chars=…`, sea cual sea
+el adaptador. La ronda de evaluación de los cinco agentes (`scripts/demo-agentes.py`,
+con `scripts/tests/mock-openai.py` como servidor simulado que exige clave y pide
+una herramienta) está en `evidencias/2026-09-05/agentes/`; guía para quien
+evalúa: `GUIA_EVALUACION.md`.
 
 Todo eso se elige desde el editor en la paleta **Agentes** (chip «● Agentes»
 de la barra superior o paleta de órdenes): tarjetas con el estado real de cada

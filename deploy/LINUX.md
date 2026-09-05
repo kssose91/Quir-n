@@ -16,8 +16,11 @@ python3 install.py --with-worker
 Instala en `~/.local/share/quiron`, registra `quiron.desktop` y el lanzador
 `~/.local/bin/quiron`. Datos en `~/.local/share/quiron-data`; configuración privada
 en `~/.config/quiron/quiron-brain.env`. Las credenciales locales son aleatorias.
-Antes del chat hay que configurar el backend, endpoint y modelo del proveedor
-en ese archivo; no se incluye ninguna sesión o clave personal.
+Antes del chat hay que elegir un agente: al pulsar «Empezar» en un equipo sin
+ninguno configurado, la paleta **Agentes** se abre sola (suscripción de Claude
+o de ChatGPT por sus CLI, OpenAI o un servidor compatible con clave, un
+servidor en la red local u Ollama). No se incluye ninguna sesión o clave
+personal. Guía paso a paso para quien evalúa: `docs/GUIA_EVALUACION.md`.
 
 La primera apertura necesita Internet para obtener las dos imágenes fijadas por
 digest y BGE-M3. No es un instalador offline ni un AppImage. `BUILD.json` y

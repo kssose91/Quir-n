@@ -1,0 +1,25 @@
+{
+  "checks": {
+    "chat_answered": true
+  },
+  "chat": {
+    "question": "que hace la funcion ensure current y en que archivo esta",
+    "seconds": 7.1,
+    "llamadas": 2,
+    "gateway_log": [
+      "[gateway] backend=openai_compatible model=mock-gpt ok=true tool_calls=1 content_chars=0",
+      "[gateway] backend=openai_compatible model=mock-gpt ok=true tool_calls=0 content_chars=193"
+    ]
+  },
+  "index_after_chat": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "watching",
+    "files_total": 181,
+    "files_done": 181,
+    "units_written": 20,
+    "summaries_generated": 4,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  }
+}
