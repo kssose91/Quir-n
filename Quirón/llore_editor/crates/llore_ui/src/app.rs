@@ -1755,6 +1755,9 @@ pub struct AppState {
     pub welcome_dismissed: bool,
     /// Reloj del holograma de la bienvenida.
     pub welcome_clock: Instant,
+    /// Hacia dónde mira el holograma (guiñada, cabeceo), con inercia hacia el
+    /// cursor; en reposo, (0, 0).
+    pub welcome_gaze: (f32, f32),
     /// Bounds de la columna sidebar (explorer)
     pub sidebar_bounds: Option<Bounds>,
     /// Panel activo del sidebar (explorer/search/git).
@@ -2230,6 +2233,7 @@ impl AppState {
             chat_scroll_max: 0.0,
             welcome_dismissed: false,
             welcome_clock: Instant::now(),
+            welcome_gaze: (0.0, 0.0),
             sidebar_bounds: None,
             sidebar_panel: SidebarPanel::Explorer,
             explorer_dock: PanelDock::Left,

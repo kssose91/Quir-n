@@ -2993,12 +2993,29 @@ fn render_welcome(
         .min(bounds.height * 0.64);
     let cx = bounds.x + bounds.width * 0.55;
     let cy = bounds.y + (bounds.height * 0.40).max(lado * 0.5 + 24.0);
+    // Sensible al ratón: el holograma gira hacia el cursor (guiñada por la
+    // horizontal, cabeceo por la vertical) con inercia, y los puntos que quedan
+    // bajo el cursor se encienden. Sin cursor, vuelve despacio al reposo.
+    let objetivo = state.cursor_pos.map_or((0.0, 0.0), |(mx, my)| {
+        (
+            ((mx - cx) / bounds.width * 1.1).clamp(-0.7, 0.7),
+            ((my - cy) / bounds.height * 0.8).clamp(-0.45, 0.45),
+        )
+    });
+    let mirada = state.welcome_gaze;
+    let mirada = (
+        mirada.0 + (objetivo.0 - mirada.0) * 0.08,
+        mirada.1 + (objetivo.1 - mirada.1) * 0.08,
+    );
+    state.welcome_gaze = mirada;
     draw_brain_hologram(
         canvas,
         cx,
         cy,
         lado,
         state.welcome_clock.elapsed().as_secs_f32(),
+        mirada,
+        state.cursor_pos,
         Color::from_hex(palette.accent),
         Color::from_hex(palette.text_muted),
     );
@@ -3061,12 +3078,15 @@ fn render_welcome(
 /// sobre su eje, con perspectiva y profundidad (lo cercano, más grande y más
 /// opaco) y trazos finos entre vecinos. Es determinista (semilla fija): entre
 /// fotogramas solo cambia el ángulo. El lienzo no pinta imágenes; esto se dibuja.
+#[allow(clippy::too_many_arguments)]
 fn draw_brain_hologram(
     canvas: &mut Canvas,
     cx: f32,
     cy: f32,
     lado: f32,
     t: f32,
+    mirada: (f32, f32),
+    cursor: Option<(f32, f32)>,
     acento: Color,
     apagado: Color,
 ) {
@@ -3111,9 +3131,10 @@ fn draw_brain_hologram(
         }
     }
 
-    // Giro lento sobre el eje vertical y una inclinación fija hacia la cámara.
-    let (sa, ca) = (t * 0.45).sin_cos();
-    let (st, ct) = 0.26_f32.sin_cos();
+    // Giro lento sobre el eje vertical más la guiñada hacia el cursor, y una
+    // inclinación hacia la cámara corregida por el cabeceo.
+    let (sa, ca) = (t * 0.45 + mirada.0).sin_cos();
+    let (st, ct) = (0.26 + mirada.1).sin_cos();
     let proyectar = |x: f32, y: f32, z: f32| -> (f32, f32, f32) {
         let xr = x * ca + z * sa;
         let zr = -x * sa + z * ca;
@@ -3161,12 +3182,23 @@ fn draw_brain_hologram(
             .partial_cmp(&proyectados[a].2)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+    // Bajo el cursor los puntos se encienden y crecen, con caída suave al
+    // borde del radio; lejos de él todo sigue igual.
+    let radio = lado * 0.22;
     for i in orden {
         let (sx, sy, zf, fuerte) = proyectados[i];
         let c = cercania(zf);
-        let d = (if fuerte { 2.6 } else { 1.7 }) * (0.65 + 0.7 * c) * escala.max(0.6);
-        let color = if fuerte {
-            acento.with_alpha((80.0 + 175.0 * c) as u8)
+        let brillo = cursor.map_or(0.0, |(mx, my)| {
+            let d = ((sx - mx).powi(2) + (sy - my).powi(2)).sqrt();
+            (1.0 - d / radio).clamp(0.0, 1.0)
+        });
+        let d = (if fuerte { 2.6 } else { 1.7 })
+            * (0.65 + 0.7 * c)
+            * escala.max(0.6)
+            * (1.0 + 0.9 * brillo);
+        let color = if fuerte || brillo > 0.35 {
+            let base = 80.0 + 175.0 * c;
+            acento.with_alpha((base + (255.0 - base) * brillo) as u8)
         } else {
             apagado.with_alpha((28.0 + 96.0 * c) as u8)
         };
