@@ -13,6 +13,9 @@ pub mod walk;
 #[cfg(feature = "semantic")]
 pub mod vectorize;
 
+#[cfg(feature = "semantic")]
+pub mod worker;
+
 pub use unit::{ChangeReason, ChangeUnit, FileUnit, LogicKind, LogicUnit};
 
 use crate::graph::GraphBuilder;

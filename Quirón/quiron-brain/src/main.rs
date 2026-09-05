@@ -195,6 +195,7 @@ async fn main() -> anyhow::Result<()> {
         chain_valid_cache: std::sync::atomic::AtomicBool::new(true),
         last_chain_verify: std::sync::atomic::AtomicU64::new(0),
         startup_time: std::time::Instant::now(),
+        last_activity_secs: std::sync::atomic::AtomicU64::new(0),
         api_token,
         require_auth,
         llm: llm_client.clone(),
@@ -202,6 +203,8 @@ async fn main() -> anyhow::Result<()> {
         indexing_semaphore: Arc::new(tokio::sync::Semaphore::new(4)),
         #[cfg(feature = "semantic")]
         semantic: semantic_client.clone(),
+        #[cfg(feature = "semantic")]
+        code_worker: Arc::new(quiron_brain::index::worker::ProjectWorker::default()),
         #[cfg(feature = "neo4j")]
         neo4j: neo4j_connector,
     });
@@ -212,7 +215,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Create router
-    let app = create_router(state);
+    let app = create_router(state.clone());
 
     // Bind address
     let port: u16 = std::env::var("QUIRON_PORT")
@@ -315,15 +318,58 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!("⚠️ LLM client not available, distillation worker will NOT run.");
     }
 
+    // Apagado por inactividad: sin peticiones ni barridos durante
+    // QUIRON_IDLE_EXIT_SECS (900 por defecto; 0 lo desactiva) el cerebro
+    // termina limpiamente y systemd para los almacenes con él (ExecStopPost).
+    // El editor sondea /health mientras está abierto: en uso nunca se apaga.
+    let idle_exit_secs = std::env::var("QUIRON_IDLE_EXIT_SECS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(900);
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    if idle_exit_secs > 0 {
+        let state = state.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+                #[cfg(feature = "semantic")]
+                let busy = state.code_worker.busy();
+                #[cfg(not(feature = "semantic"))]
+                let busy = false;
+                if state.idle_secs() >= idle_exit_secs && !busy {
+                    tracing::info!(
+                        "💤 {}s sin peticiones ni barridos: el cerebro se apaga y los almacenes con él",
+                        idle_exit_secs
+                    );
+                    let _ = shutdown_tx.send(true);
+                    break;
+                }
+            }
+        });
+        tracing::info!("💤 Apagado por inactividad tras {}s sin uso", idle_exit_secs);
+    }
+    // Si el emisor desaparece (apagado desactivado) no se termina nunca.
+    let wait_shutdown = |mut rx: tokio::sync::watch::Receiver<bool>| async move {
+        while !*rx.borrow() {
+            if rx.changed().await.is_err() {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+
     // Start server
     if let Some(ipv6_listener) = ipv6_listener {
         tokio::try_join!(
-            axum::serve(ipv4_listener, app.clone()),
-            axum::serve(ipv6_listener, app),
+            axum::serve(ipv4_listener, app.clone())
+                .with_graceful_shutdown(wait_shutdown(shutdown_rx.clone())),
+            axum::serve(ipv6_listener, app).with_graceful_shutdown(wait_shutdown(shutdown_rx)),
         )?;
     } else {
-        axum::serve(ipv4_listener, app).await?;
+        axum::serve(ipv4_listener, app)
+            .with_graceful_shutdown(wait_shutdown(shutdown_rx))
+            .await?;
     }
+    tracing::info!("🧠 Quiron Brain detenido");
 
     Ok(())
 }

@@ -358,21 +358,25 @@ impl SemanticClient {
         compute_ok && qdrant_ok
     }
 
-    fn vector_dimension(&self) -> usize {
+    pub(crate) fn embedding_model(&self) -> &str {
+        &self.config.embed_model
+    }
+
+    pub(crate) fn vector_dimension(&self) -> usize {
         match &self.compute {
             SemanticComputeBackend::InProcess(embed) => embed.dimension(),
             SemanticComputeBackend::Remote(remote) => remote.dimension(),
         }
     }
 
-    async fn embed_query(&self, query: &str) -> Result<Vec<f32>> {
+    pub(crate) async fn embed_query(&self, query: &str) -> Result<Vec<f32>> {
         match &self.compute {
             SemanticComputeBackend::InProcess(embed) => embed.embed(query).await,
             SemanticComputeBackend::Remote(remote) => remote.embed_query(query).await,
         }
     }
 
-    async fn embed_passage(&self, text: &str) -> Result<Vec<f32>> {
+    pub(crate) async fn embed_passage(&self, text: &str) -> Result<Vec<f32>> {
         match &self.compute {
             SemanticComputeBackend::InProcess(embed) => embed.embed(text).await,
             SemanticComputeBackend::Remote(remote) => remote.embed_passage(text).await,
