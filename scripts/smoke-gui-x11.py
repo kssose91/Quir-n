@@ -12,6 +12,7 @@ parser.add_argument('--binary',type=Path,default=Path(__file__).resolve().parent
 parser.add_argument('--project',type=Path)
 parser.add_argument('--edit-smoke',action='store_true',help='Crear un proyecto temporal y probar abrir, editar, deshacer, guardar y reabrir')
 parser.add_argument('--chat',help='Pregunta ASCII que se teclea en el chat con el proyecto abierto; espera la respuesta y la captura')
+parser.add_argument('--stay',type=float,default=0.0,help='Segundos extra con la ventana abierta antes de capturar (p. ej. para ver el índice avanzar)')
 parser.add_argument('--output-dir',type=Path,required=True)
 args=parser.parse_args()
 if args.edit_smoke and args.project:
@@ -192,6 +193,8 @@ try:
         screenshot(window,args.output_dir/'gui-chat.png')
         evidence['checks']['chat_answered']=True
         project=None  # el proyecto real no se limpia
+    if args.stay > 0:
+        time.sleep(args.stay)
     screenshot(window,args.output_dir/'gui-1280.png')
     subprocess.run(['hyprctl','dispatch','resizewindowpixel','exact 900 600,pid:'+str(p.pid)],check=True,stdout=subprocess.DEVNULL); time.sleep(.5)
     screenshot(window,args.output_dir/'gui-900.png')
