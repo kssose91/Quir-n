@@ -7,7 +7,8 @@
 use llore_ui::app::{
     run, top_menu_entries, AppState, ChatMessage, ClickTargetAction, CommandPaletteAction,
     EditorPane, OverlayMode, PanelDock, SearchInputFocus, SessionTelemetryTimelineSource,
-    ProviderKind, SidebarPanel, SidebarProblemSeverity, TabSnapshot, TelemetryTimelineFilter, TopMenuKind,
+    AgentTarget, ProviderKind, SidebarPanel, SidebarProblemSeverity, TabSnapshot, TelemetryTimelineFilter,
+    TopMenuKind,
     UiAppearancePreset,
     UiDensity, EDITOR_BODY_BOTTOM_PADDING, EDITOR_BODY_TOP_PADDING, EDITOR_GUTTER_WIDTH,
     EDITOR_TAB_BAR_HEIGHT, OVERLAY_RESULTS_MAX, SEARCH_RESULTS_MAX_ROWS,
@@ -594,7 +595,6 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         SidebarPanel::Outline => "ESQUEMA",
         SidebarPanel::Appearance => "APARIENCIA",
         SidebarPanel::Security => "SEGURIDAD",
-        SidebarPanel::Connection => "CONEXIÓN",
     };
     let sidebar_title =
         state
@@ -1434,16 +1434,6 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 Color::from_hex(palette.accent),
             );
             state.add_click_target(reset_bounds, ClickTargetAction::ActivityResetAppearance);
-        }
-        SidebarPanel::Connection => {
-            render_connection_panel(
-                canvas,
-                state,
-                &palette,
-                sidebar_content_x,
-                sidebar_content_width,
-                explorer_start_y,
-            );
         }
         SidebarPanel::Security => {
             let section_gap = (8.0 * density_scale).clamp(6.0, 12.0);
@@ -2286,7 +2276,9 @@ fn render_app(window: &mut Window, state: &mut AppState) {
 
     // «● brain :8766»: el punto lleva el color del estado; el texto, el puerto
     // real de la conexión.
-    let connection_label = format!("● {}", state.brain_port_label());
+    // «● Agentes»: el punto lleva el color del estado del cerebro; el nombre
+    // dice lo que se abre al pulsarlo.
+    let connection_label = "● Agentes".to_string();
     let connection_color = if conn_health_ok {
         Color::from_hex(palette.success)
     } else if conn_health_checking {
@@ -2683,6 +2675,9 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     if let Some(mode) = state.overlay_mode {
         canvas.fill_rect(bounds, overlay_scrim_color(palette));
 
+        if mode == OverlayMode::Agentes {
+            render_agents_overlay(canvas, state, &palette, bounds, header_height);
+        } else {
         let panel_width = (bounds.width * 0.62).clamp(420.0, 900.0);
         let panel_rows = state.overlay_items.len().max(1).min(OVERLAY_RESULTS_MAX);
         let overlay_row_h = (24.0 * density_scale).clamp(20.0, 32.0);
@@ -2703,6 +2698,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             OverlayMode::WorkspaceSymbols => "GO TO WORKSPACE SYMBOL",
             OverlayMode::WorkspaceTextSearch => "FIND IN WORKSPACE",
             OverlayMode::Problems => "PROBLEMS",
+            OverlayMode::Agentes => "AGENTES",
         };
         let title_buf = state
             .text_system
@@ -2737,6 +2733,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             OverlayMode::Problems => {
                 "Enter apply | query by editor/search/git/telemetry/runtime | Esc close"
             }
+            OverlayMode::Agentes => "",
         };
         let hint_buf = state
             .text_system
@@ -2757,6 +2754,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             OverlayMode::WorkspaceSymbols => "> workspace symbol: ",
             OverlayMode::WorkspaceTextSearch => "> workspace text: ",
             OverlayMode::Problems => "> problem: ",
+            OverlayMode::Agentes => "",
         };
         let query_text = if state.overlay_query.is_empty() {
             format!("{}|", query_prefix)
@@ -2826,6 +2824,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                     OverlayMode::Problems => {
                         format!("{}  •  {}", item.title, truncate_chars(&item.detail, 82))
                     }
+                    OverlayMode::Agentes => String::new(),
                 };
                 let line_buf = state
                     .text_system
@@ -2846,6 +2845,265 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 row_y += overlay_row_h;
             }
         }
+        }
+    }
+}
+
+/// Paleta Agentes: centrada y con bordes redondeados como Quick Open. Arriba,
+/// el proveedor en uso y la salud del cerebro; luego tarjetas en dos columnas
+/// —suscripciones, conexiones directas, Ollama y el worker local— con su
+/// estado real en este equipo y sus acciones. Configurar una conexión pide los
+/// campos de uno en uno en la propia paleta; el worker ofrece sus `.gguf`.
+fn render_agents_overlay(
+    canvas: &mut Canvas,
+    state: &mut AppState,
+    palette: &ThemePalette,
+    bounds: Bounds,
+    header_height: f32,
+) {
+    let ancho = (bounds.width * 0.6).clamp(560.0, 760.0);
+    let x0 = bounds.x + (bounds.width - ancho) * 0.5;
+    let y0 = header_height + 36.0;
+    let tarjeta_h = 96.0;
+    let columna = (ancho - 36.0) * 0.5;
+    let probe = state.provider_probe.clone();
+    let en_uso = state.ai_provider().replace('-', "_");
+
+    // Altura según lo que se enseña: rejilla, campo o lista del worker.
+    let cuerpo_h = if state.agent_field.is_some() {
+        120.0
+    } else if state.agent_worker_pick {
+        40.0 + probe.as_ref().map_or(0, |p| p.worker_models.len().max(1)) as f32 * 26.0
+    } else {
+        3.0 * (tarjeta_h + 10.0)
+    };
+    let aviso_h = state.provider_notice.as_ref().map_or(0.0, |_| 30.0);
+    let alto = 76.0 + cuerpo_h + aviso_h + 44.0;
+    let panel = Bounds::new(x0, y0, ancho, alto);
+    canvas.fill_rounded_rect(panel, design::radius::LG, Color::from_hex(palette.background));
+    canvas.stroke_rect(panel, Color::from_hex(palette.border).with_alpha(200), 1.0);
+
+    // Cabecera: título, proveedor en uso y cierre.
+    let titulo = state.text_system.create_heading_buffer("Agentes", 18.0, 200.0);
+    state.text_system.draw_buffer(canvas, &titulo, x0 + 20.0, y0 + 30.0, Color::from_hex(palette.text));
+    let estado = format!(
+        "en uso: {} · modelo {}   ·   cerebro: {}",
+        if en_uso.is_empty() { "sin proveedor" } else { en_uso.as_str() },
+        state.selected_ai_model(),
+        state.quiron_connection_health_label()
+    );
+    let estado_buf = state.text_system.create_code_buffer(&estado, design::type_scale::XS, ancho - 40.0);
+    state.text_system.draw_buffer(canvas, &estado_buf, x0 + 20.0, y0 + 52.0, Color::from_hex(palette.text_muted));
+    let cerrar = Bounds::new(x0 + ancho - 40.0, y0 + 14.0, 24.0, 24.0);
+    let cerrar_buf = state.text_system.create_line_buffer("×", design::type_scale::MD, 20.0);
+    state.text_system.draw_buffer(canvas, &cerrar_buf, cerrar.x + 7.0, cerrar.y + 17.0, Color::from_hex(palette.text_muted));
+    state.add_click_target(cerrar, ClickTargetAction::AgentClose);
+
+    let mut y = y0 + 76.0;
+
+    if let Some(campo) = state.agent_field.clone() {
+        // Entrada de un campo, de uno en uno, con el texto en overlay_query.
+        let etiquetas = campo.target.labels();
+        let etiqueta = format!(
+            "{} · paso {}/{}: {}",
+            campo.target.kind().label(),
+            campo.step + 1,
+            etiquetas.len(),
+            etiquetas[campo.step]
+        );
+        let buf = state.text_system.create_line_buffer(&etiqueta, design::type_scale::SM, ancho - 40.0);
+        state.text_system.draw_buffer(canvas, &buf, x0 + 20.0, y + 16.0, Color::from_hex(palette.text));
+        let caja = Bounds::new(x0 + 20.0, y + 30.0, ancho - 40.0, 34.0);
+        canvas.fill_rounded_rect(caja, design::radius::MD, Color::from_hex(palette.surface));
+        canvas.stroke_rect(caja, Color::from_hex(palette.accent).with_alpha(160), 1.0);
+        let es_clave = campo.target == AgentTarget::Compatible && campo.step == 2;
+        let texto = if es_clave {
+            "•".repeat(state.overlay_query.chars().count())
+        } else {
+            state.overlay_query.clone()
+        };
+        let mostrado = format!("{}|", truncate_chars(&texto, 80));
+        let buf = state.text_system.create_line_buffer(&mostrado, design::type_scale::MD, caja.width - 20.0);
+        state.text_system.draw_buffer(canvas, &buf, caja.x + 10.0, caja.y + 22.0, Color::from_hex(palette.text));
+        let pista = state.text_system.create_code_buffer(
+            "Intro para seguir · Esc para cancelar",
+            design::type_scale::XS,
+            ancho - 40.0,
+        );
+        state.text_system.draw_buffer(canvas, &pista, x0 + 20.0, y + 84.0, Color::from_hex(palette.text_muted));
+        y += cuerpo_h;
+    } else if state.agent_worker_pick {
+        let rotulo = state.text_system.create_line_buffer(
+            "Modelo del worker: archivos .gguf en su carpeta (Esc para volver)",
+            design::type_scale::SM,
+            ancho - 40.0,
+        );
+        state.text_system.draw_buffer(canvas, &rotulo, x0 + 20.0, y + 16.0, Color::from_hex(palette.text));
+        let mut fila_y = y + 30.0;
+        let modelos = probe.as_ref().map(|p| p.worker_models.clone()).unwrap_or_default();
+        let actual = probe.as_ref().map(|p| p.worker_current.clone()).unwrap_or_default();
+        if modelos.is_empty() {
+            let vacio = state.text_system.create_line_buffer(
+                "no hay archivos .gguf en la carpeta del worker",
+                design::type_scale::XS,
+                ancho - 40.0,
+            );
+            state.text_system.draw_buffer(canvas, &vacio, x0 + 30.0, fila_y + 14.0, Color::from_hex(palette.text_muted));
+        }
+        for nombre in modelos {
+            let fila = Bounds::new(x0 + 20.0, fila_y, ancho - 40.0, 24.0);
+            if nombre == actual {
+                canvas.fill_rounded_rect(fila, 4.0, Color::from_hex(palette.selection).with_alpha(120));
+            }
+            let buf = state.text_system.create_line_buffer(&nombre, design::type_scale::SM, ancho - 60.0);
+            state.text_system.draw_buffer(canvas, &buf, fila.x + 10.0, fila_y + 16.0, Color::from_hex(palette.text));
+            state.add_click_target(fila, ClickTargetAction::AgentWorkerModel(nombre));
+            fila_y += 26.0;
+        }
+        y += cuerpo_h;
+    } else {
+        // Rejilla de tarjetas.
+        let tarjetas: [(ProviderKind, Option<AgentTarget>); 5] = [
+            (ProviderKind::ClaudeCli, None),
+            (ProviderKind::CodexDirect, None),
+            (ProviderKind::OpenAiCompatible, Some(AgentTarget::Compatible)),
+            (ProviderKind::LocalServer, Some(AgentTarget::LocalServer)),
+            (ProviderKind::Ollama, Some(AgentTarget::Ollama)),
+        ];
+        for (i, (kind, target)) in tarjetas.iter().enumerate() {
+            let cx = x0 + 20.0 + (i % 2) as f32 * (columna + 16.0);
+            let cy = y + (i / 2) as f32 * (tarjeta_h + 10.0);
+            let activo = en_uso == kind.backend()
+                && match kind {
+                    ProviderKind::LocalServer => probe.as_ref().and_then(|p| p.compatible_endpoint.as_deref()).map_or(false, es_endpoint_local),
+                    ProviderKind::OpenAiCompatible => !probe.as_ref().and_then(|p| p.compatible_endpoint.as_deref()).map_or(false, es_endpoint_local),
+                    _ => true,
+                };
+            let (estado, ok) = estado_de_proveedor(*kind, probe.as_ref());
+            let acciones: Vec<(&str, ClickTargetAction)> = match (kind, target) {
+                (ProviderKind::ClaudeCli | ProviderKind::CodexDirect, _) => vec![
+                    ("Iniciar sesión", ClickTargetAction::ProviderLogin(*kind)),
+                    (if activo { "En uso" } else { "Usar" }, ClickTargetAction::ProviderUse(*kind)),
+                ],
+                (_, Some(t)) => vec![
+                    ("Configurar…", ClickTargetAction::AgentConfigure(*t)),
+                    (if activo { "En uso" } else { "Usar" }, ClickTargetAction::ProviderUse(*kind)),
+                ],
+                _ => Vec::new(),
+            };
+            dibujar_tarjeta_agente(canvas, state, palette, Bounds::new(cx, cy, columna, tarjeta_h), kind.label(), kind.detail(), &estado, ok, activo, acciones);
+        }
+        // Worker local, sexta tarjeta.
+        let cx = x0 + 20.0 + columna + 16.0;
+        let cy = y + 2.0 * (tarjeta_h + 10.0);
+        let (estado, ok) = match &probe {
+            None => ("comprobando…".to_string(), None),
+            Some(p) => {
+                let marcha = match p.worker_running { Some(true) => "en marcha", Some(false) => "parado", None => "estado desconocido" };
+                (format!("{} · {marcha}", truncate_chars(&p.worker_current, 34)), p.worker_running)
+            }
+        };
+        let n = probe.as_ref().map_or(0, |p| p.worker_models.len());
+        dibujar_tarjeta_agente(
+            canvas, state, palette, Bounds::new(cx, cy, columna, tarjeta_h),
+            "Worker local", "fichas del índice · Qwen en la GPU", &estado, ok, false,
+            vec![(if n > 1 { "Modelo…" } else { "Modelos" }, ClickTargetAction::AgentWorkerPick)],
+        );
+        y += cuerpo_h;
+    }
+
+    if let Some(aviso) = state.provider_notice.clone() {
+        let buf = state.text_system.create_line_buffer(&truncate_chars(&aviso, 110), design::type_scale::XS, ancho - 40.0);
+        state.text_system.draw_buffer(canvas, &buf, x0 + 20.0, y + 14.0, Color::from_hex(palette.accent));
+        y += aviso_h;
+    }
+    let boton = Bounds::new(x0 + 20.0, y + 8.0, 110.0, 26.0);
+    canvas.fill_rounded_rect(boton, design::radius::MD, Color::from_hex(palette.surface));
+    canvas.stroke_rect(boton, Color::from_hex(palette.border).with_alpha(200), 1.0);
+    let buf = state.text_system.create_line_buffer("Comprobar", design::type_scale::SM, 100.0);
+    state.text_system.draw_buffer(canvas, &buf, boton.x + 14.0, boton.y + 18.0, Color::from_hex(palette.text_muted));
+    state.add_click_target(boton, ClickTargetAction::ProviderRefresh);
+    let pista = state.text_system.create_code_buffer("Esc cierra", design::type_scale::XS, 120.0);
+    state.text_system.draw_buffer(canvas, &pista, x0 + ancho - 90.0, boton.y + 18.0, Color::from_hex(palette.text_muted));
+}
+
+fn es_endpoint_local(endpoint: &str) -> bool {
+    ["192.168.", "10.", ".local", "localhost", "127.0.0.1"].iter().any(|s| endpoint.contains(s))
+}
+
+/// Estado de un proveedor según el sondeo: texto y si está listo.
+fn estado_de_proveedor(kind: ProviderKind, probe: Option<&llore_ui::app::ProviderProbe>) -> (String, Option<bool>) {
+    let Some(p) = probe else {
+        return ("comprobando…".to_string(), None);
+    };
+    match kind {
+        ProviderKind::ClaudeCli => match (&p.claude_cli, p.claude_logged_in) {
+            (None, _) => ("CLI de Claude no encontrada".to_string(), Some(false)),
+            (Some(_), Some(true)) => ("CLI encontrada · sesión de claude.ai activa".to_string(), Some(true)),
+            (Some(_), Some(false)) => ("CLI encontrada · sin sesión".to_string(), Some(false)),
+            (Some(_), None) => ("CLI encontrada · estado desconocido".to_string(), None),
+        },
+        ProviderKind::CodexDirect => match (&p.codex_cli, &p.codex_session) {
+            (None, _) => ("Codex no encontrado (PATH o extensión de VS Code)".to_string(), Some(false)),
+            (Some(_), Some(s)) => (format!("Codex · {s}"), Some(!s.starts_with("sin"))),
+            (Some(_), None) => ("Codex encontrado · sin sesión".to_string(), Some(false)),
+        },
+        ProviderKind::OpenAiCompatible => match p.compatible_endpoint.as_deref().filter(|e| !es_endpoint_local(e)) {
+            Some(e) => (format!("{} · {}", truncate_chars(e, 30), p.compatible_model.clone().unwrap_or_default()), Some(true)),
+            None => ("sin configurar".to_string(), Some(false)),
+        },
+        ProviderKind::LocalServer => match p.compatible_endpoint.as_deref().filter(|e| es_endpoint_local(e)) {
+            Some(e) => (format!("{} · {}", truncate_chars(e, 30), p.compatible_model.clone().unwrap_or_default()), Some(true)),
+            None => ("sin configurar".to_string(), Some(false)),
+        },
+        ProviderKind::Ollama => match &p.ollama_models {
+            None => ("no responde en 127.0.0.1:11434".to_string(), Some(false)),
+            Some(m) if m.is_empty() => ("en marcha · sin modelos descargados".to_string(), Some(false)),
+            Some(m) => (format!("en marcha · {}", truncate_chars(&m.join(", "), 40)), Some(true)),
+        },
+    }
+}
+
+/// Tarjeta de la paleta: nombre, detalle, estado coloreado y botones.
+#[allow(clippy::too_many_arguments)]
+fn dibujar_tarjeta_agente(
+    canvas: &mut Canvas,
+    state: &mut AppState,
+    palette: &ThemePalette,
+    caja: Bounds,
+    nombre: &str,
+    detalle: &str,
+    estado: &str,
+    ok: Option<bool>,
+    activo: bool,
+    acciones: Vec<(&str, ClickTargetAction)>,
+) {
+    canvas.fill_rounded_rect(caja, design::radius::MD, Color::from_hex(palette.surface));
+    canvas.stroke_rect(
+        caja,
+        Color::from_hex(if activo { palette.accent } else { palette.border }).with_alpha(if activo { 200 } else { 120 }),
+        1.0,
+    );
+    let buf = state.text_system.create_heading_buffer(nombre, design::type_scale::SM, caja.width - 24.0);
+    state.text_system.draw_buffer(canvas, &buf, caja.x + 12.0, caja.y + 20.0, Color::from_hex(palette.text));
+    let buf = state.text_system.create_line_buffer(detalle, design::type_scale::XS, caja.width - 24.0);
+    state.text_system.draw_buffer(canvas, &buf, caja.x + 12.0, caja.y + 35.0, Color::from_hex(palette.text_muted));
+    let color = match ok {
+        Some(true) => Color::from_hex(palette.success),
+        Some(false) => Color::from_hex(palette.warning),
+        None => Color::from_hex(palette.text_muted),
+    };
+    let buf = state.text_system.create_line_buffer(&truncate_chars(estado, 52), design::type_scale::XS, caja.width - 24.0);
+    state.text_system.draw_buffer(canvas, &buf, caja.x + 12.0, caja.y + 52.0, color);
+    let mut bx = caja.x + 12.0;
+    for (texto, accion) in acciones {
+        let ancho = 12.0 + texto.chars().count() as f32 * 6.4 + 12.0;
+        let boton = Bounds::new(bx, caja.y + 62.0, ancho, 24.0);
+        canvas.fill_rounded_rect(boton, 6.0, Color::from_hex(palette.accent).with_alpha(if texto == "En uso" { 60 } else { 28 }));
+        let buf = state.text_system.create_line_buffer(texto, design::type_scale::XS, ancho - 8.0);
+        state.text_system.draw_buffer(canvas, &buf, bx + 12.0, caja.y + 78.0, Color::from_hex(palette.text));
+        state.add_click_target(boton, accion);
+        bx += ancho + 8.0;
     }
 }
 
@@ -2908,115 +3166,6 @@ fn render_top_menu_dropdown(
 /// Enseña el estado real del índice —no un eslogan— porque es lo que decide si
 /// una consulta al chat va a servir de algo: sin Qdrant no hay recuperación, y
 /// sin grafo no hay dependencias.
-/// Panel Conexión: proveedor en uso y, por cada proveedor posible, su estado en
-/// este equipo con dos acciones —iniciar sesión (en una terminal; el flujo lo
-/// lleva la CLI) y usar—. Aplicar reescribe el archivo privado y reinicia el
-/// cerebro; el editor reconecta solo.
-fn render_connection_panel(
-    canvas: &mut Canvas,
-    state: &mut AppState,
-    palette: &ThemePalette,
-    x: f32,
-    w: f32,
-    top: f32,
-) {
-    let mut y = top + 4.0;
-    let en_uso = state.ai_provider().replace('-', "_");
-    let actual = format!(
-        "En uso: {} · {}",
-        if en_uso.is_empty() { "sin proveedor" } else { en_uso.as_str() },
-        state.selected_ai_model()
-    );
-    let buf = state.text_system.create_line_buffer(&actual, design::type_scale::SM, w);
-    state.text_system.draw_buffer(canvas, &buf, x, y + 12.0, Color::from_hex(palette.text));
-    y += 20.0;
-    let salud = format!("cerebro: {}", state.quiron_connection_health_label());
-    let buf = state.text_system.create_line_buffer(&salud, design::type_scale::XS, w);
-    state.text_system.draw_buffer(canvas, &buf, x, y + 10.0, Color::from_hex(palette.text_muted));
-    y += 24.0;
-
-    let probe = state.provider_probe.clone();
-    for kind in ProviderKind::ALL {
-        let activo = en_uso == kind.backend();
-        let alto = 82.0;
-        let tarjeta = Bounds::new(x, y, w, alto);
-        canvas.fill_rounded_rect(tarjeta, design::radius::MD, Color::from_hex(palette.surface));
-        if activo {
-            canvas.stroke_rect(tarjeta, Color::from_hex(palette.accent).with_alpha(160), 1.0);
-        }
-        let nombre = state
-            .text_system
-            .create_heading_buffer(kind.label(), design::type_scale::SM, w - 20.0);
-        state.text_system.draw_buffer(canvas, &nombre, x + 10.0, y + 18.0, Color::from_hex(palette.text));
-
-        let (estado, ok) = match (&probe, kind) {
-            (None, _) => ("comprobando…".to_string(), None),
-            (Some(p), ProviderKind::ClaudeCli) => match (&p.claude_cli, p.claude_logged_in) {
-                (None, _) => ("CLI de Claude no encontrada".to_string(), Some(false)),
-                (Some(_), Some(true)) => ("CLI encontrada · sesión de claude.ai activa".to_string(), Some(true)),
-                (Some(_), Some(false)) => ("CLI encontrada · sin sesión: inicia sesión".to_string(), Some(false)),
-                (Some(_), None) => ("CLI encontrada · estado desconocido".to_string(), None),
-            },
-            (Some(p), ProviderKind::CodexDirect) => match (&p.codex_cli, &p.codex_session) {
-                (None, _) => ("Codex no encontrado (PATH o extensión de VS Code)".to_string(), Some(false)),
-                (Some(_), Some(s)) => (format!("Codex encontrado · {s}"), Some(!s.starts_with("sin"))),
-                (Some(_), None) => ("Codex encontrado · sin sesión: inicia sesión".to_string(), Some(false)),
-            },
-            (Some(p), ProviderKind::OpenAiCompatible) => match &p.compatible_endpoint {
-                Some(e) => (format!("endpoint {}", truncate_chars(e, 34)), Some(true)),
-                None => ("sin endpoint configurado".to_string(), Some(false)),
-            },
-        };
-        let color_estado = match ok {
-            Some(true) => Color::from_hex(palette.success),
-            Some(false) => Color::from_hex(palette.warning),
-            None => Color::from_hex(palette.text_muted),
-        };
-        let buf = state
-            .text_system
-            .create_line_buffer(&estado, design::type_scale::XS, w - 20.0);
-        state.text_system.draw_buffer(canvas, &buf, x + 10.0, y + 36.0, color_estado);
-
-        let botones: [(&str, f32, ClickTargetAction); 2] = [
-            (
-                if kind == ProviderKind::OpenAiCompatible { "Configurar" } else { "Iniciar sesión" },
-                104.0,
-                ClickTargetAction::ProviderLogin(kind),
-            ),
-            (if activo { "En uso" } else { "Usar" }, 64.0, ClickTargetAction::ProviderUse(kind)),
-        ];
-        let mut bx = x + 10.0;
-        for (texto, ancho, accion) in botones {
-            let boton = Bounds::new(bx, y + 48.0, ancho, 24.0);
-            canvas.fill_rounded_rect(boton, 4.0, Color::from_hex(palette.accent).with_alpha(38));
-            canvas.stroke_rect(boton, Color::from_hex(palette.accent).with_alpha(90), 1.0);
-            let buf = state
-                .text_system
-                .create_line_buffer(texto, design::type_scale::XS, ancho - 8.0);
-            state.text_system.draw_buffer(canvas, &buf, bx + 8.0, y + 64.0, Color::from_hex(palette.text));
-            state.add_click_target(boton, accion);
-            bx += ancho + 6.0;
-        }
-        y += alto + 8.0;
-    }
-
-    // Aviso de la última acción y botón para volver a sondear.
-    if let Some(aviso) = state.provider_notice.clone() {
-        let (_, alto) = state.text_system.measure(&aviso, design::type_scale::XS, w);
-        let buf = state.text_system.create_buffer(&aviso, design::type_scale::XS, w);
-        state.text_system.draw_buffer(canvas, &buf, x, y + design::type_scale::XS, Color::from_hex(palette.text_muted));
-        y += alto + 10.0;
-    }
-    let boton = Bounds::new(x, y, 104.0, 24.0);
-    canvas.fill_rounded_rect(boton, 4.0, Color::from_hex(palette.background).with_alpha(120));
-    canvas.stroke_rect(boton, Color::from_hex(palette.border).with_alpha(160), 1.0);
-    let buf = state
-        .text_system
-        .create_line_buffer("Comprobar", design::type_scale::XS, 96.0);
-    state.text_system.draw_buffer(canvas, &buf, boton.x + 8.0, y + 16.0, Color::from_hex(palette.text_muted));
-    state.add_click_target(boton, ClickTargetAction::ProviderRefresh);
-}
-
 /// Secciones de la lateral entre «Nuevo chat» y la búsqueda: el historial de
 /// conversaciones y el repositorio de trabajo con sus recientes, como pestañas
 /// plegables. Devuelve la `y` donde sigue la columna.

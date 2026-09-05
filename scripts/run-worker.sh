@@ -22,7 +22,9 @@ fi
 # La caché de prompts de llama-server vive en la RAM del host y por defecto crece
 # hasta 8 GiB (b10816). En el barrido del 05-09-2026 llegó a 7,8 GB y dejó el
 # portátil sin memoria. Con un solo slot basta un tope pequeño.
-exec "$SERVER" --device "$DEVICE" --model "$WORKER_DIR/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf" \
+# El modelo puede cambiarse desde la paleta Agentes (QUIRON_WORKER_MODEL_FILE).
+MODEL_FILE="${QUIRON_WORKER_MODEL_FILE:-$WORKER_DIR/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf}"
+exec "$SERVER" --device "$DEVICE" --model "$MODEL_FILE" \
   --alias quiron-worker --host 127.0.0.1 --port "${QUIRON_LOCAL_WORKER_PORT:-8092}" \
   --ctx-size 4096 --parallel 1 --n-gpu-layers "${QUIRON_WORKER_GPU_LAYERS:-99}" \
   --cache-ram "${QUIRON_WORKER_CACHE_RAM_MIB:-256}" \

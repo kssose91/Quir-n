@@ -58,7 +58,9 @@ Los contenedores se crean con `--memory` (Qdrant 2 GiB, Neo4j 1,5 GiB) y sin swa
 si ya existían, `quiron-stores.sh` les aplica el tope y `restart=no` antes de
 arrancarlos. Ajustables con `QUIRON_QDRANT_MEMORY`, `QUIRON_NEO4J_MEMORY` y, en el
 worker, `QUIRON_WORKER_CACHE_RAM_MIB` (caché de prompts de llama-server, 256 MiB;
-el valor por defecto del servidor son 8 GiB en RAM del host).
+el valor por defecto del servidor son 8 GiB en RAM del host). El modelo del
+worker se cambia con `QUIRON_WORKER_MODEL_FILE` (un `.gguf` de su carpeta), que
+fija la paleta Agentes del editor o `configure-provider.py worker-model`.
 
 En equipos con 16 GB o menos conviene un protector OOM (`earlyoom` o
 `systemd-oomd`): el kernel prefiere paginar a matar, y sin él una sobrecarga deja

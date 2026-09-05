@@ -349,6 +349,12 @@ pub enum ClickTargetAction {
     ProviderLogin(ProviderKind),
     ProviderUse(ProviderKind),
     ProviderRefresh,
+    /// Paleta Agentes: configurar una conexión por campos, elegir modelo del
+    /// worker (abrir la lista / elegir uno) y cerrar.
+    AgentConfigure(AgentTarget),
+    AgentWorkerPick,
+    AgentWorkerModel(String),
+    AgentClose,
     Citation(Citation),
     /// Abre el archivo de una ficha de código en su primera línea.
     CodeSource(CodeHint),
@@ -479,8 +485,6 @@ pub enum SidebarPanel {
     Outline,
     Appearance,
     Security,
-    /// Proveedores de modelo: sesión y elección.
-    Connection,
 }
 
 /// Proveedor de modelo que se puede elegir desde el panel Conexión.
@@ -490,23 +494,22 @@ pub enum ProviderKind {
     ClaudeCli,
     /// Sesión de ChatGPT a través de Codex (adaptador directo).
     CodexDirect,
-    /// Endpoint compatible con clave de API, configurado en el archivo privado.
+    /// OpenAI u otro endpoint compatible, con clave de API.
     OpenAiCompatible,
+    /// Servidor compatible en la red local (llama-server, SGLang, vLLM…).
+    LocalServer,
+    /// Ollama en este equipo.
+    Ollama,
 }
 
 impl ProviderKind {
-    pub const ALL: [ProviderKind; 3] = [
-        ProviderKind::ClaudeCli,
-        ProviderKind::CodexDirect,
-        ProviderKind::OpenAiCompatible,
-    ];
-
     /// Valor de `QUIRON_GATEWAY_BACKEND`.
     pub fn backend(self) -> &'static str {
         match self {
             ProviderKind::ClaudeCli => "claude_cli",
             ProviderKind::CodexDirect => "codex_direct",
-            ProviderKind::OpenAiCompatible => "openai_compatible",
+            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => "openai_compatible",
+            ProviderKind::Ollama => "ollama_native",
         }
     }
 
@@ -515,16 +518,98 @@ impl ProviderKind {
         match self {
             ProviderKind::ClaudeCli => "claude-cli",
             ProviderKind::CodexDirect => "codex-direct",
-            ProviderKind::OpenAiCompatible => "openai-compatible",
+            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => "openai-compatible",
+            ProviderKind::Ollama => "ollama-native",
         }
     }
 
     pub fn label(self) -> &'static str {
         match self {
-            ProviderKind::ClaudeCli => "Claude · suscripción claude.ai",
-            ProviderKind::CodexDirect => "ChatGPT · suscripción vía Codex",
-            ProviderKind::OpenAiCompatible => "Endpoint compatible · clave de API",
+            ProviderKind::ClaudeCli => "Claude",
+            ProviderKind::CodexDirect => "ChatGPT",
+            ProviderKind::OpenAiCompatible => "OpenAI / compatible",
+            ProviderKind::LocalServer => "Servidor en red local",
+            ProviderKind::Ollama => "Ollama local",
         }
+    }
+
+    pub fn detail(self) -> &'static str {
+        match self {
+            ProviderKind::ClaudeCli => "suscripción claude.ai · CLI oficial",
+            ProviderKind::CodexDirect => "suscripción de ChatGPT · vía Codex",
+            ProviderKind::OpenAiCompatible => "clave de API · endpoint /v1",
+            ProviderKind::LocalServer => "llama-server, SGLang, vLLM… en la LAN",
+            ProviderKind::Ollama => "127.0.0.1:11434 · modelos descargados",
+        }
+    }
+}
+
+/// Campos que se piden al configurar una conexión desde la paleta.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentTarget {
+    Compatible,
+    LocalServer,
+    Ollama,
+}
+
+impl AgentTarget {
+    pub fn labels(self) -> &'static [&'static str] {
+        match self {
+            AgentTarget::Compatible => &[
+                "endpoint (p. ej. https://api.openai.com/v1)",
+                "modelo (p. ej. gpt-5.5)",
+                "clave de API (vacío = sin clave; no se muestra)",
+            ],
+            AgentTarget::LocalServer => &[
+                "endpoint del servidor en red (p. ej. http://192.168.1.10:8080/v1)",
+                "modelo que sirve",
+            ],
+            AgentTarget::Ollama => &["modelo de Ollama (de los descargados)"],
+        }
+    }
+
+    pub fn kind(self) -> ProviderKind {
+        match self {
+            AgentTarget::Compatible => ProviderKind::OpenAiCompatible,
+            AgentTarget::LocalServer => ProviderKind::LocalServer,
+            AgentTarget::Ollama => ProviderKind::Ollama,
+        }
+    }
+}
+
+/// Entrada de campos en curso dentro de la paleta Agentes; el texto vive en
+/// `overlay_query`.
+#[derive(Debug, Clone)]
+pub struct AgentField {
+    pub target: AgentTarget,
+    pub step: usize,
+    pub values: Vec<String>,
+}
+
+impl AgentField {
+    /// Con todos los campos rellenos, los argumentos para
+    /// `configure-provider.py` (sin la ruta del script ni `--apply`) y la
+    /// clave, que nunca va en la línea de órdenes.
+    pub fn plan(target: AgentTarget, values: &[String]) -> Result<(Vec<String>, Option<String>), String> {
+        let valor = |i: usize| values.get(i).map(|v| v.trim().to_string()).unwrap_or_default();
+        let (endpoint, modelo, clave) = match target {
+            AgentTarget::Ollama => ("http://127.0.0.1:11434".to_string(), valor(0), None),
+            AgentTarget::LocalServer => (valor(0), valor(1), None),
+            AgentTarget::Compatible => (valor(0), valor(1), Some(valor(2)).filter(|c| !c.is_empty())),
+        };
+        if endpoint.is_empty() || modelo.is_empty() {
+            return Err("Hacen falta endpoint y modelo.".to_string());
+        }
+        Ok((
+            vec![
+                target.kind().script_name().to_string(),
+                "--endpoint".to_string(),
+                endpoint,
+                "--model".to_string(),
+                modelo,
+            ],
+            clave,
+        ))
     }
 }
 
@@ -536,6 +621,13 @@ pub struct ProviderProbe {
     pub codex_cli: Option<PathBuf>,
     pub codex_session: Option<String>,
     pub compatible_endpoint: Option<String>,
+    pub compatible_model: Option<String>,
+    /// `None`: Ollama no responde; `Some(vec![])`: responde sin modelos.
+    pub ollama_models: Option<Vec<String>>,
+    pub worker_dir: Option<PathBuf>,
+    pub worker_models: Vec<String>,
+    pub worker_current: String,
+    pub worker_running: Option<bool>,
 }
 
 /// Lado de acoplamiento de un panel principal.
@@ -572,7 +664,6 @@ impl SidebarPanel {
             SidebarPanel::Outline => "outline",
             SidebarPanel::Appearance => "appearance",
             SidebarPanel::Security => "security",
-            SidebarPanel::Connection => "connection",
         }
     }
 
@@ -585,7 +676,6 @@ impl SidebarPanel {
             "outline" => Some(SidebarPanel::Outline),
             "appearance" => Some(SidebarPanel::Appearance),
             "security" => Some(SidebarPanel::Security),
-            "connection" => Some(SidebarPanel::Connection),
             _ => None,
         }
     }
@@ -727,6 +817,8 @@ pub enum OverlayMode {
     WorkspaceSymbols,
     WorkspaceTextSearch,
     Problems,
+    /// Paleta Agentes: proveedores, sesiones y modelo del worker.
+    Agentes,
 }
 
 /// Acción ejecutable desde command palette.
@@ -1609,9 +1701,9 @@ const COMMAND_DESCRIPTORS: &[CommandDescriptor] = &[
     },
     CommandDescriptor {
         action: CommandPaletteAction::ShowQuironConnectionStatus,
-        label: "Connection: Show Status",
-        detail: "Post active quiron connection details in chat",
-        keywords: "connection status secure auth health token",
+        label: "Agentes: proveedores, sesiones y worker",
+        detail: "Elegir proveedor, iniciar sesión, modelo del worker",
+        keywords: "agentes proveedor conexión sesión claude chatgpt ollama api worker",
     },
 ];
 
@@ -1876,6 +1968,9 @@ pub struct AppState {
     provider_probe_task: Option<JoinHandle<ProviderProbe>>,
     provider_apply_task: Option<JoinHandle<Result<String, String>>>,
     pub provider_notice: Option<String>,
+    /// Campo en curso de la paleta Agentes y selector de modelo del worker.
+    pub agent_field: Option<AgentField>,
+    pub agent_worker_pick: bool,
     /// Bounds de la columna sidebar (explorer)
     pub sidebar_bounds: Option<Bounds>,
     /// Panel activo del sidebar (explorer/search/git).
@@ -2245,10 +2340,7 @@ impl AppState {
         // una pregunta. Las pestañas de la sesión quedan abiertas, pero el foco
         // no se lo lleva el editor hasta que el usuario lo pida.
         self.set_focus(FocusTarget::ChatInput);
-        // Para el arnés: arrancar con un panel abierto (hoy, «conexion»).
-        if std::env::var("QUIRON_UI_START_PANEL").as_deref() == Ok("conexion") {
-            self.open_connection_panel();
-        }
+        self.apply_start_panel_hook();
         self.needs_render = true;
     }
 
@@ -2367,6 +2459,8 @@ impl AppState {
             provider_probe_task: None,
             provider_apply_task: None,
             provider_notice: None,
+            agent_field: None,
+            agent_worker_pick: false,
             sidebar_bounds: None,
             sidebar_panel: SidebarPanel::Explorer,
             explorer_dock: PanelDock::Left,
@@ -2451,10 +2545,7 @@ impl AppState {
         // Mismo criterio que en `open_workspace`: el chat es la aplicación y
         // lo que se teclea al arrancar con un proyecto es una pregunta.
         state.set_focus(FocusTarget::ChatInput);
-        // Para el arnés: arrancar con un panel abierto (hoy, «conexion»).
-        if std::env::var("QUIRON_UI_START_PANEL").as_deref() == Ok("conexion") {
-            state.open_connection_panel();
-        }
+        state.apply_start_panel_hook();
         let _ = state.poll_quiron_health();
         state
     }
@@ -5268,6 +5359,8 @@ impl AppState {
         self.overlay_query.clear();
         self.overlay_items.clear();
         self.overlay_selected = 0;
+        self.agent_field = None;
+        self.agent_worker_pick = false;
     }
 
     /// Cambia panel activo del sidebar.
@@ -5284,7 +5377,6 @@ impl AppState {
             SidebarPanel::Outline => "sidebar: outline".to_string(),
             SidebarPanel::Appearance => "sidebar: appearance".to_string(),
             SidebarPanel::Security => "sidebar: passwords".to_string(),
-            SidebarPanel::Connection => "sidebar: conexión".to_string(),
         };
         if panel == SidebarPanel::Git {
             self.last_git_status_poll = Instant::now() - GIT_STATUS_POLL_INTERVAL;
@@ -6264,6 +6356,7 @@ impl AppState {
             Some(OverlayMode::WorkspaceSymbols) => "Go to Workspace Symbol",
             Some(OverlayMode::WorkspaceTextSearch) => "Find in Workspace",
             Some(OverlayMode::Problems) => "Problems",
+            Some(OverlayMode::Agentes) => "Agentes",
             None => "",
         }
     }
@@ -6969,6 +7062,7 @@ impl AppState {
                 self.rebuild_workspace_text_search_overlay_items()
             }
             Some(OverlayMode::Problems) => self.rebuild_problems_overlay_items(),
+            Some(OverlayMode::Agentes) => self.overlay_items.clear(),
             None => {}
         }
     }
@@ -7787,10 +7881,7 @@ impl AppState {
                 }
                 self.needs_render = true;
             }
-            CommandPaletteAction::ShowQuironConnectionStatus => {
-                self.post_connection_status_message("command-palette");
-                self.open_connection_panel();
-            }
+            CommandPaletteAction::ShowQuironConnectionStatus => self.open_agents_overlay(),
         }
     }
 
@@ -7911,6 +8002,9 @@ impl AppState {
     pub fn handle_overlay_key(&mut self, key: &Key, shift: bool, ctrl: bool, alt: bool) -> bool {
         if self.overlay_mode.is_none() {
             return false;
+        }
+        if self.overlay_mode == Some(OverlayMode::Agentes) {
+            return self.handle_agents_key(key, ctrl);
         }
 
         match key {
@@ -8179,10 +8273,187 @@ impl AppState {
         }
     }
 
-    /// Abre el panel Conexión y sondea los proveedores del equipo.
-    pub fn open_connection_panel(&mut self) {
-        self.set_sidebar_panel(SidebarPanel::Connection);
+    /// Para el arnés: `QUIRON_UI_START_PANEL=agentes` arranca con la paleta
+    /// abierta; `agentes:compatible|red|ollama` además con ese campo activo y
+    /// `agentes:worker` con la lista de modelos del worker.
+    fn apply_start_panel_hook(&mut self) {
+        let Ok(valor) = std::env::var("QUIRON_UI_START_PANEL") else {
+            return;
+        };
+        let Some(resto) = valor.strip_prefix("agentes") else {
+            return;
+        };
+        self.open_agents_overlay();
+        match resto.strip_prefix(':') {
+            Some("compatible") => self.begin_agent_field(AgentTarget::Compatible),
+            Some("red") => self.begin_agent_field(AgentTarget::LocalServer),
+            Some("ollama") => self.begin_agent_field(AgentTarget::Ollama),
+            Some("worker") => self.agent_worker_pick = true,
+            _ => {}
+        }
+    }
+
+    /// Abre la paleta Agentes (centrada, como Quick Open) y sondea el equipo.
+    pub fn open_agents_overlay(&mut self) {
+        self.reset_overlay_state();
+        self.overlay_mode = Some(OverlayMode::Agentes);
         self.refresh_provider_probe();
+        self.status_text = "agentes".to_string();
+        self.needs_render = true;
+    }
+
+    /// Teclas dentro de la paleta Agentes: solo escriben cuando hay un campo
+    /// abierto; Intro lo confirma y Escape retrocede o cierra.
+    fn handle_agents_key(&mut self, key: &Key, ctrl: bool) -> bool {
+        match key {
+            Key::Named(NamedKey::Escape) => {
+                if self.agent_field.take().is_some() || std::mem::take(&mut self.agent_worker_pick) {
+                    self.overlay_query.clear();
+                    self.needs_render = true;
+                } else {
+                    self.close_overlay();
+                }
+            }
+            Key::Named(NamedKey::Enter) => self.commit_agent_field(),
+            Key::Named(NamedKey::Backspace) if self.agent_field.is_some() => {
+                self.overlay_query.pop();
+                self.needs_render = true;
+            }
+            Key::Named(NamedKey::Space) if self.agent_field.is_some() => {
+                self.overlay_query.push(' ');
+                self.needs_render = true;
+            }
+            Key::Character(ch) if self.agent_field.is_some() && !ctrl => {
+                self.overlay_query.push_str(ch);
+                self.needs_render = true;
+            }
+            _ => {}
+        }
+        true
+    }
+
+    /// Empieza a pedir los campos de una conexión, con valores propuestos.
+    pub fn begin_agent_field(&mut self, target: AgentTarget) {
+        self.agent_worker_pick = false;
+        self.agent_field = Some(AgentField { target, step: 0, values: Vec::new() });
+        self.overlay_query = self.agent_field_default(target, 0);
+        self.needs_render = true;
+    }
+
+    fn agent_field_default(&self, target: AgentTarget, step: usize) -> String {
+        let probe = self.provider_probe.clone().unwrap_or_default();
+        let endpoint = probe.compatible_endpoint.clone().unwrap_or_default();
+        // El modelo guardado solo sirve de propuesta si es de un endpoint
+        // compatible; el de Claude o Codex no vale para otro servidor.
+        let modelo_guardado = probe
+            .compatible_model
+            .clone()
+            .filter(|_| Self::provider_setting("QUIRON_GATEWAY_BACKEND").as_deref() == Some("openai_compatible"));
+        let es_local = endpoint.contains("192.168.")
+            || endpoint.contains("10.")
+            || endpoint.contains(".local")
+            || endpoint.contains("localhost")
+            || endpoint.contains("127.0.0.1");
+        match (target, step) {
+            (AgentTarget::Compatible, 0) => {
+                if !endpoint.is_empty() && !es_local { endpoint } else { "https://api.openai.com/v1".to_string() }
+            }
+            (AgentTarget::Compatible, 1) => modelo_guardado.unwrap_or_else(|| "gpt-5.5".to_string()),
+            (AgentTarget::LocalServer, 0) => {
+                if es_local { endpoint } else { "http://192.168.1.10:8080/v1".to_string() }
+            }
+            (AgentTarget::LocalServer, 1) => modelo_guardado.unwrap_or_default(),
+            (AgentTarget::Ollama, 0) => probe
+                .ollama_models
+                .as_ref()
+                .and_then(|m| m.first().cloned())
+                .unwrap_or_default(),
+            _ => String::new(),
+        }
+    }
+
+    /// Intro en un campo: guarda el valor, pasa al siguiente o aplica.
+    fn commit_agent_field(&mut self) {
+        let Some(mut campo) = self.agent_field.take() else {
+            return;
+        };
+        campo.values.push(self.overlay_query.trim().to_string());
+        campo.step += 1;
+        let etiquetas = campo.target.labels();
+        if campo.step < etiquetas.len() {
+            self.overlay_query = self.agent_field_default(campo.target, campo.step);
+            self.agent_field = Some(campo);
+            self.needs_render = true;
+            return;
+        }
+        self.overlay_query.clear();
+        match AgentField::plan(campo.target, &campo.values) {
+            Ok((args, clave)) => self.spawn_configure(args, clave, campo.target.kind().label()),
+            Err(aviso) => {
+                self.provider_notice = Some(aviso);
+                self.needs_render = true;
+            }
+        }
+    }
+
+    /// Cambia el modelo del worker local a un `.gguf` de su carpeta.
+    pub fn apply_worker_model(&mut self, nombre: &str) {
+        let Some(dir) = self.provider_probe.as_ref().and_then(|p| p.worker_dir.clone()) else {
+            return;
+        };
+        self.agent_worker_pick = false;
+        let ruta = dir.join(nombre);
+        self.spawn_configure(
+            vec!["worker-model".to_string(), "--worker-model".to_string(), ruta.to_string_lossy().into_owned()],
+            None,
+            "worker local",
+        );
+    }
+
+    /// Ejecuta `configure-provider.py … --apply` fuera del hilo de la
+    /// interfaz; la clave, si la hay, viaja por la entrada estándar.
+    fn spawn_configure(&mut self, mut args: Vec<String>, clave: Option<String>, etiqueta: &str) {
+        if self.provider_apply_task.is_some() {
+            return;
+        }
+        let Some(script) = Self::configure_provider_script() else {
+            self.provider_notice = Some("No encuentro scripts/configure-provider.py junto al programa.".to_string());
+            self.needs_render = true;
+            return;
+        };
+        args.insert(0, script.to_string_lossy().into_owned());
+        if clave.is_some() {
+            args.push("--api-key-from-stdin".to_string());
+        }
+        args.push("--apply".to_string());
+        self.provider_notice = Some(format!("Aplicando {etiqueta}…"));
+        self.provider_apply_task = Some(self.runtime.spawn_blocking(move || {
+            use std::io::Write;
+            let mut hijo = std::process::Command::new("python3")
+                .args(&args)
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()
+                .map_err(|e| e.to_string())?;
+            if let Some(mut entrada) = hijo.stdin.take() {
+                if let Some(clave) = clave {
+                    let _ = writeln!(entrada, "{clave}");
+                }
+            }
+            let salida = hijo.wait_with_output().map_err(|e| e.to_string())?;
+            let texto = format!(
+                "{}{}",
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
+            let ultima = texto.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").to_string();
+            if salida.status.success() {
+                Ok(if ultima.is_empty() { "Guardado.".to_string() } else { ultima })
+            } else {
+                Err(if ultima.is_empty() { "No se pudo aplicar.".to_string() } else { ultima })
+            }
+        }));
         self.needs_render = true;
     }
 
@@ -8254,7 +8525,69 @@ impl AppState {
                 }
             });
         probe.compatible_endpoint = Self::provider_setting("QUIRON_LLM_ENDPOINT_PRIMARY");
+        probe.compatible_model = Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY");
+
+        // Ollama: una petición HTTP mínima con tiempo límite corto.
+        probe.ollama_models = Self::ollama_models_at("127.0.0.1:11434");
+
+        // Worker local: su carpeta, los .gguf disponibles, el elegido y si corre.
+        let worker_dir = Self::provider_setting("QUIRON_LOCAL_WORKER_DIR")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::current_exe().ok().and_then(|exe| {
+                    exe.parent().and_then(|p| p.parent()).map(|raiz| raiz.join("data/worker"))
+                })
+            })
+            .filter(|d| d.is_dir())
+            .or_else(|| std::env::current_dir().ok().map(|d| d.join("data/worker")).filter(|d| d.is_dir()));
+        if let Some(dir) = &worker_dir {
+            let mut modelos: Vec<String> = fs::read_dir(dir)
+                .map(|entradas| {
+                    entradas
+                        .filter_map(|e| e.ok())
+                        .map(|e| e.file_name().to_string_lossy().into_owned())
+                        .filter(|n| n.ends_with(".gguf"))
+                        .collect()
+                })
+                .unwrap_or_default();
+            modelos.sort();
+            probe.worker_models = modelos;
+        }
+        probe.worker_current = Self::provider_setting("QUIRON_WORKER_MODEL_FILE")
+            .and_then(|p| Path::new(&p).file_name().map(|n| n.to_string_lossy().into_owned()))
+            .unwrap_or_else(|| "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf".to_string());
+        probe.worker_dir = worker_dir;
+        probe.worker_running = std::process::Command::new("systemctl")
+            .args(["--user", "is-active", "quiron-worker.service"])
+            .output()
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "active");
         probe
+    }
+
+    /// Modelos que anuncia Ollama en 127.0.0.1:11434 (`/api/tags`); `None`
+    /// si no responde. HTTP a mano sobre TCP con tiempo límite, sin bloquear.
+    fn ollama_models_at(direccion: &str) -> Option<Vec<String>> {
+        use std::io::{Read, Write};
+        let direccion: std::net::SocketAddr = direccion.parse().ok()?;
+        let mut socket = std::net::TcpStream::connect_timeout(&direccion, Duration::from_millis(400)).ok()?;
+        let _ = socket.set_read_timeout(Some(Duration::from_millis(800)));
+        socket
+            .write_all(b"GET /api/tags HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+            .ok()?;
+        let mut respuesta = Vec::new();
+        let _ = socket.read_to_end(&mut respuesta);
+        let texto = String::from_utf8_lossy(&respuesta);
+        let cuerpo = texto.split("\r\n\r\n").nth(1)?;
+        let json: serde_json::Value = serde_json::from_str(cuerpo).ok()?;
+        Some(
+            json["models"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|m| m["name"].as_str().map(str::to_string))
+                .collect(),
+        )
     }
 
     fn poll_provider_tasks(&mut self) -> bool {
@@ -8300,12 +8633,9 @@ impl AppState {
         let (programa, args): (Option<PathBuf>, Vec<&str>) = match kind {
             ProviderKind::ClaudeCli => (probe.claude_cli, vec!["auth", "login"]),
             ProviderKind::CodexDirect => (probe.codex_cli, vec!["login"]),
-            ProviderKind::OpenAiCompatible => (None, Vec::new()),
+            _ => (None, Vec::new()),
         };
         self.provider_notice = Some(match programa {
-            None if kind == ProviderKind::OpenAiCompatible => {
-                "El endpoint compatible se configura en el archivo privado: endpoint, modelo y clave.".to_string()
-            }
             None => "No encuentro esa CLI en este equipo.".to_string(),
             Some(programa) => {
                 let orden = format!("{} {}", programa.display(), args.join(" "));
@@ -8357,55 +8687,36 @@ impl AppState {
     /// reescribe el archivo privado y reinicia el cerebro; el editor reconecta
     /// solo. Corre fuera del hilo de la interfaz.
     pub fn provider_use(&mut self, kind: ProviderKind) {
-        if self.provider_apply_task.is_some() {
-            return;
-        }
-        let Some(script) = Self::configure_provider_script() else {
-            self.provider_notice = Some("No encuentro scripts/configure-provider.py junto al programa.".to_string());
-            self.needs_render = true;
-            return;
-        };
-        let mut args = vec![script.to_string_lossy().into_owned(), kind.script_name().to_string()];
         match kind {
-            ProviderKind::ClaudeCli => args.extend(["--model".to_string(), "sonnet".to_string()]),
-            ProviderKind::CodexDirect => args.extend(["--model".to_string(), "gpt-5.5".to_string()]),
-            ProviderKind::OpenAiCompatible => {
+            ProviderKind::ClaudeCli => self.spawn_configure(
+                vec!["claude-cli".to_string(), "--model".to_string(), "sonnet".to_string()],
+                None,
+                kind.label(),
+            ),
+            ProviderKind::CodexDirect => self.spawn_configure(
+                vec!["codex-direct".to_string(), "--model".to_string(), "gpt-5.5".to_string()],
+                None,
+                kind.label(),
+            ),
+            // Sin endpoint y modelo guardados, «Usar» pide los campos.
+            ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => {
                 let endpoint = Self::provider_setting("QUIRON_LLM_ENDPOINT_PRIMARY");
                 let modelo = Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY");
                 match (endpoint, modelo) {
-                    (Some(endpoint), Some(modelo)) => {
-                        args.extend(["--endpoint".to_string(), endpoint, "--model".to_string(), modelo]);
-                    }
-                    _ => {
-                        self.provider_notice = Some(
-                            "Configura QUIRON_LLM_ENDPOINT_PRIMARY, el modelo y la clave en el archivo privado.".to_string(),
-                        );
-                        self.needs_render = true;
-                        return;
-                    }
+                    (Some(endpoint), Some(modelo)) => self.spawn_configure(
+                        vec!["openai-compatible".to_string(), "--endpoint".to_string(), endpoint, "--model".to_string(), modelo],
+                        None,
+                        kind.label(),
+                    ),
+                    _ => self.begin_agent_field(if kind == ProviderKind::LocalServer {
+                        AgentTarget::LocalServer
+                    } else {
+                        AgentTarget::Compatible
+                    }),
                 }
             }
+            ProviderKind::Ollama => self.begin_agent_field(AgentTarget::Ollama),
         }
-        args.push("--apply".to_string());
-        self.provider_notice = Some(format!("Aplicando {}…", kind.label()));
-        self.provider_apply_task = Some(self.runtime.spawn_blocking(move || {
-            let salida = std::process::Command::new("python3")
-                .args(&args)
-                .output()
-                .map_err(|e| e.to_string())?;
-            let texto = format!(
-                "{}{}",
-                String::from_utf8_lossy(&salida.stdout),
-                String::from_utf8_lossy(&salida.stderr)
-            );
-            let ultima = texto.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").to_string();
-            if salida.status.success() {
-                Ok(if ultima.is_empty() { "Proveedor guardado.".to_string() } else { ultima })
-            } else {
-                Err(if ultima.is_empty() { "No se pudo aplicar.".to_string() } else { ultima })
-            }
-        }));
-        self.needs_render = true;
     }
 
     /// Traza de interfaz, solo con QUIRON_UI_TRACE=1: para cazar acciones que
@@ -8449,7 +8760,6 @@ impl AppState {
             SidebarPanel::Outline => self.scroll_sidebar_outline_lines(delta_lines),
             SidebarPanel::Appearance => {}
             SidebarPanel::Security => {}
-            SidebarPanel::Connection => {}
         }
     }
 
@@ -10191,6 +10501,14 @@ impl AppState {
                 self.provider_notice = None;
                 self.refresh_provider_probe();
             }
+            ClickTargetAction::AgentConfigure(target) => self.begin_agent_field(target),
+            ClickTargetAction::AgentWorkerPick => {
+                self.agent_worker_pick = !self.agent_worker_pick;
+                self.agent_field = None;
+                self.needs_render = true;
+            }
+            ClickTargetAction::AgentWorkerModel(nombre) => self.apply_worker_model(&nombre),
+            ClickTargetAction::AgentClose => self.close_overlay(),
             ClickTargetAction::WelcomeOpenRecent(path) => {
                 if path.is_dir() {
                     self.open_workspace(path);
@@ -11501,6 +11819,88 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn el_plan_de_una_conexion_compatible_lleva_la_clave_aparte() {
+        let valores = vec![
+            " https://api.openai.com/v1 ".to_string(),
+            "gpt-5.5".to_string(),
+            "sk-secreta".to_string(),
+        ];
+        let (args, clave) = AgentField::plan(AgentTarget::Compatible, &valores).unwrap();
+        assert_eq!(
+            args,
+            vec!["openai-compatible", "--endpoint", "https://api.openai.com/v1", "--model", "gpt-5.5"]
+        );
+        assert_eq!(clave.as_deref(), Some("sk-secreta"));
+        assert!(!args.iter().any(|a| a.contains("secreta")), "la clave nunca va en argv");
+    }
+
+    #[test]
+    fn el_plan_de_ollama_fija_su_endpoint_y_exige_modelo() {
+        let (args, clave) = AgentField::plan(AgentTarget::Ollama, &["qwen2.5-coder:7b".to_string()]).unwrap();
+        assert_eq!(
+            args,
+            vec!["ollama-native", "--endpoint", "http://127.0.0.1:11434", "--model", "qwen2.5-coder:7b"]
+        );
+        assert!(clave.is_none());
+        assert!(AgentField::plan(AgentTarget::Ollama, &[String::new()]).is_err());
+        assert!(AgentField::plan(AgentTarget::LocalServer, &["http://192.168.1.10:8080/v1".to_string()]).is_err());
+    }
+
+    #[test]
+    fn los_modelos_de_ollama_se_leen_de_api_tags_y_sin_servidor_es_none() {
+        use std::io::{Read, Write};
+        let escucha = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let direccion = escucha.local_addr().unwrap().to_string();
+        let servidor = std::thread::spawn(move || {
+            let (mut socket, _) = escucha.accept().unwrap();
+            let mut peticion = [0u8; 512];
+            let _ = socket.read(&mut peticion);
+            let cuerpo = r#"{"models":[{"name":"qwen2.5-coder:7b"},{"name":"llama3.2:3b"}]}"#;
+            let _ = write!(
+                socket,
+                "HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                cuerpo.len(),
+                cuerpo
+            );
+        });
+        let modelos = AppState::ollama_models_at(&direccion).unwrap();
+        servidor.join().unwrap();
+        assert_eq!(modelos, vec!["qwen2.5-coder:7b", "llama3.2:3b"]);
+
+        // Un puerto sin nadie escuchando: None, y sin esperar más que el límite.
+        let libre = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let direccion_libre = libre.local_addr().unwrap().to_string();
+        drop(libre);
+        assert!(AppState::ollama_models_at(&direccion_libre).is_none());
+    }
+
+    #[test]
+    fn la_paleta_agentes_teclea_solo_con_un_campo_abierto_y_esc_retrocede() {
+        let workspace = TestWorkspace::new("agentes");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        state.open_agents_overlay();
+        assert_eq!(state.overlay_mode, Some(OverlayMode::Agentes));
+        // Sin campo abierto, las letras no escriben nada.
+        assert!(state.handle_overlay_key(&Key::Character("x".into()), false, false, false));
+        assert!(state.overlay_query.is_empty());
+        state.begin_agent_field(AgentTarget::LocalServer);
+        state.overlay_query.clear();
+        for ch in ["h", "t", "t", "p"] {
+            state.handle_overlay_key(&Key::Character(ch.into()), false, false, false);
+        }
+        assert_eq!(state.overlay_query, "http");
+        state.handle_overlay_key(&Key::Named(NamedKey::Enter), false, false, false);
+        let campo = state.agent_field.as_ref().expect("pasa al segundo campo");
+        assert_eq!((campo.step, campo.values.as_slice()), (1, &["http".to_string()][..]));
+        // Escape cancela el campo pero deja la paleta; otro Escape la cierra.
+        state.handle_overlay_key(&Key::Named(NamedKey::Escape), false, false, false);
+        assert!(state.agent_field.is_none());
+        assert_eq!(state.overlay_mode, Some(OverlayMode::Agentes));
+        state.handle_overlay_key(&Key::Named(NamedKey::Escape), false, false, false);
+        assert_eq!(state.overlay_mode, None);
+    }
 
     struct TestWorkspace {
         root: PathBuf,
@@ -12923,20 +13323,18 @@ mod tests {
     }
 
     #[test]
-    fn command_palette_connection_status_posts_chat_message() {
+    fn command_palette_connection_status_opens_agents_palette() {
         let workspace = TestWorkspace::new("palette_connection_status");
         let mut state = AppState::new_for_tests(workspace.root_path());
         let before = state.messages.len();
 
         state.execute_command_palette_action(CommandPaletteAction::ShowQuironConnectionStatus);
 
-        assert!(state.messages.len() > before);
-        assert!(state
-            .messages
-            .last()
-            .expect("connection status message")
-            .content
-            .contains("Connection status"));
+        // Ya no escribe en el chat: abre la paleta Agentes, sin campo activo.
+        assert_eq!(state.messages.len(), before);
+        assert_eq!(state.overlay_mode, Some(OverlayMode::Agentes));
+        assert!(state.agent_field.is_none());
+        assert!(state.overlay_query.is_empty());
     }
 
     #[test]

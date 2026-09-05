@@ -120,8 +120,16 @@ Cada proveedor determina cómo se inicia sesión y qué uso cubren sus límites.
 |---|---|
 | `claude_cli` | CLI oficial autenticada mediante `claude auth login`; probado con sesión de claude.ai |
 | `codex_direct` | Adaptador existente que lee la sesión de Codex; conserva la limitación de renovación del token |
-| `openai_compatible` | Endpoint, modelo y credencial de API propia; el transporte de herramientas de Quirón sigue pendiente en este adaptador |
-| `ollama_native` | Servidor local configurado; conserva el adaptador existente |
+| `openai_compatible` | Endpoint, modelo y credencial de API propia (OpenAI o un servidor compatible en la red local); el transporte de herramientas de Quirón sigue pendiente en este adaptador |
+| `ollama_native` | Ollama en `127.0.0.1:11434`; conserva el adaptador existente |
+
+Todo eso se elige desde el editor en la paleta **Agentes** (chip «● Agentes»
+de la barra superior o paleta de órdenes): tarjetas con el estado real de cada
+proveedor en el equipo, «Iniciar sesión» (abre una terminal con el flujo de la
+propia CLI; la app no lee ni guarda credenciales), «Configurar…» (pide
+endpoint, modelo y, si procede, clave; la clave va por la entrada estándar del
+script, enmascarada en pantalla) y «Usar». La misma paleta enseña el modelo
+del worker local y permite cambiarlo por otro `.gguf` de su carpeta.
 
 Claude CLI 2.1.251 se probó con `--safe-mode`, `--restricted`, `--tools ""`,
 `--strict-mcp-config` y `--no-session-persistence`, en una carpeta temporal. No
@@ -138,6 +146,11 @@ python3 scripts/configure-provider.py claude-cli --model sonnet
 ```
 
 Añadir `--apply` guarda esa elección en el entorno privado y reinicia el cerebro.
+Otras formas: `openai-compatible --endpoint URL --model M [--api-key-from-stdin]`,
+`ollama-native --model M` (endpoint `http://127.0.0.1:11434` por defecto) y
+`worker-model --worker-model ruta.gguf` (fija `QUIRON_WORKER_MODEL_FILE`, que
+lee `scripts/run-worker.sh`; el indexador etiqueta las fichas con ese modelo y
+las regenera si cambia).
 Reabrir el editor actualiza el selector a Sonnet/Opus/Haiku. La configuración
 principal existente se conserva hasta elegir otra. En este portátil quedó
 seleccionado `claude_cli` con `sonnet` el 5 de septiembre por la tarde; la

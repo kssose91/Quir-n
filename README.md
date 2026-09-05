@@ -161,10 +161,13 @@ el grafo ni la API.
 Precisamente por concentrar la salida en un punto, el sistema puede crecer hacia
 otros modelos sin reescribirse.
 
-La configuración vigente es `codex_direct`: lee las credenciales de sesión que
-mantiene Codex en `~/.codex/auth.json`, extrae el testigo de acceso y el
-identificador de cuenta, y envía la petición a la API de respuestas de Codex.
-Modelo: `gpt-5.6-sol`.
+El proveedor se elige desde el editor, en la paleta **Agentes** (suscripción de
+Claude por su CLI, suscripción de ChatGPT vía Codex, OpenAI o un servidor
+compatible con clave, servidor en la red local, Ollama), o con
+`scripts/configure-provider.py`. Con `codex_direct` el gateway lee las
+credenciales de sesión que mantiene Codex en `~/.codex/auth.json`, extrae el
+testigo de acceso y el identificador de cuenta, y envía la petición a la API de
+respuestas de Codex.
 
 La sesión de este equipo no usa una clave de API. La disponibilidad y los
 límites dependen del proveedor. Claude se conecta mediante su CLI oficial; no

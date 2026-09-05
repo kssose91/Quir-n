@@ -16,6 +16,27 @@ use std::time::{Duration, Instant};
 use tokio::sync::Semaphore;
 
 const VERSION: &str = "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4";
+/// Modelo del worker por defecto; con otro (`QUIRON_WORKER_MODEL_FILE`) las
+/// fichas se etiquetan aparte y el proyecto se vuelve a resumir.
+const DEFAULT_WORKER_MODEL_FILE: &str = "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf";
+
+fn summary_model_tag() -> String {
+    match std::env::var("QUIRON_WORKER_MODEL_FILE") {
+        Ok(ruta) => {
+            let nombre = std::path::Path::new(&ruta)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
+            if nombre.is_empty() || nombre == DEFAULT_WORKER_MODEL_FILE {
+                VERSION.to_string()
+            } else {
+                format!("{VERSION}|{nombre}")
+            }
+        }
+        Err(_) => VERSION.to_string(),
+    }
+}
 const MAX_FILE_BYTES: u64 = 512 * 1024;
 /// Forma de las proyecciones (propiedades de nodo, aristas). Al cambiar, el
 /// barrido reescribe todas las unidades desde la caché, sin llamar al modelo.
@@ -289,7 +310,8 @@ impl ProjectWorker {
             .transpose()?
             .unwrap_or_default();
         let configuration = format!(
-            "{VERSION}|{}|{}",
+            "{}|{}|{}",
+            summary_model_tag(),
             semantic.embedding_model(),
             store.collection
         );
@@ -383,7 +405,7 @@ impl ProjectWorker {
                 let record = CodeRecord { id: input.id.clone(), project: project.into(), path: file.rel_path.clone(),
                     symbol: input.symbol, signature: input.signature, kind: input.kind, start_line: input.start, end_line: input.end,
                     content_hash: hash.clone(), calls: input.calls, summary: cached.summary, summary_origin: if cached.structural { "parser" } else { "model" }.into(), partial: input.source.chars().count() > 6000,
-                    summary_model: VERSION.into(), embedding_model: semantic.embedding_model().into() };
+                    summary_model: summary_model_tag(), embedding_model: semantic.embedding_model().into() };
                 job.progress.lock().unwrap().phase = "writing".into();
                 store.upsert(&record, cached.vector).await?;
                 #[cfg(feature = "neo4j")]
@@ -494,7 +516,7 @@ impl ProjectWorker {
                 Some(json!({
                     "vector": vector, "filter": {"must": [project_condition(project),
                         {"key":"embedding_model","match":{"value":semantic.embedding_model()}},
-                        {"key":"summary_model","match":{"value":VERSION}}]},
+                        {"key":"summary_model","match":{"value":summary_model_tag()}}]},
                     "limit": limit.clamp(1,10) * 3, "with_payload": true
                 })),
             )
@@ -831,7 +853,7 @@ impl CodeStore {
             }))).await?;
             for point in result["result"].as_array().context("Inventario Qdrant inválido")? {
                 let payload = &point["payload"];
-                if payload["project"] == project && payload["summary_model"] == VERSION
+                if payload["project"] == project && payload["summary_model"] == summary_model_tag()
                     && payload["embedding_model"] == embedding_model {
                     if let (Some(id), Some(hash)) = (point["id"].as_str(), payload["content_hash"].as_str()) {
                         present.insert(id.into(), hash.into());
