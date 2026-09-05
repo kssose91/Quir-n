@@ -3192,7 +3192,9 @@ fn draw_brain_hologram(
             let d = ((sx - mx).powi(2) + (sy - my).powi(2)).sqrt();
             (1.0 - d / radio).clamp(0.0, 1.0)
         });
-        let d = (if fuerte { 2.6 } else { 1.7 })
+        // Diámetro: un círculo se percibe algo más pequeño que un cuadrado
+        // del mismo lado, de ahí el factor.
+        let d = (if fuerte { 3.0 } else { 2.0 })
             * (0.65 + 0.7 * c)
             * escala.max(0.6)
             * (1.0 + 0.9 * brillo);
@@ -3202,7 +3204,14 @@ fn draw_brain_hologram(
         } else {
             apagado.with_alpha((28.0 + 96.0 * c) as u8)
         };
-        canvas.fill_rect(Bounds::new(sx - d * 0.5, sy - d * 0.5, d, d), color);
+        // Bolas con volumen para los puntos acentuados y los encendidos; los
+        // grises pequeños, discos: a dos píxeles no se distinguen y así el
+        // fotograma no se encarece.
+        if fuerte || brillo > 0.35 {
+            canvas.fill_sphere(sx, sy, d * 0.5, color);
+        } else {
+            canvas.fill_circle(sx, sy, d * 0.5, color);
+        }
     }
 }
 

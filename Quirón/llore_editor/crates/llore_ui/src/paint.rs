@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use tiny_skia::{
     FillRule, IntSize, Paint, PathBuilder, Pixmap, PixmapPaint, PremultipliedColorU8, Rect, Stroke, Transform,
 };
+use tiny_skia::{GradientStop, Point, RadialGradient, SpreadMode};
 
 /// Color RGBA
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -273,6 +274,60 @@ impl Canvas {
         let mut paint = Paint::default();
         paint.set_color(color.to_skia_color());
 
+        self.pixmap.fill_path(
+            &path,
+            &paint,
+            FillRule::Winding,
+            self.transform(),
+            None,
+        );
+    }
+
+    /// Dibuja un círculo relleno, con antialiasing: para puntos pequeños (2–6 px)
+    /// un rectángulo se ve como un píxel cuadrado; esto se ve redondo.
+    pub fn fill_circle(&mut self, cx: f32, cy: f32, radius: f32, color: Color) {
+        let Some(path) = PathBuilder::from_circle(cx, cy, radius) else {
+            return;
+        };
+        let mut paint = Paint::default();
+        paint.set_color(color.to_skia_color());
+        self.pixmap.fill_path(
+            &path,
+            &paint,
+            FillRule::Winding,
+            self.transform(),
+            None,
+        );
+    }
+
+    /// Dibuja una bola: un círculo con degradado radial —brillo desplazado
+    /// arriba a la izquierda y sombra hacia el borde— que a 3–8 px se lee con
+    /// volumen, no como un disco plano. Conserva el alfa del color.
+    pub fn fill_sphere(&mut self, cx: f32, cy: f32, radius: f32, color: Color) {
+        let Some(path) = PathBuilder::from_circle(cx, cy, radius) else {
+            return;
+        };
+        let mezcla = |hacia: u8, k: f32| -> tiny_skia::Color {
+            let m = |v: u8| (v as f32 + (hacia as f32 - v as f32) * k).round().clamp(0.0, 255.0) as u8;
+            tiny_skia::Color::from_rgba8(m(color.r), m(color.g), m(color.b), color.a)
+        };
+        let sombreado = RadialGradient::new(
+            Point::from_xy(cx - radius * 0.42, cy - radius * 0.42),
+            Point::from_xy(cx, cy),
+            radius * 1.15,
+            vec![
+                GradientStop::new(0.0, mezcla(255, 0.62)),
+                GradientStop::new(0.45, color.to_skia_color()),
+                GradientStop::new(1.0, mezcla(0, 0.45)),
+            ],
+            SpreadMode::Pad,
+            self.transform(),
+        );
+        let mut paint = Paint::default();
+        match sombreado {
+            Some(shader) => paint.shader = shader,
+            None => paint.set_color(color.to_skia_color()),
+        }
         self.pixmap.fill_path(
             &path,
             &paint,
