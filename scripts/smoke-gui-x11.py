@@ -141,17 +141,20 @@ def chat_round(question):
     # Al abrir un proyecto el foco queda en el chat: se teclea directamente.
     # (Escape y Tab alternan el foco, y sendshortcut no entrega Ctrl+Shift+P.)
     step_shot('1-abierto')
+    # La primera tecla tras el arranque se perdía a veces: una inerte la absorbe.
+    key('Shift_L'); time.sleep(.3)
     type_text(question); step_shot('2-pregunta')
     key('Return')
     t0=time.monotonic()
-    while time.monotonic()-t0<180:
+    while time.monotonic()-t0<300:
         out=subprocess.run(['journalctl','--user','-u','quiron-brain','--since',since,'-o','cat'],capture_output=True,text=True).stdout
         lines=[l for l in out.splitlines() if '[claude_cli]' in l and 'model=' in l]
-        if lines:
+        # Con manos hay varias llamadas: la última es la que no pide herramientas.
+        if lines and 'tool_calls=0' in lines[-1]:
             # La respuesta aún viaja gateway → cerebro → editor; y el editor solo
             # repinta ante un evento: una tecla inerte lo provoca.
             time.sleep(3); key('Shift_L'); time.sleep(1); step_shot('3-respuesta')
-            return {'seconds':round(time.monotonic()-t0,1),'gateway_log':lines[-1]}
+            return {'seconds':round(time.monotonic()-t0,1),'llamadas':len(lines),'gateway_log':lines}
         time.sleep(1)
     raise AssertionError('sin respuesta del modelo en 180 s')
 def close():

@@ -225,10 +225,11 @@ async fn invoke(
     // cumplir el contrato JSON y en alguna ocasión devolvió un contenido mínimo
     // tras miles de tokens de salida (05-09-2026).
     let content_chars = parsed.as_ref().ok().and_then(|r| r.content.as_deref()).map_or(0, str::len);
+    let tool_calls = parsed.as_ref().ok().and_then(|r| r.tool_calls.as_ref()).map_or(0, Vec::len);
     eprintln!(
-        "[claude_cli] model={} turns={} output_tokens={} content_chars={}",
+        "[claude_cli] model={} turns={} output_tokens={} content_chars={} tool_calls={}",
         parsed.as_ref().ok().and_then(|r| r.model.as_deref()).unwrap_or("?"),
-        value["num_turns"], value["usage"]["output_tokens"], content_chars
+        value["num_turns"], value["usage"]["output_tokens"], content_chars, tool_calls
     );
     if content_chars < 40 {
         let raw: String = value["result"].as_str().unwrap_or_default().chars().take(400).collect();

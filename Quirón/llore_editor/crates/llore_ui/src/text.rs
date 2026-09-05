@@ -230,6 +230,34 @@ impl TextSystem {
         y: f32,
         color: Color,
     ) {
+        self.draw_buffer_range(canvas, buffer, x, y, color, None);
+    }
+
+    /// Como `draw_buffer`, pero solo pinta las líneas cuya base cae dentro de
+    /// `[y_min, y_max]`. El lienzo no recorta, y un hilo desplazado necesita
+    /// que las líneas fuera de la banda visible no se dibujen.
+    pub fn draw_buffer_within(
+        &mut self,
+        canvas: &mut Canvas,
+        buffer: &Buffer,
+        x: f32,
+        y: f32,
+        color: Color,
+        y_min: f32,
+        y_max: f32,
+    ) {
+        self.draw_buffer_range(canvas, buffer, x, y, color, Some((y_min, y_max)));
+    }
+
+    fn draw_buffer_range(
+        &mut self,
+        canvas: &mut Canvas,
+        buffer: &Buffer,
+        x: f32,
+        y: f32,
+        color: Color,
+        range: Option<(f32, f32)>,
+    ) {
         // Collect glyph info first to avoid borrow issues
         let mut glyphs_to_draw = Vec::new();
 
@@ -254,6 +282,12 @@ impl TextSystem {
 
         for run in buffer.layout_runs() {
             let line_offset = run.line_y - first_line_y;
+            if let Some((y_min, y_max)) = range {
+                let base = y + line_offset;
+                if base < y_min || base > y_max {
+                    continue;
+                }
+            }
             let origin = (x * scale, (y + line_offset) * scale);
             for glyph in run.glyphs.iter() {
                 let physical_glyph = glyph.physical(origin, scale);

@@ -1647,6 +1647,10 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         .text_system
         .create_heading_buffer(&titulo_hilo, 16.0, titulo_w);
     let titulo_ancho = titulo_buf.layout_runs().map(|run| run.line_w).fold(0.0_f32, f32::max);
+    // En columna estrecha el título se envuelve en varias líneas: los mensajes
+    // empiezan debajo de la última, no debajo de la primera.
+    let titulo_lineas = titulo_buf.layout_runs().count().max(1) as f32;
+    let titulo_alto_extra = (titulo_lineas - 1.0) * 16.0 * 1.2;
     state.text_system.draw_buffer(
         canvas,
         &titulo_buf,
@@ -1723,7 +1727,8 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         1.0,
     );
 
-    let mut messages_start_y = chat_bounds.y + 26.0 + 16.0 + 14.0 + design::space::SM;
+    let mut messages_start_y =
+        chat_bounds.y + 26.0 + 16.0 + 14.0 + titulo_alto_extra + design::space::SM;
     if state.is_telemetry_panel_enabled() {
         let telemetry = state.session_telemetry_panel_info();
         let timeline_filter = state.telemetry_timeline_filter();
@@ -1922,7 +1927,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         .messages
         .iter()
         .rev()
-        .take(10)
+        .take(40)
         .cloned()
         .collect::<Vec<_>>();
     let messages_to_show: Vec<_> = messages_to_show.into_iter().rev().collect();
@@ -1943,7 +1948,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         .map(|i| state.expanded_thoughts.contains(&(primer_indice + i)))
         .collect();
 
-    let mut measured: Vec<(ChatMessage, String, f32, f32)> = messages_to_show
+    let measured: Vec<(ChatMessage, String, f32, f32)> = messages_to_show
         .into_iter()
         .enumerate()
         .map(|(i, msg)| {
@@ -1973,7 +1978,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             // `meta` es una etiqueta interna («tools», «connection_error»…):
             // gobierna el render pero no se enseña. Solo las citas añaden alto.
             let mut block_h = etiqueta + relleno + text_h + design::space::SM;
-            let fuentes = msg.citations.len().min(2) + msg.code_sources.len().min(4);
+            let fuentes = msg.citations.len().min(2) + msg.code_sources.len().min(8);
             if fuentes > 0 {
                 block_h += design::space::XS + fuentes as f32 * CHAT_DETAIL_LINE;
             }
@@ -1982,54 +1987,51 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         })
         .collect();
 
-    // La respuesta recién llegada se enseña siempre. El lienzo no recorta, y
-    // un bloque más alto que el hueco taparía el encabezado o el campo de
-    // entrada: si no cabe (columna estrecha, respuesta larga) se omiten
-    // párrafos por el principio, avisándolo, hasta que quepa.
-    if let Some(last) = measured.last_mut() {
-        let disponible = msg_limit_y - messages_start_y;
-        if last.0.meta.as_deref() != Some("tools") && last.3 > disponible {
-            let extra = last.3 - last.2;
-            let original = last.1.clone();
-            let mut parrafos: Vec<&str> = original.split('\n').collect();
-            let mut texto = original.clone();
-            let mut alto = last.2;
-            while extra + alto > disponible && parrafos.len() > 1 {
-                parrafos.remove(0);
-                texto = format!(
-                    "… (inicio omitido: amplía la columna)\n{}",
-                    parrafos.join("\n")
-                );
-                alto = state
-                    .text_system
-                    .measure(&texto, design::type_scale::MD, msg_text_w)
-                    .1
-                    .max(CHAT_LINE_HEIGHT);
-            }
-            last.1 = texto;
-            last.2 = alto;
-            last.3 = extra + alto;
-        }
+    // Se coloca desde el último mensaje hacia arriba, desplazado por la rueda:
+    // con 0 la respuesta recién llegada queda pegada a la entrada; hacia
+    // arriba aparecen las anteriores. Lo que sale de la banda visible se
+    // recorta línea a línea al dibujar, porque el lienzo no recorta.
+    let alto_visible = msg_limit_y - messages_start_y;
+    let total: f32 = measured.iter().map(|m| m.3 + 6.0).sum::<f32>() - 6.0;
+    state.chat_scroll_max = (total - alto_visible).max(0.0);
+    if state.chat_scroll > state.chat_scroll_max {
+        state.chat_scroll = state.chat_scroll_max;
     }
-
-    // Se coloca desde el último mensaje hacia arriba: la respuesta recién
-    // llegada siempre queda visible, aunque las anteriores sean largas. Un
-    // único párrafo más alto que el hueco se ancla arriba y desborda por
-    // debajo, antes que desaparecer.
     let mut placements: Vec<(usize, f32)> = Vec::new();
-    let mut cursor_y = msg_limit_y;
+    let mut cursor_y = msg_limit_y + state.chat_scroll;
     for (index, (_, _, _, block_h)) in measured.iter().enumerate().rev() {
         let top = cursor_y - block_h;
-        if top < messages_start_y {
-            if placements.is_empty() {
-                placements.push((index, messages_start_y));
-            }
+        if cursor_y <= messages_start_y {
             break;
         }
-        placements.push((index, top));
+        if top < msg_limit_y {
+            placements.push((index, top));
+        }
         cursor_y = top - 6.0;
     }
     placements.reverse();
+
+    // Aviso de que hay más arriba: el primero colocado empieza por encima de la
+    // banda, o quedan mensajes sin colocar. Deja hueco para no pisar la línea.
+    let hay_mas_arriba = placements
+        .first()
+        .map_or(false, |(index, top)| *top < messages_start_y || *index > 0);
+    let banda_top = messages_start_y + if hay_mas_arriba { 18.0 } else { 8.0 };
+    if hay_mas_arriba {
+        let aviso = state.text_system.create_line_buffer(
+            "↑ mensajes anteriores (rueda)",
+            design::type_scale::XS,
+            msg_card_w,
+        );
+        state.text_system.draw_buffer(
+            canvas,
+            &aviso,
+            msg_card_x,
+            messages_start_y + design::type_scale::XS,
+            Color::from_hex(palette.text_muted),
+        );
+    }
+    let visible = |base: f32| base >= banda_top && base <= msg_limit_y;
 
     for (index, msg_y) in placements {
         let (msg, text, text_h, block_h) = &measured[index];
@@ -2046,45 +2048,49 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             let encabezado = lineas.next().unwrap_or("");
             let cabecera_bounds = Bounds::new(msg_card_x, msg_y, msg_card_w, CHAT_LINE_HEIGHT + 4.0);
             let base = msg_y + CHAT_LINE_HEIGHT;
-            let chevron = state
-                .text_system
-                .create_line_buffer(if abierto { "⌄" } else { "›" }, design::type_scale::SM, 16.0);
-            state.text_system.draw_buffer(
-                canvas,
-                &chevron,
-                msg_card_x + 10.0,
-                base,
-                Color::from_hex(palette.text_muted),
-            );
-            let enc_buf = state.text_system.create_line_buffer(
-                encabezado,
-                design::type_scale::SM,
-                msg_card_w - 34.0,
-            );
-            state.text_system.draw_buffer(
-                canvas,
-                &enc_buf,
-                msg_card_x + 26.0,
-                base,
-                Color::from_hex(palette.text_muted),
-            );
-            state.add_click_target(cabecera_bounds, ClickTargetAction::ToggleThought(indice_abs));
+            if visible(base) {
+                let chevron = state
+                    .text_system
+                    .create_line_buffer(if abierto { "⌄" } else { "›" }, design::type_scale::SM, 16.0);
+                state.text_system.draw_buffer(
+                    canvas,
+                    &chevron,
+                    msg_card_x + 10.0,
+                    base,
+                    Color::from_hex(palette.text_muted),
+                );
+                let enc_buf = state.text_system.create_line_buffer(
+                    encabezado,
+                    design::type_scale::SM,
+                    msg_card_w - 34.0,
+                );
+                state.text_system.draw_buffer(
+                    canvas,
+                    &enc_buf,
+                    msg_card_x + 26.0,
+                    base,
+                    Color::from_hex(palette.text_muted),
+                );
+                state.add_click_target(cabecera_bounds, ClickTargetAction::ToggleThought(indice_abs));
+            }
 
             if abierto {
                 let mut y = base + design::space::XS + CHAT_DETAIL_LINE;
                 for linea in lineas {
-                    let l_buf = state.text_system.create_code_buffer(
-                        &truncate_chars(linea, 110),
-                        design::type_scale::XS,
-                        msg_card_w - 40.0,
-                    );
-                    state.text_system.draw_buffer(
-                        canvas,
-                        &l_buf,
-                        msg_card_x + 30.0,
-                        y,
-                        Color::from_hex(palette.text_muted),
-                    );
+                    if visible(y) {
+                        let l_buf = state.text_system.create_code_buffer(
+                            &truncate_chars(linea, 110),
+                            design::type_scale::XS,
+                            msg_card_w - 40.0,
+                        );
+                        state.text_system.draw_buffer(
+                            canvas,
+                            &l_buf,
+                            msg_card_x + 30.0,
+                            y,
+                            Color::from_hex(palette.text_muted),
+                        );
+                    }
                     y += CHAT_DETAIL_LINE;
                 }
             }
@@ -2101,13 +2107,15 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             120.0,
         );
         let etiqueta_base = card_bounds.y + design::type_scale::XS;
-        state.text_system.draw_buffer(
-            canvas,
-            &etiqueta_buf,
-            card_bounds.x,
-            etiqueta_base,
-            Color::from_hex(palette.text_muted),
-        );
+        if visible(etiqueta_base) {
+            state.text_system.draw_buffer(
+                canvas,
+                &etiqueta_buf,
+                card_bounds.x,
+                etiqueta_base,
+                Color::from_hex(palette.text_muted),
+            );
+        }
 
         // El cuerpo del mensaje siempre en color de texto. El acento distingue
         // el rol y las citas; usarlo para prosa larga la vuelve ilegible.
@@ -2121,22 +2129,29 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 msg_card_w,
                 text_h + 18.0 * 2.0,
             );
-            canvas.fill_rounded_rect(
-                burbuja,
-                design::radius::LG,
-                Color::from_hex(palette.surface),
-            );
+            // Recorte manual a la banda visible: el lienzo no recorta.
+            let top = burbuja.y.max(messages_start_y);
+            let bottom = (burbuja.y + burbuja.height).min(msg_limit_y);
+            if bottom > top {
+                canvas.fill_rounded_rect(
+                    Bounds::new(burbuja.x, top, burbuja.width, bottom - top),
+                    design::radius::LG,
+                    Color::from_hex(palette.surface),
+                );
+            }
             (card_bounds.x + 20.0, cuerpo_top + 18.0)
         } else {
             (card_bounds.x, cuerpo_top)
         };
         let msg_buf = state.text_system.create_buffer(text, design::type_scale::MD, msg_text_w);
-        state.text_system.draw_buffer(
+        state.text_system.draw_buffer_within(
             canvas,
             &msg_buf,
             texto_x,
             texto_top + design::type_scale::MD,
             text_color,
+            banda_top,
+            msg_limit_y,
         );
 
         // Los detalles empiezan donde termina el texto, no a una altura fija.
@@ -2162,28 +2177,30 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 state
                     .text_system
                     .create_line_buffer(&citation_text, design::type_scale::SM, card_bounds.width - 18.0);
-            state.text_system.draw_buffer(
-                canvas,
-                &citation_buf,
-                citation_x,
-                citation_y,
-                Color::from_hex(palette.accent),
-            );
-            state.add_click_target(
-                Bounds::new(
+            if visible(citation_y) {
+                state.text_system.draw_buffer(
+                    canvas,
+                    &citation_buf,
                     citation_x,
-                    citation_y - 10.0,
-                    card_bounds.width - 20.0,
-                    14.0,
-                ),
-                ClickTargetAction::Citation(citation.clone()),
-            );
+                    citation_y,
+                    Color::from_hex(palette.accent),
+                );
+                state.add_click_target(
+                    Bounds::new(
+                        citation_x,
+                        citation_y - 10.0,
+                        card_bounds.width - 20.0,
+                        14.0,
+                    ),
+                    ClickTargetAction::Citation(citation.clone()),
+                );
+            }
             detail_y += CHAT_DETAIL_LINE;
         }
 
         // Fichas de código: la fuente se enseña como ruta:rango y símbolo, y al
         // pulsarla se abre el archivo en esa línea.
-        for hint in msg.code_sources.iter().take(4) {
+        for hint in msg.code_sources.iter().take(8) {
             // Primero lo que distingue la fuente (archivo, rango y símbolo); la
             // ruta completa va en la barra de estado al pulsarla. En columna
             // estrecha una ruta larga se comía todo lo demás.
@@ -2198,17 +2215,19 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 state
                     .text_system
                     .create_line_buffer(&source_text, design::type_scale::SM, card_bounds.width - 18.0);
-            state.text_system.draw_buffer(
-                canvas,
-                &source_buf,
-                source_x,
-                source_y,
-                Color::from_hex(palette.accent),
-            );
-            state.add_click_target(
-                Bounds::new(source_x, source_y - 10.0, card_bounds.width - 20.0, 14.0),
-                ClickTargetAction::CodeSource(hint.clone()),
-            );
+            if visible(source_y) {
+                state.text_system.draw_buffer(
+                    canvas,
+                    &source_buf,
+                    source_x,
+                    source_y,
+                    Color::from_hex(palette.accent),
+                );
+                state.add_click_target(
+                    Bounds::new(source_x, source_y - 10.0, card_bounds.width - 20.0, 14.0),
+                    ClickTargetAction::CodeSource(hint.clone()),
+                );
+            }
             detail_y += CHAT_DETAIL_LINE;
         }
     }

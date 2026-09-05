@@ -1743,6 +1743,11 @@ pub struct AppState {
     pub input_bounds: Option<Bounds>,
     /// Bounds del panel de chat (actualizados en cada frame).
     pub chat_bounds: Option<Bounds>,
+    /// Desplazamiento del hilo del chat en píxeles: 0 deja la respuesta más
+    /// reciente pegada a la entrada; hacia arriba enseña las anteriores.
+    pub chat_scroll: f32,
+    /// Tope del desplazamiento, calculado al pintar (contenido menos hueco).
+    pub chat_scroll_max: f32,
     /// Bounds de la columna sidebar (explorer)
     pub sidebar_bounds: Option<Bounds>,
     /// Panel activo del sidebar (explorer/search/git).
@@ -2214,6 +2219,8 @@ impl AppState {
             editor_secondary_bounds: None,
             input_bounds: None,
             chat_bounds: None,
+            chat_scroll: 0.0,
+            chat_scroll_max: 0.0,
             sidebar_bounds: None,
             sidebar_panel: SidebarPanel::Explorer,
             explorer_dock: PanelDock::Left,
@@ -4744,6 +4751,7 @@ impl AppState {
     /// así que un chat nuevo no archiva el viejo, lo descarta. Cuando haya
     /// persistencia de sesiones, aquí es donde se archivará antes de vaciar.
     pub fn new_chat(&mut self) {
+        self.chat_scroll = 0.0;
         // Los índices de bloques desplegados se olvidan siempre, haya o no
         // mensajes: apuntan a posiciones de un hilo que deja de existir.
         self.expanded_thoughts.clear();
@@ -7866,6 +7874,16 @@ impl AppState {
     }
 
     /// Ajusta scroll contextual según panel activo del sidebar.
+    /// Desplaza el hilo del chat: la rueda hacia arriba (delta negativo)
+    /// enseña mensajes anteriores. Paso: el alto de línea del cuerpo, 14,4 px.
+    pub fn scroll_chat_lines(&mut self, delta_lines: i32) {
+        let nuevo = (self.chat_scroll - delta_lines as f32 * 14.4).clamp(0.0, self.chat_scroll_max);
+        if (nuevo - self.chat_scroll).abs() > f32::EPSILON {
+            self.chat_scroll = nuevo;
+            self.needs_render = true;
+        }
+    }
+
     pub fn scroll_sidebar_lines(&mut self, delta_lines: i32) {
         match self.sidebar_panel {
             SidebarPanel::Explorer => self.scroll_explorer_lines(delta_lines),
@@ -9888,6 +9906,8 @@ impl AppState {
         if content.trim().is_empty() {
             return;
         }
+        // Un mensaje nuevo devuelve el hilo al final: la respuesta se ve llegar.
+        self.chat_scroll = 0.0;
 
         if self.try_handle_chat_control_command(content) {
             self.loading = false;
@@ -10767,6 +10787,11 @@ where
                         if let Some(window) = &self.window {
                             window.request_redraw();
                         }
+                    } else if in_chat {
+                        self.state.scroll_chat_lines(delta_lines);
+                        if let Some(window) = &self.window {
+                            window.request_redraw();
+                        }
                     }
                 }
             }
@@ -11508,6 +11533,26 @@ mod tests {
         assert!(state.overlay_mode.is_none());
         assert_eq!(state.active_editor().cursor().line, 2);
         assert_eq!(state.active_editor().cursor().column, 1);
+    }
+
+    #[test]
+    fn la_rueda_desplaza_el_chat_dentro_de_su_tope_y_enviar_lo_devuelve_al_final() {
+        let workspace = TestWorkspace::new("chat_scroll");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        state.chat_scroll_max = 100.0;
+        state.scroll_chat_lines(-3);
+        assert!((state.chat_scroll - 43.2).abs() < 0.01);
+        state.scroll_chat_lines(-30);
+        assert_eq!(state.chat_scroll, 100.0, "no pasa del tope");
+        state.scroll_chat_lines(3);
+        assert!((state.chat_scroll - 56.8).abs() < 0.01);
+        state.chat_scroll_max = 0.0;
+        state.scroll_chat_lines(-3);
+        assert_eq!(state.chat_scroll, 0.0, "sin contenido de sobra no hay desplazamiento");
+        state.chat_scroll_max = 100.0;
+        state.chat_scroll = 60.0;
+        state.new_chat();
+        assert_eq!(state.chat_scroll, 0.0);
     }
 
     #[test]

@@ -4,16 +4,20 @@
   },
   "chat": {
     "question": "donde se comprueba que el hash del archivo sigue vigente antes de devolver un acierto de busqueda de codigo",
-    "seconds": 23.6,
-    "gateway_log": "[claude_cli] model=claude-sonnet-5 turns=3 output_tokens=1247 content_chars=1027"
+    "seconds": 30.7,
+    "llamadas": 2,
+    "gateway_log": [
+      "[claude_cli] model=claude-sonnet-5 turns=3 output_tokens=473 content_chars=161 tool_calls=2",
+      "[claude_cli] model=claude-sonnet-5 turns=2 output_tokens=1661 content_chars=1890 tool_calls=0"
+    ]
   },
   "index_after_chat": {
     "project_id": "01KX61WD5MPKNFGF4849N79CXE",
     "phase": "watching",
     "files_total": 180,
     "files_done": 180,
-    "units_written": 1,
-    "summaries_generated": 1,
+    "units_written": 26,
+    "summaries_generated": 4,
     "structural_fallbacks": 0,
     "current_path": "",
     "error": null
