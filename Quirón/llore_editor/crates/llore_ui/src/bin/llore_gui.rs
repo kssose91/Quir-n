@@ -2886,10 +2886,17 @@ fn render_agents_overlay(
     // Cabecera: título, proveedor en uso y cierre.
     let titulo = state.text_system.create_heading_buffer("Agentes", 18.0, 200.0);
     state.text_system.draw_buffer(canvas, &titulo, x0 + 20.0, y0 + 30.0, Color::from_hex(palette.text));
+    // Con un endpoint compatible el modelo es el configurado (o ninguno);
+    // el selector del chat solo manda con Claude.
+    let modelo = if en_uso == "openai_compatible" {
+        probe.as_ref().and_then(|p| p.compatible_model.clone()).map_or("sin modelo".to_string(), |m| format!("modelo {m}"))
+    } else {
+        format!("modelo {}", state.selected_ai_model())
+    };
     let estado = format!(
-        "en uso: {} · modelo {}   ·   cerebro: {}",
+        "en uso: {} · {}   ·   cerebro: {}",
         if en_uso.is_empty() { "sin proveedor" } else { en_uso.as_str() },
-        state.selected_ai_model(),
+        modelo,
         state.quiron_connection_health_label()
     );
     let estado_buf = state.text_system.create_code_buffer(&estado, design::type_scale::XS, ancho - 40.0);
@@ -2973,7 +2980,12 @@ fn render_agents_overlay(
         for (i, (kind, target)) in tarjetas.iter().enumerate() {
             let cx = x0 + 20.0 + (i % 2) as f32 * (columna + 16.0);
             let cy = y + (i / 2) as f32 * (tarjeta_h + 10.0);
-            let guardado = probe.as_ref().and_then(|p| p.compatible_endpoint.as_deref());
+            // Un endpoint sin modelo (la instalación limpia trae uno de
+            // relleno) no cuenta como configurado ni como «en uso».
+            let guardado = probe
+                .as_ref()
+                .filter(|p| p.compatible_model.is_some())
+                .and_then(|p| p.compatible_endpoint.as_deref());
             let activo = en_uso == kind.backend()
                 && match kind {
                     ProviderKind::ClaudeCli | ProviderKind::CodexDirect => true,
@@ -3056,13 +3068,12 @@ fn estado_de_proveedor(kind: ProviderKind, probe: Option<&llore_ui::app::Provide
             (Some(_), Some(s)) => (format!("Codex · {s}"), Some(!s.starts_with("sin"))),
             (Some(_), None) => ("Codex encontrado · sin sesión".to_string(), Some(false)),
         },
-        ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => match p
-            .compatible_endpoint
-            .as_deref()
-            .filter(|e| ProviderKind::from_compatible_endpoint(e) == kind)
-        {
-            Some(e) => (format!("{} · {}", truncate_chars(e, 30), p.compatible_model.clone().unwrap_or_default()), Some(true)),
-            None => ("sin configurar".to_string(), Some(false)),
+        ProviderKind::OpenAiCompatible | ProviderKind::LocalServer => match (
+            p.compatible_endpoint.as_deref().filter(|e| ProviderKind::from_compatible_endpoint(e) == kind),
+            p.compatible_model.as_deref(),
+        ) {
+            (Some(e), Some(m)) => (format!("{} · {}", truncate_chars(e, 30), m), Some(true)),
+            _ => ("sin configurar".to_string(), Some(false)),
         },
         ProviderKind::Ollama => match &p.ollama_models {
             None => ("no responde en 127.0.0.1:11434 · instálalo o arráncalo".to_string(), Some(false)),

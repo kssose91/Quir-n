@@ -88,10 +88,11 @@ def main():
         "QDRANT_CODE_COLLECTION": "quiron_code", "NEO4J_URI": "bolt://127.0.0.1:7687",
         "NEO4J_USER": "neo4j", "NEO4J_PASSWORD": secrets.token_hex(24),
         "SEMANTIC_BACKEND": "inprocess", "EMBED_MODEL": "BAAI/bge-m3",
+        # Sin endpoint ni modelo: la paleta Agentes del editor se abre sola en el
+        # primer arranque y guarda aquí lo que se elija.
         "QUIRON_GATEWAY_BACKEND": "openai_compatible",
-        "QUIRON_LLM_ENDPOINT_PRIMARY": "http://127.0.0.1:8080",
     }
-    write(config, "# Configura el proveedor y modelo antes de usar el chat.\n" +
+    write(config, "# El agente se elige desde la paleta Agentes del editor (o con scripts/configure-provider.py).\n" +
           "\n".join(k + "=" + env_quote(v) for k, v in values.items()) + "\n", 0o600)
 
     def unit_quote(p):
