@@ -25,6 +25,8 @@ pub struct QuironClient {
     timeout: Duration,
     api_token: Option<String>,
     project_id: Option<String>,
+    /// Tope de tokens de salida por turno del chat (la barra lo cambia).
+    response_max_tokens: u32,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -59,6 +61,7 @@ impl QuironClient {
                 .map(|t| t.trim().to_string())
                 .filter(|t| !t.is_empty()),
             project_id: None,
+            response_max_tokens: 4096,
         }
     }
 
@@ -74,6 +77,11 @@ impl QuironClient {
     /// identificador y lo instala aquí.
     pub fn set_project_id(&mut self, project_id: Option<String>) {
         self.project_id = project_id.filter(|value| !value.trim().is_empty());
+    }
+
+    /// Tope de tokens de salida por turno (corta / normal / larga).
+    pub fn set_response_max_tokens(&mut self, max_tokens: u32) {
+        self.response_max_tokens = max_tokens.clamp(256, 32_000);
     }
 
     pub fn project_id(&self) -> Option<&str> {
@@ -288,7 +296,7 @@ impl QuironClient {
                 .unwrap_or_else(preferred_primary_model),
             messages,
             system: full_system,
-            max_tokens: 4096,
+            max_tokens: self.response_max_tokens,
             route: Some("primary".to_string()),
             project_id: self.project_id.clone(),
             tools,

@@ -29,6 +29,74 @@ pub enum AppEvent {
     FolderOpened(PathBuf),
     /// Un `.gguf` elegido en el diálogo de archivos para el vectorizador.
     WorkerModelPicked(PathBuf),
+    /// Un archivo elegido para adjuntar a la siguiente pregunta del chat.
+    ChatAttachmentPicked(PathBuf),
+}
+
+/// Longitud de la respuesta: el tope de tokens de salida que se pide.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResponseLength {
+    Corta,
+    Normal,
+    Larga,
+}
+
+impl ResponseLength {
+    pub fn max_tokens(self) -> u32 {
+        match self {
+            ResponseLength::Corta => 1024,
+            ResponseLength::Normal => 4096,
+            ResponseLength::Larga => 16_000,
+        }
+    }
+    pub fn label(self) -> &'static str {
+        match self {
+            ResponseLength::Corta => "corta",
+            ResponseLength::Normal => "normal",
+            ResponseLength::Larga => "larga",
+        }
+    }
+    pub fn next(self) -> ResponseLength {
+        match self {
+            ResponseLength::Corta => ResponseLength::Normal,
+            ResponseLength::Normal => ResponseLength::Larga,
+            ResponseLength::Larga => ResponseLength::Corta,
+        }
+    }
+}
+
+/// Desplegables de la barra del chat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChatPopover {
+    None,
+    /// El menú «+»: contexto, modelo y más.
+    Actions,
+    /// Lista de modelos del proveedor en uso.
+    Models,
+}
+
+/// Entradas del menú «+» de la barra del chat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChatMenuItem {
+    AttachFile,
+    MentionFile,
+    AddSelection,
+    ClearConversation,
+    Rewind,
+    SwitchModel,
+    ToggleTools,
+    CycleLength,
+    Agents,
+    Manual,
+}
+
+/// Archivo adjunto a la siguiente pregunta: etiqueta y contenido ya leído
+/// por la guardia y recortado al presupuesto.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChatAttachment {
+    pub label: String,
+    pub content: String,
+    pub truncated: bool,
 }
 
 /// Texto del manual que se enseña dentro de la aplicación (F1). Es el mismo
@@ -564,6 +632,15 @@ pub enum ClickTargetAction {
     AgentClose,
     /// Manual: ir a una sección.
     ManualSection(usize),
+    /// Barra del chat: enviar, parar, menú «+», entradas del menú, modelo,
+    /// quitar un adjunto, poner el cursor en el campo.
+    ChatSend,
+    ChatStop,
+    ChatPopoverToggle(ChatPopover),
+    ChatMenu(ChatMenuItem),
+    ChatModelPick(String),
+    ChatAttachmentRemove(usize),
+    ChatFocusInput,
     Citation(Citation),
     /// Abre el archivo de una ficha de código en su primera línea.
     CodeSource(CodeHint),
@@ -2172,6 +2249,19 @@ pub struct AppState {
     pub caret_on: bool,
     caret_epoch: Instant,
     caret_last_text: String,
+    /// Posición del cursor en el campo (índice de carácter), el historial de
+    /// preguntas enviadas (flecha arriba) y la barra: menú, manos, longitud
+    /// de respuesta y adjuntos pendientes.
+    pub input_cursor: usize,
+    pub chat_history: Vec<String>,
+    chat_history_pos: Option<usize>,
+    chat_history_draft: String,
+    pub chat_popover: ChatPopover,
+    pub chat_tools_enabled: bool,
+    pub response_length: ResponseLength,
+    pub pending_attachments: Vec<ChatAttachment>,
+    /// Quick Open en modo mención: elegir un archivo lo inserta como `@ruta`.
+    quick_open_mention: bool,
     /// Si el panel de telemetría en chat está visible.
     pub telemetry_panel_enabled: bool,
     /// Runtime de tokio para async
@@ -2643,7 +2733,7 @@ impl AppState {
         // si se hubiera tecleado, sin depender del teclado del compositor.
         if let Ok(pregunta) = std::env::var("QUIRON_UI_ASK") {
             if !pregunta.trim().is_empty() {
-                self.input_text.clear();
+                self.input_set(String::new());
                 self.send_message(&pregunta);
             }
         }
@@ -2723,6 +2813,15 @@ impl AppState {
             caret_on: true,
             caret_epoch: Instant::now(),
             caret_last_text: String::new(),
+            input_cursor: 0,
+            chat_history: Vec::new(),
+            chat_history_pos: None,
+            chat_history_draft: String::new(),
+            chat_popover: ChatPopover::None,
+            chat_tools_enabled: true,
+            response_length: ResponseLength::Normal,
+            pending_attachments: Vec::new(),
+            quick_open_mention: false,
             telemetry_panel_enabled: false,
             runtime,
             quiron: Arc::new(Mutex::new(quiron)),
@@ -4146,7 +4245,7 @@ impl AppState {
         }
     }
 
-    fn ai_model_options(&self) -> &[&str] {
+    pub fn ai_model_options(&self) -> &[&str] {
         if self.ai_provider_is_claude() {
             &["sonnet", "opus", "haiku"]
         } else {
@@ -5696,6 +5795,7 @@ impl AppState {
         self.agent_field = None;
         self.agent_worker_pick = false;
         self.manual_scroll = 0.0;
+        self.quick_open_mention = false;
     }
 
     /// Cambia panel activo del sidebar.
@@ -8231,8 +8331,22 @@ impl AppState {
 
         match item.action {
             OverlayAction::OpenFile(path) => {
+                let mencion = std::mem::take(&mut self.quick_open_mention);
                 self.reset_overlay_state();
-                self.open_file_from_explorer(path);
+                if mencion {
+                    // Modo mención: el archivo entra en la pregunta como @ruta
+                    // (y se adjunta al enviar), no se abre en el editor.
+                    let relativa = path
+                        .strip_prefix(&self.workspace_root)
+                        .unwrap_or(&path)
+                        .display()
+                        .to_string();
+                    let separador = if self.input_text.is_empty() || self.input_text.ends_with(' ') { "" } else { " " };
+                    self.input_insert_str(&format!("{separador}@{relativa} "));
+                    self.set_focus(FocusTarget::ChatInput);
+                } else {
+                    self.open_file_from_explorer(path);
+                }
             }
             OverlayAction::OpenFileAtLocation { path, line, column } => {
                 let pane = self.focused_editor_pane;
@@ -8622,6 +8736,12 @@ impl AppState {
         };
         if valor == "manual" {
             self.open_manual();
+            return;
+        }
+        if valor == "menu" || valor == "modelos" {
+            self.set_focus(FocusTarget::ChatInput);
+            self.chat_popover = if valor == "menu" { ChatPopover::Actions } else { ChatPopover::Models };
+            self.needs_render = true;
             return;
         }
         let Some(resto) = valor.strip_prefix("agentes") else {
@@ -9604,6 +9724,7 @@ impl AppState {
             self.input_text.push('\n');
         }
         self.input_text.push_str(&block);
+        self.input_cursor = self.input_char_len();
         self.set_focus(FocusTarget::ChatInput);
         self.status_text = format!(
             "chat context added {} chars {}:{}",
@@ -10392,7 +10513,7 @@ impl AppState {
             return false;
         }
 
-        self.input_text.push_str(&text);
+        self.input_insert_str(&text);
         self.status_text = format!("chat pasted {} chars", text.chars().count());
         self.needs_render = true;
         true
@@ -10693,17 +10814,32 @@ impl AppState {
             .map(|target| target.action.clone())
     }
 
-    /// Maneja keypress cuando el foco está en el input de chat.
-    pub fn handle_chat_key(&mut self, key: &Key) -> bool {
+    /// Maneja keypress cuando el foco está en el input de chat: edición con
+    /// cursor (flechas, inicio/fin, borrar palabra), Intro envía y Mayús+Intro
+    /// salta de línea, flecha arriba recupera preguntas anteriores.
+    pub fn handle_chat_key(&mut self, key: &Key, shift: bool, ctrl: bool) -> bool {
+        if self.chat_popover != ChatPopover::None && *key == Key::Named(NamedKey::Escape) {
+            self.chat_popover = ChatPopover::None;
+            self.needs_render = true;
+            return true;
+        }
         match key {
             Key::Named(NamedKey::Backspace) => {
-                self.input_text.pop();
+                if ctrl { self.input_delete_word_back() } else { self.input_delete_back(1) }
+                true
+            }
+            Key::Named(NamedKey::Delete) => {
+                self.input_delete_forward(1);
                 true
             }
             Key::Named(NamedKey::Enter) => {
-                let msg = self.input_text.clone();
-                self.input_text.clear();
-                self.send_message(&msg);
+                if shift {
+                    self.input_insert_str("\n");
+                } else {
+                    let msg = self.input_text.clone();
+                    self.input_set(String::new());
+                    self.send_message(&msg);
+                }
                 true
             }
             Key::Named(NamedKey::Escape) => {
@@ -10713,16 +10849,329 @@ impl AppState {
                 });
                 true
             }
-            Key::Named(NamedKey::Space) => {
-                self.input_text.push(' ');
+            Key::Named(NamedKey::ArrowLeft) => {
+                self.input_move(-1, ctrl);
                 true
             }
-            Key::Character(c) => {
-                self.input_text.push_str(c);
+            Key::Named(NamedKey::ArrowRight) => {
+                self.input_move(1, ctrl);
+                true
+            }
+            Key::Named(NamedKey::Home) => {
+                self.input_cursor = 0;
+                self.needs_render = true;
+                true
+            }
+            Key::Named(NamedKey::End) => {
+                self.input_cursor = self.input_text.chars().count();
+                self.needs_render = true;
+                true
+            }
+            Key::Named(NamedKey::ArrowUp) => {
+                self.chat_history_step(-1);
+                true
+            }
+            Key::Named(NamedKey::ArrowDown) => {
+                self.chat_history_step(1);
+                true
+            }
+            Key::Named(NamedKey::Space) => {
+                self.input_insert_str(" ");
+                true
+            }
+            Key::Character(c) if !ctrl => {
+                self.input_insert_str(c);
                 true
             }
             _ => false,
         }
+    }
+
+    fn input_char_len(&self) -> usize {
+        self.input_text.chars().count()
+    }
+
+    fn input_byte_at(&self, char_index: usize) -> usize {
+        self.input_text
+            .char_indices()
+            .nth(char_index)
+            .map(|(i, _)| i)
+            .unwrap_or(self.input_text.len())
+    }
+
+    /// Sustituye el texto del campo y deja el cursor al final.
+    pub fn input_set(&mut self, texto: String) {
+        self.input_text = texto;
+        self.input_cursor = self.input_char_len();
+        self.chat_history_pos = None;
+        self.needs_render = true;
+    }
+
+    /// Inserta en la posición del cursor.
+    pub fn input_insert_str(&mut self, texto: &str) {
+        let cursor = self.input_cursor.min(self.input_char_len());
+        let byte = self.input_byte_at(cursor);
+        self.input_text.insert_str(byte, texto);
+        self.input_cursor = cursor + texto.chars().count();
+        self.chat_history_pos = None;
+        self.needs_render = true;
+    }
+
+    fn input_delete_back(&mut self, n: usize) {
+        let cursor = self.input_cursor.min(self.input_char_len());
+        let desde = cursor.saturating_sub(n);
+        let (a, b) = (self.input_byte_at(desde), self.input_byte_at(cursor));
+        self.input_text.replace_range(a..b, "");
+        self.input_cursor = desde;
+        self.needs_render = true;
+    }
+
+    fn input_delete_forward(&mut self, n: usize) {
+        let cursor = self.input_cursor.min(self.input_char_len());
+        let hasta = (cursor + n).min(self.input_char_len());
+        let (a, b) = (self.input_byte_at(cursor), self.input_byte_at(hasta));
+        self.input_text.replace_range(a..b, "");
+        self.needs_render = true;
+    }
+
+    fn input_delete_word_back(&mut self) {
+        let cursor = self.input_cursor.min(self.input_char_len());
+        let chars: Vec<char> = self.input_text.chars().collect();
+        let mut i = cursor;
+        while i > 0 && chars[i - 1].is_whitespace() {
+            i -= 1;
+        }
+        while i > 0 && !chars[i - 1].is_whitespace() {
+            i -= 1;
+        }
+        self.input_delete_back(cursor - i);
+    }
+
+    fn input_move(&mut self, delta: i32, por_palabra: bool) {
+        let len = self.input_char_len();
+        let cursor = self.input_cursor.min(len);
+        let chars: Vec<char> = self.input_text.chars().collect();
+        let nuevo = if por_palabra {
+            let mut i = cursor;
+            if delta < 0 {
+                while i > 0 && chars[i - 1].is_whitespace() { i -= 1; }
+                while i > 0 && !chars[i - 1].is_whitespace() { i -= 1; }
+            } else {
+                while i < len && !chars[i].is_whitespace() { i += 1; }
+                while i < len && chars[i].is_whitespace() { i += 1; }
+            }
+            i
+        } else if delta < 0 {
+            cursor.saturating_sub(1)
+        } else {
+            (cursor + 1).min(len)
+        };
+        self.input_cursor = nuevo;
+        self.needs_render = true;
+    }
+
+    /// Flecha arriba/abajo con el campo: pasea por las preguntas ya enviadas;
+    /// el borrador actual se conserva para volver a él.
+    fn chat_history_step(&mut self, delta: i32) {
+        if self.chat_history.is_empty() {
+            return;
+        }
+        let n = self.chat_history.len();
+        let pos = match (self.chat_history_pos, delta < 0) {
+            (None, true) => {
+                self.chat_history_draft = self.input_text.clone();
+                Some(n - 1)
+            }
+            (None, false) => None,
+            (Some(p), true) => Some(p.saturating_sub(1)),
+            (Some(p), false) => (p + 1 < n).then_some(p + 1),
+        };
+        match pos {
+            Some(p) => {
+                self.input_text = self.chat_history[p].clone();
+                self.input_cursor = self.input_char_len();
+                self.chat_history_pos = Some(p);
+            }
+            None => {
+                self.input_text = std::mem::take(&mut self.chat_history_draft);
+                self.input_cursor = self.input_char_len();
+                self.chat_history_pos = None;
+            }
+        }
+        self.needs_render = true;
+    }
+
+    /// Entradas del menú «+».
+    pub fn chat_menu(&mut self, item: ChatMenuItem) {
+        self.chat_popover = ChatPopover::None;
+        match item {
+            ChatMenuItem::AttachFile => self.pick_chat_attachment(),
+            ChatMenuItem::MentionFile => {
+                self.quick_open_mention = true;
+                self.execute_command_palette_action(CommandPaletteAction::QuickOpen);
+                return;
+            }
+            ChatMenuItem::AddSelection => self.execute_command_palette_action(CommandPaletteAction::AddSelectionToChat),
+            ChatMenuItem::ClearConversation => self.new_chat(),
+            ChatMenuItem::Rewind => self.rewind_chat(),
+            ChatMenuItem::SwitchModel => self.chat_popover = ChatPopover::Models,
+            ChatMenuItem::ToggleTools => {
+                self.chat_tools_enabled = !self.chat_tools_enabled;
+                self.status_text = if self.chat_tools_enabled { "manos: sí" } else { "manos: no" }.to_string();
+            }
+            ChatMenuItem::CycleLength => {
+                self.response_length = self.response_length.next();
+                self.status_text = format!("respuesta {}", self.response_length.label());
+            }
+            ChatMenuItem::Agents => {
+                self.open_agents_overlay();
+                return;
+            }
+            ChatMenuItem::Manual => {
+                self.open_manual();
+                return;
+            }
+        }
+        self.set_focus(FocusTarget::ChatInput);
+        self.needs_render = true;
+    }
+
+    /// «Rebobinar»: quita la última respuesta y devuelve la pregunta al campo
+    /// para corregirla y reenviarla.
+    pub fn rewind_chat(&mut self) {
+        if self.chat_task.is_some() {
+            self.cancel_chat();
+        }
+        while self.messages.last().is_some_and(|m| !m.is_user) {
+            self.messages.pop();
+        }
+        if let Some(pregunta) = self.messages.pop() {
+            self.input_set(pregunta.content);
+            self.status_text = "rebobinado: la pregunta vuelve al campo".to_string();
+        } else {
+            self.status_text = "nada que rebobinar".to_string();
+        }
+        self.expanded_thoughts.clear();
+        self.stash_active_thread();
+        self.persist_chat_threads();
+        self.needs_render = true;
+    }
+
+    /// «Parar»: aborta la tarea del chat; el cerebro puede seguir con la
+    /// llamada en curso, pero la interfaz queda libre.
+    pub fn cancel_chat(&mut self) {
+        if let Some(task) = self.chat_task.take() {
+            task.abort();
+        }
+        self.chat_started = None;
+        self.loading = false;
+        if let Ok(mut lineas) = self.chat_activity.lock() {
+            lineas.clear();
+        }
+        self.status_text = "respuesta cancelada".to_string();
+        self.needs_render = true;
+    }
+
+    /// «Adjuntar archivo…»: diálogo de archivos; el elegido pasa por la
+    /// guardia (solo dentro del proyecto, nunca secretos) y se recorta.
+    pub fn pick_chat_attachment(&mut self) {
+        let Some(proxy) = self.event_proxy.clone() else {
+            return;
+        };
+        let start_dir = if self.workspace_is_open() { self.workspace_root.clone() } else { PathBuf::from("/") };
+        std::thread::spawn(move || {
+            let result: Option<PathBuf> = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .ok()
+                .and_then(|rt| {
+                    rt.block_on(async {
+                        AsyncFileDialog::new()
+                            .set_directory(&start_dir)
+                            .pick_file()
+                            .await
+                            .map(|h: FileHandle| h.path().to_path_buf())
+                    })
+                });
+            if let Some(path) = result {
+                let _ = proxy.send_event(AppEvent::ChatAttachmentPicked(path));
+            }
+        });
+    }
+
+    /// Lee un archivo para adjuntarlo, con la guardia por delante.
+    pub fn attach_file_to_chat(&mut self, path: PathBuf) {
+        let etiqueta = path
+            .strip_prefix(&self.workspace_root)
+            .unwrap_or(&path)
+            .display()
+            .to_string();
+        match self.access_to(&path) {
+            Access::Allowed => {}
+            Access::Outside => {
+                self.status_text = format!("adjunto rechazado: {etiqueta} está fuera del proyecto");
+                self.needs_render = true;
+                return;
+            }
+            _ => {
+                self.status_text = format!("adjunto rechazado: {etiqueta} es un secreto o ruido");
+                self.needs_render = true;
+                return;
+            }
+        }
+        let Ok(contenido) = fs::read_to_string(&path) else {
+            self.status_text = format!("adjunto rechazado: no se pudo leer {etiqueta}");
+            self.needs_render = true;
+            return;
+        };
+        let truncated = contenido.chars().count() > CHAT_CONTEXT_MAX_CHARS;
+        let content: String = contenido.chars().take(CHAT_CONTEXT_MAX_CHARS).collect();
+        if let Some(previo) = self.pending_attachments.iter_mut().find(|a| a.label == etiqueta) {
+            previo.content = content;
+            previo.truncated = truncated;
+        } else {
+            self.pending_attachments.push(ChatAttachment { label: etiqueta.clone(), content, truncated });
+        }
+        self.status_text = format!("adjunto: {etiqueta}");
+        self.set_focus(FocusTarget::ChatInput);
+        self.needs_render = true;
+    }
+
+    /// Menciones `@ruta` del mensaje que son archivos del proyecto: se
+    /// adjuntan (por la guardia) sin que haga falta el diálogo.
+    fn attach_mentions(&mut self, mensaje: &str) {
+        let candidatas: Vec<String> = mensaje
+            .split_whitespace()
+            .filter_map(|w| w.strip_prefix('@'))
+            .map(|r| r.trim_end_matches(|c: char| ",;:.)".contains(c)).to_string())
+            .filter(|r| !r.is_empty())
+            .collect();
+        for relativa in candidatas {
+            if self.pending_attachments.iter().any(|a| a.label == relativa) {
+                continue;
+            }
+            let ruta = self.workspace_root.join(&relativa);
+            if ruta.is_file() {
+                self.attach_file_to_chat(ruta);
+            }
+        }
+    }
+
+    /// Contexto de la pregunta con los adjuntos detrás, declarando recortes.
+    fn context_with_attachments(&self, base: String) -> String {
+        if self.pending_attachments.is_empty() {
+            return base;
+        }
+        let mut secciones = vec![base];
+        for adjunto in &self.pending_attachments {
+            let aviso = if adjunto.truncated {
+                format!("\n[recortado a {} caracteres]", CHAT_CONTEXT_MAX_CHARS)
+            } else {
+                String::new()
+            };
+            secciones.push(format!("Archivo adjunto por el usuario: {}\n```\n{}\n```{}", adjunto.label, adjunto.content, aviso));
+        }
+        secciones.join("\n\n")
     }
 
     /// Maneja keypress cuando el foco está en el editor.
@@ -11078,6 +11527,33 @@ impl AppState {
                 self.manual_scroll = 0.0;
                 self.needs_render = true;
             }
+            ClickTargetAction::ChatSend => {
+                let msg = self.input_text.clone();
+                self.input_set(String::new());
+                self.send_message(&msg);
+            }
+            ClickTargetAction::ChatStop => self.cancel_chat(),
+            ClickTargetAction::ChatPopoverToggle(cual) => {
+                self.chat_popover = if self.chat_popover == cual { ChatPopover::None } else { cual };
+                self.needs_render = true;
+            }
+            ClickTargetAction::ChatMenu(item) => self.chat_menu(item),
+            ClickTargetAction::ChatModelPick(modelo) => {
+                self.selected_ai_model = modelo;
+                self.persist_layout_snapshot();
+                self.chat_popover = ChatPopover::None;
+                self.needs_render = true;
+            }
+            ClickTargetAction::ChatAttachmentRemove(i) => {
+                if i < self.pending_attachments.len() {
+                    self.pending_attachments.remove(i);
+                }
+                self.needs_render = true;
+            }
+            ClickTargetAction::ChatFocusInput => {
+                self.chat_popover = ChatPopover::None;
+                self.set_focus(FocusTarget::ChatInput);
+            }
             ClickTargetAction::WelcomeOpenRecent(path) => {
                 if path.is_dir() {
                     self.open_workspace(path);
@@ -11391,6 +11867,14 @@ impl AppState {
             return;
         }
 
+        // Historial para la flecha arriba; menciones @ruta como adjuntos.
+        if self.chat_history.last().map(String::as_str) != Some(content) {
+            self.chat_history.push(content.to_string());
+        }
+        self.chat_history_pos = None;
+        self.chat_popover = ChatPopover::None;
+        self.attach_mentions(content);
+
         // Añadir mensaje del usuario
         self.messages.push(ChatMessage {
             is_user: true,
@@ -11407,8 +11891,11 @@ impl AppState {
         // Clonar para el closure async
         let quiron = self.quiron.clone();
         let content_str = content.to_string();
-        let context = self.build_chat_context();
+        let context = self.context_with_attachments(self.build_chat_context());
+        self.pending_attachments.clear();
         let system = self.chat_system_prompt();
+        let manos = self.chat_tools_enabled;
+        let presupuesto = self.response_length.max_tokens();
         let workspace_root = self.workspace_root.clone();
         let show_noise = self.explorer_show_noise;
 
@@ -11433,8 +11920,10 @@ impl AppState {
         let modelo_para_actividad = model.clone();
         self.chat_task = Some(self.runtime.spawn(async move {
             let mut corridas: Vec<ToolRun> = Vec::new();
-            let q = quiron.lock().await;
-            let tools = chat_tools::tool_catalog()
+            let mut q = quiron.lock().await;
+            q.set_response_max_tokens(presupuesto);
+            let catalogo = if manos { chat_tools::tool_catalog() } else { Vec::new() };
+            let tools = catalogo
                 .into_iter()
                 .map(|tool| LlmToolDef {
                     name: tool.name.to_string(),
@@ -12187,7 +12676,7 @@ where
                         key if self.state.editor_focused => {
                             self.state.handle_editor_key_with_modifiers(key, shift)
                         }
-                        key if self.state.input_focused => self.state.handle_chat_key(key),
+                        key if self.state.input_focused => self.state.handle_chat_key(key, shift, ctrl),
                         _ => false,
                     };
 
@@ -12423,6 +12912,12 @@ where
                     window.request_redraw();
                 }
             }
+            AppEvent::ChatAttachmentPicked(path) => {
+                self.state.attach_file_to_chat(path);
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
             AppEvent::WorkerModelPicked(path) => {
                 self.state.add_worker_model_file(path);
                 if let Some(window) = &self.window {
@@ -12555,6 +13050,62 @@ mod tests {
         state.ai_provider = "claude_cli".to_string();
         state.selected_ai_model = "sonnet".to_string();
         assert_eq!(state.chat_model(), "sonnet");
+    }
+
+    #[test]
+    fn el_campo_del_chat_edita_con_cursor_y_recuerda_preguntas() {
+        let workspace = TestWorkspace::new("campo_chat");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        state.set_focus(FocusTarget::ChatInput);
+        for ch in ["h", "o", "l", "a"] {
+            state.handle_chat_key(&Key::Character(ch.into()), false, false);
+        }
+        state.handle_chat_key(&Key::Named(NamedKey::Home), false, false);
+        state.handle_chat_key(&Key::Character("¡".into()), false, false);
+        state.handle_chat_key(&Key::Named(NamedKey::End), false, false);
+        state.handle_chat_key(&Key::Named(NamedKey::Enter), true, false); // Mayús+Intro: salto
+        state.handle_chat_key(&Key::Character("y".into()), false, false);
+        assert_eq!(state.input_text, "¡hola\ny");
+        state.handle_chat_key(&Key::Named(NamedKey::Backspace), false, true); // Ctrl+Retroceso
+        assert_eq!(state.input_text, "¡hola\n");
+        state.handle_chat_key(&Key::Named(NamedKey::ArrowLeft), false, false);
+        state.handle_chat_key(&Key::Named(NamedKey::Delete), false, false);
+        assert_eq!(state.input_text, "¡hola");
+        // Historial: lo enviado vuelve con la flecha arriba; abajo, al borrador.
+        state.chat_history = vec!["primera".into(), "segunda".into()];
+        state.handle_chat_key(&Key::Named(NamedKey::ArrowUp), false, false);
+        assert_eq!(state.input_text, "segunda");
+        state.handle_chat_key(&Key::Named(NamedKey::ArrowUp), false, false);
+        assert_eq!(state.input_text, "primera");
+        state.handle_chat_key(&Key::Named(NamedKey::ArrowDown), false, false);
+        state.handle_chat_key(&Key::Named(NamedKey::ArrowDown), false, false);
+        assert_eq!(state.input_text, "¡hola");
+    }
+
+    #[test]
+    fn rebobinar_devuelve_la_pregunta_y_los_adjuntos_pasan_por_la_guardia() {
+        let workspace = TestWorkspace::new("rebobinar");
+        workspace.create_file("src/lib.rs", "pub fn a() {}\n");
+        workspace.create_file(".env", "SECRETO=1\n");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        state.messages.push(ChatMessage { is_user: true, content: "pregunta".into(), meta: None, citations: vec![], code_sources: Vec::new() });
+        state.messages.push(ChatMessage { is_user: false, content: "respuesta".into(), meta: None, citations: vec![], code_sources: Vec::new() });
+        state.rewind_chat();
+        assert!(state.messages.is_empty());
+        assert_eq!(state.input_text, "pregunta");
+        state.attach_file_to_chat(workspace.root_path().join("src/lib.rs"));
+        assert_eq!(state.pending_attachments.len(), 1);
+        assert_eq!(state.pending_attachments[0].label, "src/lib.rs");
+        state.attach_file_to_chat(workspace.root_path().join(".env"));
+        assert_eq!(state.pending_attachments.len(), 1, "un secreto nunca se adjunta");
+        state.attach_file_to_chat(PathBuf::from("/etc/hostname"));
+        assert_eq!(state.pending_attachments.len(), 1, "fuera del proyecto no se adjunta");
+        let contexto = state.context_with_attachments("base".into());
+        assert!(contexto.contains("Archivo adjunto por el usuario: src/lib.rs") && contexto.contains("pub fn a()"));
+        // Una mención @ruta se adjunta al enviar, sin diálogo.
+        state.pending_attachments.clear();
+        state.attach_mentions("mira @src/lib.rs, gracias");
+        assert_eq!(state.pending_attachments.len(), 1);
     }
 
     #[test]

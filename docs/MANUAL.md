@@ -90,6 +90,18 @@ está en marcha y permite cambiarlo:
 - **Nuevo chat** abre un hilo sin memoria vectorial. Los hilos se guardan
   por proyecto en «Conversaciones»; los repositorios recientes, en
   «Repositorios».
+- **La barra del chat**: el campo crece hasta seis líneas (Mayús+Intro salta
+  de línea, Intro envía), el cursor se mueve con las flechas, Inicio/Fin y
+  Ctrl+Retroceso borra una palabra; flecha arriba recupera las preguntas
+  anteriores. El menú **+** tiene: adjuntar un archivo del proyecto,
+  mencionar un archivo (`@ruta`, que se adjunta al enviar), añadir la
+  selección del editor, vaciar la conversación, rebobinar la última pregunta
+  (vuelve al campo para corregirla), cambiar de modelo, activar o quitar las
+  manos y elegir la longitud de la respuesta (corta, normal, larga). A la
+  derecha, el botón de enviar se vuelve **parar** mientras piensa; los chips
+  del pie enseñan el modelo, las manos, la longitud y el contexto gastado.
+  Los adjuntos pasan por la guardia: nunca secretos ni archivos de fuera del
+  proyecto.
 - Atajos: Ctrl+O abrir carpeta · Ctrl+P buscar archivo · Ctrl+Shift+P
   paleta de órdenes · F1 este manual · Esc cierra cualquier paleta.
 

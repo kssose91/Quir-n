@@ -7,7 +7,7 @@
 use llore_ui::app::{
     run, top_menu_entries, AppState, ChatMessage, ClickTargetAction, CommandPaletteAction,
     EditorPane, OverlayMode, PanelDock, SearchInputFocus, SessionTelemetryTimelineSource,
-    manual_blocks, manual_sections, AgentTarget, ManualBlock, ProviderKind, SidebarPanel, SidebarProblemSeverity,
+    manual_blocks, manual_sections, AgentTarget, ChatMenuItem, ChatPopover, ManualBlock, ProviderKind, SidebarPanel, SidebarProblemSeverity,
     TabSnapshot, TelemetryTimelineFilter, TopMenuKind,
     UiAppearancePreset,
     UiDensity, EDITOR_BODY_BOTTOM_PADDING, EDITOR_BODY_TOP_PADDING, EDITOR_GUTTER_WIDTH,
@@ -295,7 +295,17 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     // hacía leerse como una barra y no como una bandeja.
     let bandeja_lado = design::space::XXL + design::space::SM;
     let bandeja_fondo = design::space::XL + design::space::XS;
-    let bandeja_alto = 76.0;
+    // La bandeja crece con el texto (hasta seis líneas) y con los adjuntos.
+    let bandeja_texto_w = (chat_bounds.width - bandeja_lado * 2.0).max(120.0) - 24.0;
+    let linea_bandeja = design::type_scale::MD * 1.4;
+    let (_, alto_texto) = state.text_system.measure(
+        if state.input_text.is_empty() { "x" } else { state.input_text.as_str() },
+        design::type_scale::MD,
+        bandeja_texto_w,
+    );
+    let lineas_bandeja = (alto_texto / linea_bandeja).round().clamp(1.0, 6.0);
+    let adjuntos_alto = if state.pending_attachments.is_empty() { 0.0 } else { 26.0 };
+    let bandeja_alto = 76.0 + (lineas_bandeja - 1.0) * linea_bandeja + adjuntos_alto;
     // Mientras no haya conversación la bandeja se queda en el centro de la
     // columna, como al entrar en Cursor: una columna vacía con la entrada
     // pegada al fondo se lee como un formulario abandonado. En cuanto el
@@ -1678,10 +1688,12 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     );
     // El modelo y el «+ contexto» viven dentro de la bandeja, en su fila
     // inferior, no sueltos en la cabecera del panel.
+    // Ancho del chip del modelo según su nombre, para dejar sitio a los demás.
+    let model_chip_w = (12.0 + state.selected_ai_model().chars().count() as f32 * 6.4).clamp(44.0, 110.0);
     let model_bounds = Bounds::new(
         input_bounds.x + 46.0,
         input_bounds.y + input_bounds.height - 28.0,
-        94.0,
+        model_chip_w,
         20.0,
     );
     canvas.fill_rounded_rect(
@@ -1700,7 +1712,54 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         model_bounds.y + 13.0,
         Color::from_hex(palette.accent),
     );
-    state.add_click_target(model_bounds, ClickTargetAction::ActivityCycleAiModel);
+    state.add_click_target(model_bounds, ClickTargetAction::ChatPopoverToggle(ChatPopover::Models));
+
+    // Manos y longitud de respuesta, como chips pequeños tras el modelo; el
+    // botón de enviar (o parar) a la derecha, y el gasto de contexto al lado.
+    let mut chip_x = model_bounds.x + model_bounds.width + 6.0;
+    let boton_w = 26.0;
+    let boton = Bounds::new(input_bounds.x + input_bounds.width - boton_w - 10.0, model_bounds.y - 3.0, boton_w, boton_w);
+    let mut chip = |state: &mut AppState, canvas: &mut Canvas, texto: &str, activo: bool, accion: ClickTargetAction| {
+        let w = 10.0 + texto.chars().count() as f32 * 6.2;
+        if chip_x + w > boton.x - 8.0 {
+            return;
+        }
+        let b = Bounds::new(chip_x, model_bounds.y, w, 20.0);
+        canvas.fill_rounded_rect(b, 4.0, Color::from_hex(palette.background).with_alpha(150));
+        let buf = state.text_system.create_line_buffer(texto, design::type_scale::XS, w);
+        state.text_system.draw_buffer(
+            canvas,
+            &buf,
+            b.x + 5.0,
+            b.y + 13.0,
+            Color::from_hex(if activo { palette.text } else { palette.text_muted }),
+        );
+        state.add_click_target(b, accion);
+        chip_x += w + 6.0;
+    };
+    let manos_texto = if state.chat_tools_enabled { "manos ✓" } else { "manos ✗" };
+    let manos_activas = state.chat_tools_enabled;
+    chip(state, canvas, manos_texto, manos_activas, ClickTargetAction::ChatMenu(ChatMenuItem::ToggleTools));
+    let longitud = format!("resp. {}", state.response_length.label());
+    chip(state, canvas, &longitud, true, ClickTargetAction::ChatMenu(ChatMenuItem::CycleLength));
+    if let Some(sn) = state.background_snapshot {
+        if sn.token_budget > 0 {
+            let gasto = format!("{:.1}k/{:.0}k", sn.tokens_used as f32 / 1000.0, sn.token_budget as f32 / 1000.0);
+            chip(state, canvas, &gasto, false, ClickTargetAction::ToggleBackgroundPanel);
+        }
+    }
+    // Enviar / parar.
+    let hay_texto = !state.input_text.trim().is_empty();
+    let (glifo, accion, fondo) = if state.loading {
+        ("■", ClickTargetAction::ChatStop, Color::from_hex(palette.error))
+    } else {
+        ("➤", ClickTargetAction::ChatSend, Color::from_hex(palette.accent).with_alpha(if hay_texto { 255 } else { 90 }))
+    };
+    canvas.fill_rounded_rect(boton, boton_w * 0.5, fondo);
+    let buf = state.text_system.create_line_buffer(glifo, design::type_scale::SM, boton_w);
+    state.text_system.draw_buffer(canvas, &buf, boton.x + 7.0, boton.y + 18.0, Color::from_hex(palette.background));
+    state.add_click_target(boton, accion);
+
     let add_ctx_bounds = Bounds::new(input_bounds.x + 14.0, model_bounds.y, 24.0, 20.0);
     canvas.fill_rounded_rect(
         add_ctx_bounds,
@@ -1718,10 +1777,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         add_ctx_bounds.y + 14.0,
         Color::from_hex(palette.text),
     );
-    state.add_click_target(
-        add_ctx_bounds,
-        ClickTargetAction::ActivityAddSelectionToChat,
-    );
+    state.add_click_target(add_ctx_bounds, ClickTargetAction::ChatPopoverToggle(ChatPopover::Actions));
     canvas.draw_line(
         chat_bounds.x,
         chat_bounds.y + 32.0,
@@ -2262,30 +2318,51 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     // === Input de chat ===
     // Con el campo enfocado y vacío se mostraba el texto de ayuda y ningún
     // cursor: no había forma de saber que ya se podía escribir.
-    // El cursor parpadea (caret_on lo lleva el bucle de espera); al escribir
-    // se queda fijo un instante.
+    // Adjuntos pendientes: chips arriba de la bandeja, con su aspa.
+    let mut texto_top = input_bounds.y + 26.0;
+    if !state.pending_attachments.is_empty() {
+        let mut ax = input_bounds.x + 12.0;
+        let adjuntos = state.pending_attachments.clone();
+        for (i, adjunto) in adjuntos.iter().enumerate() {
+            let etiqueta = format!("📎 {} ×", truncate_chars(&adjunto.label, 28));
+            let w = 12.0 + etiqueta.chars().count() as f32 * 6.2;
+            if ax + w > input_bounds.x + input_bounds.width - 12.0 {
+                break;
+            }
+            let b = Bounds::new(ax, input_bounds.y + 8.0, w, 20.0);
+            canvas.fill_rounded_rect(b, 6.0, Color::from_hex(palette.selection).with_alpha(120));
+            let buf = state.text_system.create_line_buffer(&etiqueta, design::type_scale::XS, w);
+            state.text_system.draw_buffer(canvas, &buf, b.x + 6.0, b.y + 13.0, Color::from_hex(palette.text));
+            state.add_click_target(b, ClickTargetAction::ChatAttachmentRemove(i));
+            ax += w + 6.0;
+        }
+        texto_top += 26.0;
+    }
+    // El cursor parpadea (caret_on lo lleva el bucle de espera), se queda
+    // fijo al escribir y va donde está de verdad, no siempre al final.
     let caret = if state.input_focused && state.caret_on { "|" } else { "" };
     let input_display = match (state.input_text.is_empty(), state.input_focused) {
         (true, true) => caret.to_string(),
         (true, false) => "Pregunta sobre el proyecto…".to_string(),
-        (false, _) => format!("{}{caret}", state.input_text),
+        (false, _) => {
+            let cursor = state.input_cursor.min(state.input_text.chars().count());
+            let byte = state.input_text.char_indices().nth(cursor).map(|(i, _)| i).unwrap_or(state.input_text.len());
+            format!("{}{caret}{}", &state.input_text[..byte], &state.input_text[byte..])
+        }
     };
-    let input_buf =
-        state
-            .text_system
-            .create_line_buffer(&input_display, design::type_scale::MD, input_bounds.width - 24.0);
+    let input_buf = state.text_system.create_buffer(&input_display, design::type_scale::MD, input_bounds.width - 24.0);
     let input_color = if state.input_text.is_empty() && !state.input_focused {
         Color::from_hex(palette.text_muted)
     } else {
         Color::from_hex(palette.text)
     };
-    state.text_system.draw_buffer(
-        canvas,
-        &input_buf,
-        input_bounds.x + 12.0,
-        input_bounds.y + 26.0,
-        input_color,
-    );
+    state.text_system.draw_buffer(canvas, &input_buf, input_bounds.x + 12.0, texto_top, input_color);
+
+    // Desplegables de la barra: el menú «+» y la lista de modelos, encima de
+    // la bandeja y por encima de los mensajes.
+    if state.chat_popover != ChatPopover::None {
+        render_chat_popover(canvas, state, &palette, input_bounds, chat_bounds);
+    }
 
     // === Indicadores de la cabecera ===
     //
@@ -2894,6 +2971,70 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 row_y += overlay_row_h;
             }
         }
+        }
+    }
+}
+
+/// Menú «+» de la barra del chat y lista de modelos: un panel pequeño y
+/// redondeado sobre la bandeja, con secciones. Cada entrada hace algo real.
+fn render_chat_popover(
+    canvas: &mut Canvas,
+    state: &mut AppState,
+    palette: &ThemePalette,
+    input_bounds: Bounds,
+    chat_bounds: Bounds,
+) {
+    let filas: Vec<(String, Option<ClickTargetAction>)> = match state.chat_popover {
+        ChatPopover::Models => {
+            let actual = state.selected_ai_model().to_string();
+            let mut v = vec![("MODELO".to_string(), None)];
+            for m in state.ai_model_options().iter().map(|m| m.to_string()).collect::<Vec<_>>() {
+                let marca = if m == actual { "● " } else { "   " };
+                v.push((format!("{marca}{m}"), Some(ClickTargetAction::ChatModelPick(m))));
+            }
+            v
+        }
+        _ => vec![
+            ("CONTEXTO".to_string(), None),
+            ("Adjuntar archivo…".to_string(), Some(ClickTargetAction::ChatMenu(ChatMenuItem::AttachFile))),
+            ("Mencionar archivo del proyecto…".to_string(), Some(ClickTargetAction::ChatMenu(ChatMenuItem::MentionFile))),
+            ("Añadir la selección del editor".to_string(), Some(ClickTargetAction::ChatMenu(ChatMenuItem::AddSelection))),
+            ("Vaciar conversación".to_string(), Some(ClickTargetAction::ChatMenu(ChatMenuItem::ClearConversation))),
+            ("Rebobinar la última pregunta".to_string(), Some(ClickTargetAction::ChatMenu(ChatMenuItem::Rewind))),
+            ("MODELO".to_string(), None),
+            (format!("Cambiar modelo… ({})", state.selected_ai_model()), Some(ClickTargetAction::ChatMenu(ChatMenuItem::SwitchModel))),
+            (format!("Manos (leer, buscar, listar): {}", if state.chat_tools_enabled { "sí" } else { "no" }), Some(ClickTargetAction::ChatMenu(ChatMenuItem::ToggleTools))),
+            (format!("Respuesta: {}", state.response_length.label()), Some(ClickTargetAction::ChatMenu(ChatMenuItem::CycleLength))),
+            ("MÁS".to_string(), None),
+            ("Agentes…".to_string(), Some(ClickTargetAction::ChatMenu(ChatMenuItem::Agents))),
+            ("Manual (F1)".to_string(), Some(ClickTargetAction::ChatMenu(ChatMenuItem::Manual))),
+        ],
+    };
+    let fila_h = 24.0;
+    let cab_h = 20.0;
+    let alto: f32 = filas.iter().map(|(_, a)| if a.is_some() { fila_h } else { cab_h }).sum::<f32>() + 16.0;
+    let ancho = (input_bounds.width - 16.0).clamp(220.0, 320.0);
+    let x0 = input_bounds.x + 8.0;
+    let y0 = (input_bounds.y - 8.0 - alto).max(chat_bounds.y + 8.0);
+    let panel = Bounds::new(x0, y0, ancho, alto);
+    canvas.drop_shadow(panel, design::radius::MD, 3.0, 10.0, Color::from_hex(0x2D2B2B).with_alpha(41));
+    canvas.fill_rounded_rect(panel, design::radius::MD, Color::from_hex(palette.background));
+    canvas.stroke_rounded_rect(panel, design::radius::MD, Color::from_hex(palette.border).with_alpha(200), 1.0);
+    let mut y = y0 + 8.0;
+    for (texto, accion) in filas {
+        match accion {
+            None => {
+                let buf = state.text_system.create_label_buffer(&texto, design::type_scale::XS, ancho - 24.0);
+                state.text_system.draw_buffer(canvas, &buf, x0 + 12.0, y + 14.0, Color::from_hex(palette.text_muted));
+                y += cab_h;
+            }
+            Some(accion) => {
+                let fila = Bounds::new(x0 + 6.0, y, ancho - 12.0, fila_h);
+                let buf = state.text_system.create_line_buffer(&truncate_chars(&texto, 44), design::type_scale::SM, ancho - 24.0);
+                state.text_system.draw_buffer(canvas, &buf, x0 + 12.0, y + 16.0, Color::from_hex(palette.text));
+                state.add_click_target(fila, accion);
+                y += fila_h;
+            }
         }
     }
 }

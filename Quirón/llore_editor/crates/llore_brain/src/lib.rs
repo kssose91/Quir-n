@@ -399,6 +399,11 @@ impl Quiron {
         self.client.set_project_id(project_id);
     }
 
+    /// Tope de tokens de salida por turno del chat.
+    pub fn set_response_max_tokens(&mut self, max_tokens: u32) {
+        self.client.set_response_max_tokens(max_tokens);
+    }
+
     /// Identidad del proyecto activo, si hay alguno abierto.
     /// Clon ligero para peticiones de fondo, sin retener el bloqueo del chat.
     pub fn client_snapshot(&self) -> client::QuironClient { self.client.clone() }
