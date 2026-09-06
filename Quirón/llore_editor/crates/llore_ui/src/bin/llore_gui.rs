@@ -435,7 +435,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     );
     canvas.fill_rounded_rect(input_bounds, design::radius::LG, bandeja_bg);
     if state.input_focused {
-        canvas.stroke_rect(input_bounds, Color::from_hex(palette.accent), 1.0);
+        canvas.stroke_rounded_rect(input_bounds, design::radius::LG, Color::from_hex(palette.accent), 1.0);
     }
 
     // === Cabecera: la ficha de identidad de la maqueta ===
@@ -2239,11 +2239,13 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     // === Input de chat ===
     // Con el campo enfocado y vacío se mostraba el texto de ayuda y ningún
     // cursor: no había forma de saber que ya se podía escribir.
+    // El cursor parpadea (caret_on lo lleva el bucle de espera); al escribir
+    // se queda fijo un instante.
+    let caret = if state.input_focused && state.caret_on { "|" } else { "" };
     let input_display = match (state.input_text.is_empty(), state.input_focused) {
-        (true, true) => "|".to_string(),
-        (true, false) => "Pregunta sobre el proyecto...".to_string(),
-        (false, true) => format!("{}|", state.input_text),
-        (false, false) => state.input_text.clone(),
+        (true, true) => caret.to_string(),
+        (true, false) => "Pregunta sobre el proyecto…".to_string(),
+        (false, _) => format!("{}{caret}", state.input_text),
     };
     let input_buf =
         state
@@ -2336,7 +2338,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     }
     if state.loading {
         status_chips.push((
-            "thinking...".to_string(),
+            "pensando…".to_string(),
             Color::from_hex(palette.surface),
             Color::from_hex(palette.accent),
             Color::from_hex(palette.accent).with_alpha(180),
@@ -2491,18 +2493,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         y += design::space::XL;
 
         if state.last_tool_runs.is_empty() {
-            let vacio = state.text_system.create_code_buffer(
-                "las herramientas del chat aparecerán aquí",
-                design::type_scale::XS,
-                fw,
-            );
-            state.text_system.draw_buffer(
-                canvas,
-                &vacio,
-                fx,
-                y,
-                Color::from_hex(palette.text_muted),
-            );
+            // Sin manos usadas no se enseña nada: el vacío ya lo dice.
         } else {
             // Flujo: una línea por herramienta, en el orden en que ocurrieron.
             for run in state.last_tool_runs.iter().take(8) {
@@ -2893,7 +2884,7 @@ fn render_agents_overlay(
     let alto = 76.0 + cuerpo_h + aviso_h + 44.0;
     let panel = Bounds::new(x0, y0, ancho, alto);
     canvas.fill_rounded_rect(panel, design::radius::LG, Color::from_hex(palette.background));
-    canvas.stroke_rect(panel, Color::from_hex(palette.border).with_alpha(200), 1.0);
+    canvas.stroke_rounded_rect(panel, design::radius::LG, Color::from_hex(palette.border).with_alpha(200), 1.0);
 
     // Cabecera: título, proveedor en uso y cierre.
     let titulo = state.text_system.create_heading_buffer("Agentes", 18.0, 200.0);
@@ -2934,7 +2925,7 @@ fn render_agents_overlay(
         state.text_system.draw_buffer(canvas, &buf, x0 + 20.0, y + 16.0, Color::from_hex(palette.text));
         let caja = Bounds::new(x0 + 20.0, y + 30.0, ancho - 40.0, 34.0);
         canvas.fill_rounded_rect(caja, design::radius::MD, Color::from_hex(palette.surface));
-        canvas.stroke_rect(caja, Color::from_hex(palette.accent).with_alpha(160), 1.0);
+        canvas.stroke_rounded_rect(caja, design::radius::MD, Color::from_hex(palette.accent).with_alpha(160), 1.0);
         let es_clave = campo.target == AgentTarget::Compatible && campo.step == 2;
         let texto = if es_clave {
             "•".repeat(state.overlay_query.chars().count())
@@ -3103,7 +3094,7 @@ fn render_agents_overlay(
     }
     let boton = Bounds::new(x0 + 20.0, y + 8.0, 110.0, 26.0);
     canvas.fill_rounded_rect(boton, design::radius::MD, Color::from_hex(palette.surface));
-    canvas.stroke_rect(boton, Color::from_hex(palette.border).with_alpha(200), 1.0);
+    canvas.stroke_rounded_rect(boton, design::radius::MD, Color::from_hex(palette.border).with_alpha(200), 1.0);
     let buf = state.text_system.create_line_buffer("Comprobar", design::type_scale::SM, 100.0);
     state.text_system.draw_buffer(canvas, &buf, boton.x + 14.0, boton.y + 18.0, Color::from_hex(palette.text_muted));
     state.add_click_target(boton, ClickTargetAction::ProviderRefresh);
@@ -3135,7 +3126,7 @@ fn render_manual_overlay(
     let alto = (bounds.y + bounds.height - 24.0 - y0).max(300.0);
     let panel = Bounds::new(x0, y0, ancho, alto);
     canvas.fill_rounded_rect(panel, design::radius::LG, Color::from_hex(palette.background));
-    canvas.stroke_rect(panel, Color::from_hex(palette.border).with_alpha(200), 1.0);
+    canvas.stroke_rounded_rect(panel, design::radius::LG, Color::from_hex(palette.border).with_alpha(200), 1.0);
 
     let seccion = state.manual_section.min(secciones.len() - 1);
     let titulo = state.text_system.create_heading_buffer("Manual", 18.0, 200.0);
@@ -3268,8 +3259,9 @@ fn dibujar_tarjeta_agente(
     acciones: Vec<(&str, ClickTargetAction)>,
 ) {
     canvas.fill_rounded_rect(caja, design::radius::MD, Color::from_hex(palette.surface));
-    canvas.stroke_rect(
+    canvas.stroke_rounded_rect(
         caja,
+        design::radius::MD,
         Color::from_hex(if activo { palette.accent } else { palette.border }).with_alpha(if activo { 200 } else { 120 }),
         1.0,
     );
@@ -3403,19 +3395,7 @@ fn render_sidebar_sections(
             .map(|(i, hilo)| (i, hilo.title()))
             .collect();
         if hilos.is_empty() {
-            let vacio = state.text_system.create_line_buffer(
-                "sin conversaciones todavía",
-                design::type_scale::XS,
-                w,
-            );
-            state.text_system.draw_buffer(
-                canvas,
-                &vacio,
-                x + 14.0,
-                texto_base(y, design::type_scale::XS),
-                Color::from_hex(palette.text_muted).with_alpha(150),
-            );
-            y += fila;
+            // Nada que listar: no se pinta un texto de relleno.
         }
         for (i, titulo) in hilos {
             let activa = state.active_thread == Some(i);
@@ -3494,19 +3474,7 @@ fn render_sidebar_sections(
             .cloned()
             .collect();
         if otros.is_empty() && actual.is_none() {
-            let vacio = state.text_system.create_line_buffer(
-                "sin repositorios recientes",
-                design::type_scale::XS,
-                w,
-            );
-            state.text_system.draw_buffer(
-                canvas,
-                &vacio,
-                x + 14.0,
-                texto_base(y, design::type_scale::XS),
-                Color::from_hex(palette.text_muted).with_alpha(150),
-            );
-            y += fila;
+            // Sin repositorios recientes: vacío, sin texto de relleno.
         }
         for proyecto in otros {
             let bounds = Bounds::new(x, y, w, fila);

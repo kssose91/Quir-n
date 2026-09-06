@@ -2075,6 +2075,13 @@ pub struct SessionTelemetryTimelineEntry {
     pub label: String,
 }
 
+/// Lo que devuelve la tarea del chat: respuesta, métricas y manos usadas.
+type ChatTaskResult = (
+    Result<llore_brain::ChatOutcome, llore_brain::client::ClientError>,
+    DelegationMetrics,
+    Vec<ToolRun>,
+);
+
 /// Una herramienta ejecutada durante la última respuesta, cronometrada desde
 /// el editor: es la única parte del sistema que ve empezar y terminar cada
 /// llamada, así que es la única que puede decir cuánto tardó sin inventarlo.
@@ -2154,6 +2161,13 @@ pub struct AppState {
     pub ui_scale: Scale,
     /// Si está esperando respuesta de Quirón
     pub loading: bool,
+    /// El chat en curso, fuera del hilo de la interfaz; cuándo empezó.
+    chat_task: Option<JoinHandle<ChatTaskResult>>,
+    chat_started: Option<Instant>,
+    /// Cursor del campo del chat: fase del parpadeo y último texto visto.
+    pub caret_on: bool,
+    caret_epoch: Instant,
+    caret_last_text: String,
     /// Si el panel de telemetría en chat está visible.
     pub telemetry_panel_enabled: bool,
     /// Runtime de tokio para async
@@ -2618,6 +2632,14 @@ impl AppState {
         // no se lo lleva el editor hasta que el usuario lo pida.
         self.set_focus(FocusTarget::ChatInput);
         self.apply_start_panel_hook();
+        // Para el arnés: QUIRON_UI_ASK hace la pregunta nada más abrir, como
+        // si se hubiera tecleado, sin depender del teclado del compositor.
+        if let Ok(pregunta) = std::env::var("QUIRON_UI_ASK") {
+            if !pregunta.trim().is_empty() {
+                self.input_text.clear();
+                self.send_message(&pregunta);
+            }
+        }
         self.needs_render = true;
     }
 
@@ -2688,6 +2710,11 @@ impl AppState {
             explorer_show_noise: false,
             ui_scale: Scale::default(),
             loading: false,
+            chat_task: None,
+            chat_started: None,
+            caret_on: true,
+            caret_epoch: Instant::now(),
+            caret_last_text: String::new(),
             telemetry_panel_enabled: false,
             runtime,
             quiron: Arc::new(Mutex::new(quiron)),
@@ -6440,7 +6467,7 @@ impl AppState {
             self.quick_open_cache_stale = false;
             self.rebuild_workspace_text_search_overlay_items();
         }
-        self.status_text = "workspace changed: explorer updated".to_string();
+        self.status_text = String::new();
         self.needs_render = true;
         true
     }
@@ -11339,17 +11366,18 @@ impl AppState {
             self.loading = false;
             return;
         }
+        // Una respuesta a la vez: la siguiente pregunta espera a que llegue.
+        if self.chat_task.is_some() {
+            self.status_text = "espera a la respuesta anterior".to_string();
+            self.needs_render = true;
+            return;
+        }
 
         // Sin proyecto abierto no hay identidad de proyecto, y sin ella el
-        // contexto recuperado no pertenece a ningún mundo.
+        // contexto recuperado no pertenece a ningún mundo. Se dice en la
+        // barra de estado, no como un mensaje fingido en el chat.
         if !self.workspace_is_open() {
-            self.messages.push(ChatMessage {
-                is_user: false,
-                content: "Abre una carpeta de proyecto antes de preguntar.".to_string(),
-                meta: Some("system".to_string()),
-                citations: vec![],
-                code_sources: Vec::new(),
-            });
+            self.status_text = "abre una carpeta antes de preguntar (Ctrl+O)".to_string();
             self.loading = false;
             self.needs_render = true;
             return;
@@ -11366,7 +11394,7 @@ impl AppState {
         self.stash_active_thread();
 
         self.loading = true;
-        self.status_text = "thinking...".to_string();
+        self.status_text = "pensando…".to_string();
 
         // Clonar para el closure async
         let quiron = self.quiron.clone();
@@ -11384,9 +11412,12 @@ impl AppState {
         // Cada herramienta se cronometra aquí, en el editor: es el único sitio
         // que ve empezar y terminar la llamada. Y las métricas de delegación se
         // leen al cerrar la respuesta, bajo el mismo lock que ya se tenía.
-        let mut corridas: Vec<ToolRun> = Vec::new();
-        let empezo = Instant::now();
-        let (result, metrics) = self.runtime.block_on(async {
+        // La respuesta se espera en una tarea del runtime, nunca en el hilo de
+        // la interfaz: la ventana sigue viva mientras el modelo piensa y usa
+        // las manos, y el resultado se recoge en `poll_chat_task`.
+        self.chat_started = Some(Instant::now());
+        self.chat_task = Some(self.runtime.spawn(async move {
+            let mut corridas: Vec<ToolRun> = Vec::new();
             let q = quiron.lock().await;
             let tools = chat_tools::tool_catalog()
                 .into_iter()
@@ -11440,10 +11471,61 @@ impl AppState {
             )
             .await;
             let metrics = q.delegation_metrics();
-            (outcome, metrics)
-        });
+            (outcome, metrics, corridas)
+        }));
+        self.needs_render = true;
+    }
 
-        let pensado = empezo.elapsed();
+    /// Recoge la respuesta del chat cuando la tarea termina.
+    fn poll_chat_task(&mut self) -> bool {
+        if !self.chat_task.as_ref().is_some_and(|t| t.is_finished()) {
+            return false;
+        }
+        let task = self.chat_task.take().expect("comprobado");
+        let pensado = self.chat_started.take().map(|t| t.elapsed()).unwrap_or_default();
+        match self.runtime.block_on(task) {
+            Ok((result, metrics, corridas)) => self.finish_chat(result, metrics, corridas, pensado),
+            Err(err) => {
+                self.messages.push(ChatMessage {
+                    is_user: false,
+                    content: format!("No se pudo obtener respuesta: {err}"),
+                    meta: Some("model-error".to_string()),
+                    citations: vec![],
+                    code_sources: Vec::new(),
+                });
+                self.loading = false;
+            }
+        }
+        self.needs_render = true;
+        true
+    }
+
+    /// Parpadeo del cursor del chat: medio segundo encendido, medio apagado;
+    /// al escribir se queda fijo un instante para que se vea dónde está.
+    pub fn caret_tick(&mut self) -> bool {
+        if !self.input_focused {
+            return std::mem::replace(&mut self.caret_on, true) != true;
+        }
+        if self.input_text != self.caret_last_text {
+            self.caret_last_text = self.input_text.clone();
+            self.caret_epoch = Instant::now();
+        }
+        let fase = (self.caret_epoch.elapsed().as_millis() / 530) % 2 == 0;
+        if fase != self.caret_on {
+            self.caret_on = fase;
+            self.needs_render = true;
+            return true;
+        }
+        false
+    }
+
+    fn finish_chat(
+        &mut self,
+        result: Result<llore_brain::ChatOutcome, llore_brain::client::ClientError>,
+        metrics: DelegationMetrics,
+        corridas: Vec<ToolRun>,
+        pensado: Duration,
+    ) {
         self.last_thought_secs = pensado.as_secs_f32();
         self.last_tool_runs = corridas;
         self.background_snapshot = Some(BackgroundSnapshot {
@@ -11529,7 +11611,7 @@ impl AppState {
             code_sources,
         });
 
-        self.status_text = response_meta.unwrap_or_else(|| "response received".to_string());
+        self.status_text = response_meta.unwrap_or_default();
         self.persist_chat_threads();
         self.loading = false;
         self.needs_render = true;
@@ -12349,6 +12431,12 @@ where
         if self.state.poll_provider_tasks() {
             should_redraw = true;
         }
+        if self.state.poll_chat_task() {
+            should_redraw = true;
+        }
+        if self.state.caret_tick() {
+            should_redraw = true;
+        }
         if should_redraw {
             if let Some(window) = &self.window {
                 window.request_redraw();
@@ -12419,6 +12507,29 @@ mod tests {
         state.ai_provider = "claude_cli".to_string();
         state.selected_ai_model = "sonnet".to_string();
         assert_eq!(state.chat_model(), "sonnet");
+    }
+
+    #[test]
+    fn enviar_no_bloquea_la_interfaz_y_la_respuesta_llega_por_sondeo() {
+        let workspace = TestWorkspace::new("chat_async");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        // Un cerebro que no existe: la tarea falla rápido, pero el envío vuelve
+        // al instante con el mensaje del usuario ya en pantalla.
+        state.quiron_brain_url = "http://127.0.0.1:9".to_string();
+        let t0 = Instant::now();
+        state.send_message("hola");
+        assert!(t0.elapsed() < Duration::from_millis(500), "send_message bloqueó {:?}", t0.elapsed());
+        assert!(state.loading && state.chat_task.is_some());
+        assert!(state.messages.last().is_some_and(|m| m.is_user && m.content == "hola"));
+        // El sondeo recoge el resultado cuando la tarea acaba.
+        let mut esperas = 0;
+        while !state.poll_chat_task() {
+            std::thread::sleep(Duration::from_millis(50));
+            esperas += 1;
+            assert!(esperas < 400, "la tarea del chat no terminó");
+        }
+        assert!(!state.loading && state.chat_task.is_none());
+        assert!(state.messages.last().is_some_and(|m| !m.is_user));
     }
 
     #[test]
@@ -14635,11 +14746,11 @@ mod tests {
 
         state.send_message("¿qué hace este repositorio?");
 
-        assert_eq!(state.messages.len(), previos + 1);
-        let ultimo = state.messages.last().expect("debe haber respuesta");
-        assert!(!ultimo.is_user);
-        assert!(ultimo.content.contains("Abre una carpeta"));
+        // Nada fingido en el chat: el aviso va a la barra de estado.
+        assert_eq!(state.messages.len(), previos);
+        assert!(state.status_text.contains("abre una carpeta"), "{}", state.status_text);
         assert!(!state.loading, "no debe quedarse esperando al modelo");
+        assert!(state.chat_task.is_none());
     }
 
     #[test]

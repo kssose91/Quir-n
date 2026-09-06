@@ -549,6 +549,33 @@ impl Canvas {
         pb.close();
     }
 
+    /// Borde con las esquinas redondeadas, para casar con `fill_rounded_rect`.
+    pub fn stroke_rounded_rect(&mut self, bounds: Bounds, radius: f32, color: Color, width: f32) {
+        if radius <= 0.0 {
+            self.stroke_rect(bounds, color, width);
+            return;
+        }
+        let r = radius.min(bounds.width / 2.0).min(bounds.height / 2.0);
+        let (x, y, w, h) = (bounds.x, bounds.y, bounds.width, bounds.height);
+        let mut pb = PathBuilder::new();
+        pb.move_to(x + r, y);
+        pb.line_to(x + w - r, y);
+        pb.quad_to(x + w, y, x + w, y + r);
+        pb.line_to(x + w, y + h - r);
+        pb.quad_to(x + w, y + h, x + w - r, y + h);
+        pb.line_to(x + r, y + h);
+        pb.quad_to(x, y + h, x, y + h - r);
+        pb.line_to(x, y + r);
+        pb.quad_to(x, y, x + r, y);
+        pb.close();
+        let Some(path) = pb.finish() else { return };
+        let mut paint = Paint::default();
+        paint.set_color(color.to_skia_color());
+        paint.anti_alias = true;
+        let stroke = Stroke { width, ..Default::default() };
+        self.pixmap.stroke_path(&path, &paint, &stroke, self.transform(), None);
+    }
+
     pub fn stroke_rect(&mut self, bounds: Bounds, color: Color, width: f32) {
         let Some(rect) = Rect::from_xywh(bounds.x, bounds.y, bounds.width, bounds.height) else {
             return;

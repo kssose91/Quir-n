@@ -18,9 +18,14 @@ const ARCHIVO_REGULAR: &[u8] = include_bytes!("../assets/fonts/Archivo-Regular.t
 const ARCHIVO_MEDIUM: &[u8] = include_bytes!("../assets/fonts/Archivo-Medium.ttf");
 const ARCHIVO_EXTRABOLD: &[u8] = include_bytes!("../assets/fonts/Archivo-ExtraBold.ttf");
 /// Código: JetBrains Mono, SIL Open Font License 1.1.
+const INTER_REGULAR: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
+const INTER_MEDIUM: &[u8] = include_bytes!("../assets/fonts/Inter-Medium.ttf");
 const JETBRAINS_MONO_REGULAR: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf");
 /// Iconos: Lucide, licencia ISC.
 const LUCIDE: &[u8] = include_bytes!("../assets/fonts/Lucide.ttf");
+
+/// Familia de los títulos (la marca): Archivo en negrita.
+pub const HEADING_FAMILY: &str = "Archivo";
 
 /// Familia de la fuente de iconos, para `Family::Name`.
 pub const ICON_FAMILY: &str = "lucide";
@@ -42,12 +47,16 @@ impl TextSystem {
             database.load_font_data(ARCHIVO_REGULAR.to_vec());
             database.load_font_data(ARCHIVO_MEDIUM.to_vec());
             database.load_font_data(ARCHIVO_EXTRABOLD.to_vec());
+            database.load_font_data(INTER_REGULAR.to_vec());
+            database.load_font_data(INTER_MEDIUM.to_vec());
             database.load_font_data(JETBRAINS_MONO_REGULAR.to_vec());
             database.load_font_data(LUCIDE.to_vec());
 
             // Al redefinir las familias genéricas, todo el código que ya pedía
-            // `SansSerif` o `Monospace` adopta las nuevas sin cambiar.
-            database.set_sans_serif_family("Archivo");
+            // `SansSerif` o `Monospace` adopta las nuevas sin cambiar. El
+            // texto va en Inter, hecha para pantalla a tamaños pequeños;
+            // Archivo se queda para los títulos, que es donde luce.
+            database.set_sans_serif_family("Inter");
             database.set_monospace_family("JetBrains Mono");
         }
 
@@ -61,7 +70,8 @@ impl TextSystem {
 
     /// Crea un buffer de texto para la UI (SansSerif)
     pub fn create_buffer(&mut self, text: &str, font_size: f32, max_width: f32) -> Buffer {
-        let metrics = Metrics::new(font_size, font_size * 1.2);
+        // Párrafos (chat, manual): interlineado holgado, que descansa la vista.
+        let metrics = Metrics::new(font_size, font_size * 1.4);
         let mut buffer = Buffer::new(&mut self.font_system, metrics);
 
         buffer.set_size(&mut self.font_system, Some(max_width), None);
@@ -150,7 +160,7 @@ impl TextSystem {
             &mut self.font_system,
             text,
             Attrs::new()
-                .family(Family::SansSerif)
+                .family(Family::Name(HEADING_FAMILY))
                 .weight(Weight::EXTRA_BOLD),
             Shaping::Advanced,
         );
