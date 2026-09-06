@@ -641,6 +641,9 @@ pub enum ClickTargetAction {
     ChatModelPick(String),
     ChatAttachmentRemove(usize),
     ChatFocusInput,
+    /// Menú contextual del explorador: una operación sobre una ruta; cerrar.
+    Ctx(ExplorerOp, PathBuf),
+    CtxClose,
     Citation(Citation),
     /// Abre el archivo de una ficha de código en su primera línea.
     CodeSource(CodeHint),
@@ -1157,6 +1160,44 @@ pub enum OverlayMode {
     Agentes,
     /// Manual de la aplicación (F1).
     Manual,
+    /// Cuadro de nombre del explorador (nuevo archivo, carpeta, renombrar).
+    Prompt,
+}
+
+/// Qué pide el cuadro de nombre del explorador.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PromptKind {
+    NewFile { dir: PathBuf },
+    NewFolder { dir: PathBuf },
+    Rename { path: PathBuf },
+}
+
+/// Operaciones del menú contextual del explorador.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExplorerOp {
+    NewFile,
+    NewFolder,
+    OpenContaining,
+    OpenTerminal,
+    FindInFolder,
+    AddToChat,
+    Cut,
+    Copy,
+    Paste,
+    CopyPath,
+    CopyRelativePath,
+    Rename,
+    Delete,
+    DeleteConfirmed,
+}
+
+/// Menú contextual abierto: dónde, sobre qué y sus entradas.
+#[derive(Debug, Clone)]
+pub struct ContextMenu {
+    pub x: f32,
+    pub y: f32,
+    pub title: String,
+    pub items: Vec<(String, ClickTargetAction)>,
 }
 
 /// Acción ejecutable desde command palette.
@@ -1469,6 +1510,8 @@ pub enum OverlayAction {
         index: usize,
     },
     Command(CommandPaletteAction),
+    /// El cuadro de nombre del explorador confirma con el texto tecleado.
+    PromptSubmit,
 }
 
 /// Item renderizable en quick open / command palette.
@@ -2262,6 +2305,12 @@ pub struct AppState {
     pub pending_attachments: Vec<ChatAttachment>,
     /// Quick Open en modo mención: elegir un archivo lo inserta como `@ruta`.
     quick_open_mention: bool,
+    /// Explorador: cuadro de nombre en curso, menú contextual, portapapeles
+    /// interno (ruta, cortar) y carpeta a la que se acota la búsqueda.
+    pub prompt: Option<PromptKind>,
+    pub context_menu: Option<ContextMenu>,
+    pub explorer_clipboard: Option<(PathBuf, bool)>,
+    text_search_scope: Option<PathBuf>,
     /// Si el panel de telemetría en chat está visible.
     pub telemetry_panel_enabled: bool,
     /// Runtime de tokio para async
@@ -2822,6 +2871,10 @@ impl AppState {
             response_length: ResponseLength::Normal,
             pending_attachments: Vec::new(),
             quick_open_mention: false,
+            prompt: None,
+            context_menu: None,
+            explorer_clipboard: None,
+            text_search_scope: None,
             telemetry_panel_enabled: false,
             runtime,
             quiron: Arc::new(Mutex::new(quiron)),
@@ -4922,6 +4975,11 @@ impl AppState {
             self.needs_render = true;
             return;
         }
+        // Con ventana, se pide el nombre; sin ella (pruebas), el de siempre.
+        if self.event_proxy.is_some() {
+            self.open_prompt(PromptKind::NewFile { dir: parent }, "");
+            return;
+        }
         if let Err(err) = fs::create_dir_all(&parent) {
             self.status_text = format!("explorer new file failed: {}", err);
             self.needs_render = true;
@@ -4949,12 +5007,415 @@ impl AppState {
         }
     }
 
+    /// Botón derecho: sobre una fila del explorador abre su menú contextual;
+    /// sobre el fondo del árbol, el de la raíz del proyecto.
+    pub fn handle_right_click(&mut self, x: f32, y: f32) {
+        let objetivo = match self.action_at(x, y) {
+            Some(ClickTargetAction::ExplorerFile(p)) => Some((p, false)),
+            Some(ClickTargetAction::ExplorerDir(p)) => Some((p, true)),
+            _ => {
+                let en_arbol = self.sidebar_bounds.as_ref().map_or(false, |b| b.contains(x, y))
+                    && self.sidebar_panel == SidebarPanel::Explorer
+                    && self.workspace_is_open();
+                en_arbol.then(|| (self.workspace_root.clone(), true))
+            }
+        };
+        match objetivo {
+            Some((path, es_dir)) => {
+                self.explorer_selected_path = Some(path.clone());
+                self.open_explorer_context_menu(x, y, path, es_dir);
+            }
+            None => self.context_menu = None,
+        }
+        self.needs_render = true;
+    }
+
+    fn open_explorer_context_menu(&mut self, x: f32, y: f32, path: PathBuf, es_dir: bool) {
+        let nombre = if path == self.workspace_root {
+            self.workspace_root.file_name().and_then(|n| n.to_str()).unwrap_or("proyecto").to_string()
+        } else {
+            path.file_name().and_then(|n| n.to_str()).unwrap_or("?").to_string()
+        };
+        let es_raiz = path == self.workspace_root;
+        let ctx = |op: ExplorerOp, p: &PathBuf| ClickTargetAction::Ctx(op, p.clone());
+        let mut items: Vec<(String, ClickTargetAction)> = vec![
+            ("Nuevo archivo…".into(), ctx(ExplorerOp::NewFile, &path)),
+            ("Nueva carpeta…".into(), ctx(ExplorerOp::NewFolder, &path)),
+            ("—".into(), ClickTargetAction::CtxClose),
+            ("Abrir en el gestor de archivos".into(), ctx(ExplorerOp::OpenContaining, &path)),
+            ("Abrir en una terminal".into(), ctx(ExplorerOp::OpenTerminal, &path)),
+            ("—".into(), ClickTargetAction::CtxClose),
+        ];
+        if es_dir {
+            items.push(("Buscar en la carpeta…".into(), ctx(ExplorerOp::FindInFolder, &path)));
+        }
+        items.push((if es_dir { "Añadir la carpeta al chat" } else { "Añadir el archivo al chat" }.into(), ctx(ExplorerOp::AddToChat, &path)));
+        items.push(("—".into(), ClickTargetAction::CtxClose));
+        if !es_raiz {
+            items.push(("Cortar".into(), ctx(ExplorerOp::Cut, &path)));
+            items.push(("Copiar".into(), ctx(ExplorerOp::Copy, &path)));
+        }
+        if let Some((origen, cortar)) = &self.explorer_clipboard {
+            let verbo = if *cortar { "Mover aquí" } else { "Pegar aquí" };
+            let que = origen.file_name().and_then(|n| n.to_str()).unwrap_or("?");
+            items.push((format!("{verbo}: {que}"), ctx(ExplorerOp::Paste, &path)));
+        }
+        items.push(("Copiar la ruta".into(), ctx(ExplorerOp::CopyPath, &path)));
+        items.push(("Copiar la ruta relativa".into(), ctx(ExplorerOp::CopyRelativePath, &path)));
+        if !es_raiz {
+            items.push(("—".into(), ClickTargetAction::CtxClose));
+            items.push(("Renombrar…".into(), ctx(ExplorerOp::Rename, &path)));
+            items.push(("Eliminar…".into(), ctx(ExplorerOp::Delete, &path)));
+        }
+        self.context_menu = Some(ContextMenu { x, y, title: nombre, items });
+    }
+
+    /// Una operación del menú contextual sobre una ruta. Todo pasa por la
+    /// misma regla que las manos: dentro del proyecto y nunca la raíz.
+    pub fn explorer_op(&mut self, op: ExplorerOp, path: PathBuf) {
+        self.context_menu = None;
+        self.needs_render = true;
+        if !path.starts_with(&self.workspace_root) {
+            self.status_text = "explorador: fuera del proyecto".to_string();
+            return;
+        }
+        let dir_de = |p: &PathBuf| -> PathBuf {
+            if p.is_dir() { p.clone() } else { p.parent().map(Path::to_path_buf).unwrap_or_else(|| p.clone()) }
+        };
+        let nombre = path.file_name().and_then(|n| n.to_str()).unwrap_or("?").to_string();
+        match op {
+            ExplorerOp::NewFile => self.open_prompt(PromptKind::NewFile { dir: dir_de(&path) }, ""),
+            ExplorerOp::NewFolder => self.open_prompt(PromptKind::NewFolder { dir: dir_de(&path) }, ""),
+            ExplorerOp::Rename => self.open_prompt(PromptKind::Rename { path: path.clone() }, &nombre),
+            ExplorerOp::OpenContaining => {
+                let dir = dir_de(&path);
+                self.status_text = match std::process::Command::new("xdg-open").arg(&dir).spawn() {
+                    Ok(_) => format!("abierto en el gestor de archivos: {}", self.workspace_relative_label(&dir)),
+                    Err(e) => format!("no se pudo abrir el gestor de archivos: {e}"),
+                };
+            }
+            ExplorerOp::OpenTerminal => {
+                let dir = dir_de(&path);
+                self.status_text = match Self::abrir_terminal_en(&dir) {
+                    Ok(()) => format!("terminal en {}", self.workspace_relative_label(&dir)),
+                    Err(e) => e,
+                };
+            }
+            ExplorerOp::FindInFolder => {
+                let dir = dir_de(&path);
+                self.begin_workspace_text_search_overlay();
+                self.text_search_scope = Some(dir.clone());
+                self.status_text = format!("buscar en {}", self.workspace_relative_label(&dir));
+            }
+            ExplorerOp::AddToChat => {
+                if path.is_dir() {
+                    let prefijo = path.clone();
+                    let listado: Vec<String> = self
+                        .quick_open_candidates
+                        .iter()
+                        .filter(|p| p.starts_with(&prefijo))
+                        .take(400)
+                        .map(|p| self.workspace_relative_label(p))
+                        .collect();
+                    let etiqueta = format!("carpeta {}/ ({} archivos)", self.workspace_relative_label(&path), listado.len());
+                    self.pending_attachments.retain(|a| a.label != etiqueta);
+                    self.pending_attachments.push(ChatAttachment { label: etiqueta.clone(), content: listado.join("\n"), truncated: listado.len() >= 400 });
+                    self.status_text = format!("adjunto: {etiqueta}");
+                    self.set_focus(FocusTarget::ChatInput);
+                } else {
+                    self.attach_file_to_chat(path);
+                }
+            }
+            ExplorerOp::Cut => {
+                self.explorer_clipboard = Some((path, true));
+                self.status_text = format!("cortado: {nombre} (pega con el botón derecho en la carpeta de destino)");
+            }
+            ExplorerOp::Copy => {
+                self.explorer_clipboard = Some((path, false));
+                self.status_text = format!("copiado: {nombre} (pega con el botón derecho en la carpeta de destino)");
+            }
+            ExplorerOp::Paste => {
+                let Some((origen, cortar)) = self.explorer_clipboard.clone() else { return };
+                let destino_dir = dir_de(&path);
+                self.status_text = match self.explorer_paste(&origen, &destino_dir, cortar) {
+                    Ok(destino) => {
+                        if cortar {
+                            self.explorer_clipboard = None;
+                        }
+                        self.mark_workspace_mutated();
+                        self.refresh_explorer();
+                        let _ = self.reveal_path_in_explorer(&destino);
+                        format!("{}: {}", if cortar { "movido" } else { "copiado" }, self.workspace_relative_label(&destino))
+                    }
+                    Err(e) => format!("no se pudo pegar: {e}"),
+                };
+            }
+            ExplorerOp::CopyPath => {
+                let texto = path.display().to_string();
+                self.status_text = match self.write_clipboard_text(&texto) {
+                    Ok(()) => format!("ruta copiada: {texto}"),
+                    Err(e) => format!("portapapeles: {e}"),
+                };
+            }
+            ExplorerOp::CopyRelativePath => {
+                let texto = self.workspace_relative_label(&path);
+                self.status_text = match self.write_clipboard_text(&texto) {
+                    Ok(()) => format!("ruta relativa copiada: {texto}"),
+                    Err(e) => format!("portapapeles: {e}"),
+                };
+            }
+            ExplorerOp::Delete => {
+                // Confirmación en el mismo sitio: el menú se vuelve la pregunta.
+                let que = if path.is_dir() { "la carpeta y todo lo que contiene" } else { "el archivo" };
+                let (x, y) = self.cursor_pos.unwrap_or((200.0, 200.0));
+                self.context_menu = Some(ContextMenu {
+                    x,
+                    y,
+                    title: format!("¿Eliminar {que} «{nombre}»?"),
+                    items: vec![
+                        (format!("Sí, eliminar {nombre}"), ClickTargetAction::Ctx(ExplorerOp::DeleteConfirmed, path.clone())),
+                        ("Cancelar".into(), ClickTargetAction::CtxClose),
+                    ],
+                });
+            }
+            ExplorerOp::DeleteConfirmed => {
+                if path == self.workspace_root {
+                    self.status_text = "la raíz del proyecto no se elimina".to_string();
+                    return;
+                }
+                let resultado = if path.is_dir() { fs::remove_dir_all(&path) } else { fs::remove_file(&path) };
+                self.status_text = match resultado {
+                    Ok(()) => {
+                        self.close_tabs_under(&path);
+                        if self.explorer_selected_path.as_ref().is_some_and(|s| s.starts_with(&path)) {
+                            self.explorer_selected_path = path.parent().map(Path::to_path_buf);
+                        }
+                        self.expanded_dirs.retain(|d| !d.starts_with(&path));
+                        self.mark_workspace_mutated();
+                        self.refresh_explorer();
+                        format!("eliminado: {}", self.workspace_relative_label(&path))
+                    }
+                    Err(e) => format!("no se pudo eliminar {nombre}: {e}"),
+                };
+            }
+        }
+    }
+
+    /// Pega `origen` dentro de `destino_dir`: mueve si era cortar, si no copia
+    /// (carpetas incluidas). Si ya hay algo con ese nombre, numera.
+    fn explorer_paste(&self, origen: &Path, destino_dir: &Path, cortar: bool) -> Result<PathBuf, String> {
+        if !origen.exists() {
+            return Err("el origen ya no existe".to_string());
+        }
+        if !destino_dir.starts_with(&self.workspace_root) {
+            return Err("destino fuera del proyecto".to_string());
+        }
+        if origen.is_dir() && destino_dir.starts_with(origen) {
+            return Err("una carpeta no puede pegarse dentro de sí misma".to_string());
+        }
+        let stem = origen.file_stem().and_then(|s| s.to_str()).unwrap_or("copia");
+        let ext = origen.extension().and_then(|e| e.to_str());
+        let destino = Self::unique_child_path(destino_dir, stem, if origen.is_dir() { None } else { ext });
+        if cortar {
+            if fs::rename(origen, &destino).is_ok() {
+                return Ok(destino);
+            }
+        }
+        Self::copiar_recursivo(origen, &destino).map_err(|e| e.to_string())?;
+        if cortar {
+            let _ = if origen.is_dir() { fs::remove_dir_all(origen) } else { fs::remove_file(origen) };
+        }
+        Ok(destino)
+    }
+
+    fn copiar_recursivo(origen: &Path, destino: &Path) -> std::io::Result<()> {
+        if origen.is_dir() {
+            fs::create_dir_all(destino)?;
+            for entrada in fs::read_dir(origen)? {
+                let entrada = entrada?;
+                Self::copiar_recursivo(&entrada.path(), &destino.join(entrada.file_name()))?;
+            }
+            Ok(())
+        } else {
+            fs::copy(origen, destino).map(|_| ())
+        }
+    }
+
+    /// Cierra las pestañas de archivos que estaban bajo `path` (eliminado).
+    fn close_tabs_under(&mut self, path: &Path) {
+        let mut i = 0;
+        while i < self.open_tabs.len() {
+            let bajo = self.open_tabs[i].path.as_ref().is_some_and(|p| p.starts_with(path));
+            if !bajo {
+                i += 1;
+                continue;
+            }
+            if self.open_tabs.len() == 1 {
+                self.open_tabs[0] = OpenTab { path: None, editor: Editor::new() };
+                self.active_tab = 0;
+                self.secondary_tab = None;
+                break;
+            }
+            self.open_tabs.remove(i);
+            if self.active_tab >= self.open_tabs.len() || self.active_tab == i {
+                self.active_tab = i.min(self.open_tabs.len() - 1);
+            } else if self.active_tab > i {
+                self.active_tab -= 1;
+            }
+            self.secondary_tab = match self.secondary_tab {
+                Some(s) if s == i => None,
+                Some(s) if s > i => Some(s - 1),
+                otro => otro,
+            };
+        }
+        if self.secondary_tab.is_none() {
+            self.editor_pane_split_enabled = false;
+            self.focused_editor_pane = EditorPane::Primary;
+        }
+    }
+
+    /// Terminal con el directorio de trabajo en `dir` (cada emulador tiene su
+    /// bandera; sin ninguno conocido, se dice).
+    fn abrir_terminal_en(dir: &Path) -> Result<(), String> {
+        let preferida = std::env::var("TERMINAL").ok();
+        let candidatas = preferida
+            .iter()
+            .map(String::as_str)
+            .chain(["kitty", "foot", "alacritty", "wezterm", "ghostty", "gnome-terminal", "konsole", "xterm"]);
+        for terminal in candidatas {
+            let Some(bin) = Self::busca_en_path(terminal) else { continue };
+            let mut orden = std::process::Command::new(bin);
+            match terminal {
+                "kitty" => { orden.arg("-d").arg(dir); }
+                "foot" => { orden.arg("-D").arg(dir); }
+                "wezterm" => { orden.arg("start").arg("--cwd").arg(dir); }
+                "gnome-terminal" => { orden.arg(format!("--working-directory={}", dir.display())); }
+                "konsole" => { orden.arg("--workdir").arg(dir); }
+                _ => { orden.current_dir(dir); }
+            }
+            if orden.spawn().is_ok() {
+                return Ok(());
+            }
+        }
+        Err("no hay una terminal conocida en PATH".to_string())
+    }
+
+    /// Cuadro de nombre (reutiliza el marco de Quick Open): un solo item que
+    /// dice qué va a pasar con el nombre tecleado; Intro lo confirma.
+    pub fn open_prompt(&mut self, kind: PromptKind, inicial: &str) {
+        self.reset_overlay_state();
+        self.context_menu = None;
+        self.overlay_mode = Some(OverlayMode::Prompt);
+        self.overlay_query = inicial.to_string();
+        self.prompt = Some(kind);
+        self.rebuild_prompt_items();
+        self.needs_render = true;
+    }
+
+    fn rebuild_prompt_items(&mut self) {
+        let nombre = self.overlay_query.trim().to_string();
+        let donde = |dir: &PathBuf| -> String {
+            if *dir == self.workspace_root { "la raíz del proyecto".to_string() } else { format!("{}/", self.workspace_relative_label(dir)) }
+        };
+        let titulo = match (&self.prompt, nombre.is_empty()) {
+            (_, true) => "Escribe un nombre".to_string(),
+            (Some(PromptKind::NewFile { dir }), _) => format!("Crear el archivo «{nombre}» en {}", donde(dir)),
+            (Some(PromptKind::NewFolder { dir }), _) => format!("Crear la carpeta «{nombre}» en {}", donde(dir)),
+            (Some(PromptKind::Rename { path }), _) => format!("Renombrar «{}» a «{nombre}»", path.file_name().and_then(|n| n.to_str()).unwrap_or("?")),
+            (None, _) => String::new(),
+        };
+        self.overlay_items = vec![OverlayItem { title: titulo, detail: "Intro confirma · Esc cancela".to_string(), action: OverlayAction::PromptSubmit }];
+        self.overlay_selected = 0;
+        self.needs_render = true;
+    }
+
+    fn prompt_submit(&mut self) {
+        let nombre = self.overlay_query.trim().to_string();
+        let Some(kind) = self.prompt.take() else {
+            self.reset_overlay_state();
+            return;
+        };
+        self.reset_overlay_state();
+        if nombre.is_empty() || nombre == "." || nombre == ".." || nombre.contains('/') || nombre.contains('\\') {
+            self.status_text = "nombre no válido (sin barras ni vacío)".to_string();
+            self.needs_render = true;
+            return;
+        }
+        match kind {
+            PromptKind::NewFile { dir } => {
+                let path = dir.join(&nombre);
+                if path.exists() {
+                    self.status_text = format!("ya existe: {nombre}");
+                } else if let Err(e) = fs::create_dir_all(&dir).and_then(|_| fs::write(&path, "")) {
+                    self.status_text = format!("no se pudo crear {nombre}: {e}");
+                } else {
+                    self.mark_workspace_mutated();
+                    self.refresh_explorer();
+                    let _ = self.reveal_path_in_explorer(&path);
+                    self.open_file_from_explorer(path.clone());
+                    self.status_text = format!("creado: {}", self.workspace_relative_label(&path));
+                }
+            }
+            PromptKind::NewFolder { dir } => {
+                let path = dir.join(&nombre);
+                if path.exists() {
+                    self.status_text = format!("ya existe: {nombre}");
+                } else if let Err(e) = fs::create_dir_all(&path) {
+                    self.status_text = format!("no se pudo crear {nombre}: {e}");
+                } else {
+                    self.expanded_dirs.insert(path.clone());
+                    self.mark_workspace_mutated();
+                    self.refresh_explorer();
+                    let _ = self.reveal_path_in_explorer(&path);
+                    self.status_text = format!("carpeta creada: {}", self.workspace_relative_label(&path));
+                }
+            }
+            PromptKind::Rename { path } => {
+                let Some(padre) = path.parent().map(Path::to_path_buf) else { return };
+                let nuevo = padre.join(&nombre);
+                if nuevo == path {
+                    return;
+                }
+                if nuevo.exists() {
+                    self.status_text = format!("ya existe: {nombre}");
+                } else if let Err(e) = fs::rename(&path, &nuevo) {
+                    self.status_text = format!("no se pudo renombrar: {e}");
+                } else {
+                    for tab in &mut self.open_tabs {
+                        if let Some(p) = tab.path.clone() {
+                            if let Ok(resto) = p.strip_prefix(&path) {
+                                tab.path = Some(if resto.as_os_str().is_empty() { nuevo.clone() } else { nuevo.join(resto) });
+                            }
+                        }
+                    }
+                    let expandidas: Vec<PathBuf> = self.expanded_dirs.iter().filter(|d| d.starts_with(&path)).cloned().collect();
+                    for d in expandidas {
+                        self.expanded_dirs.remove(&d);
+                        if let Ok(resto) = d.strip_prefix(&path) {
+                            self.expanded_dirs.insert(if resto.as_os_str().is_empty() { nuevo.clone() } else { nuevo.join(resto) });
+                        }
+                    }
+                    self.explorer_selected_path = Some(nuevo.clone());
+                    self.mark_workspace_mutated();
+                    self.refresh_explorer();
+                    let _ = self.reveal_path_in_explorer(&nuevo);
+                    self.status_text = format!("renombrado: {}", self.workspace_relative_label(&nuevo));
+                }
+            }
+        }
+        self.needs_render = true;
+    }
+
     /// Crea una carpeta nueva en el directorio seleccionado del explorer.
     pub fn explorer_create_new_folder(&mut self) {
         let parent = self.explorer_target_dir();
         if !parent.starts_with(&self.workspace_root) {
             self.status_text = "explorer new folder blocked: outside workspace".to_string();
             self.needs_render = true;
+            return;
+        }
+        if self.event_proxy.is_some() {
+            self.open_prompt(PromptKind::NewFolder { dir: parent }, "");
             return;
         }
         if let Err(err) = fs::create_dir_all(&parent) {
@@ -5796,6 +6257,8 @@ impl AppState {
         self.agent_worker_pick = false;
         self.manual_scroll = 0.0;
         self.quick_open_mention = false;
+        self.prompt = None;
+        self.text_search_scope = None;
     }
 
     /// Cambia panel activo del sidebar.
@@ -6793,6 +7256,7 @@ impl AppState {
             Some(OverlayMode::Problems) => "Problems",
             Some(OverlayMode::Agentes) => "Agentes",
             Some(OverlayMode::Manual) => "Manual",
+            Some(OverlayMode::Prompt) => "Nombre",
             None => "",
         }
     }
@@ -7381,9 +7845,11 @@ impl AppState {
         }
 
         let mut scored: Vec<(i32, String, usize, OverlayItem)> = Vec::new();
+        let ambito = self.text_search_scope.clone();
         for path in self
             .quick_open_candidates
             .iter()
+            .filter(|p| ambito.as_ref().map_or(true, |a| p.starts_with(a)))
             .take(WORKSPACE_TEXT_SEARCH_MAX_FILES)
         {
             let Ok(metadata) = fs::metadata(path) else {
@@ -7499,6 +7965,7 @@ impl AppState {
             }
             Some(OverlayMode::Problems) => self.rebuild_problems_overlay_items(),
             Some(OverlayMode::Agentes) | Some(OverlayMode::Manual) => self.overlay_items.clear(),
+            Some(OverlayMode::Prompt) => self.rebuild_prompt_items(),
             None => {}
         }
     }
@@ -8368,6 +8835,7 @@ impl AppState {
                 self.status_text = format!("symbol L{}:{}", line + 1, column + 1);
                 self.needs_render = true;
             }
+            OverlayAction::PromptSubmit => self.prompt_submit(),
             OverlayAction::JumpToLine { pane, line, column } => {
                 self.reset_overlay_state();
                 self.set_focus(match pane {
@@ -8424,6 +8892,7 @@ impl AppState {
                 self.status_text = format!("symbol L{}:{}", line + 1, column + 1);
                 self.needs_render = true;
             }
+            OverlayAction::PromptSubmit => self.prompt_submit(),
             OverlayAction::JumpToLine { pane, line, column } => {
                 self.reset_overlay_state();
                 self.set_focus(match pane {
@@ -8736,6 +9205,20 @@ impl AppState {
         };
         if valor == "manual" {
             self.open_manual();
+            return;
+        }
+        if valor == "menu-explorador" {
+            // Menú contextual sobre la carpeta del proyecto, como con el botón derecho.
+            let raiz = self.workspace_root.clone();
+            if self.workspace_is_open() {
+                self.open_explorer_context_menu(140.0, 420.0, raiz, true);
+            }
+            self.needs_render = true;
+            return;
+        }
+        if valor == "nombre" {
+            let raiz = self.workspace_root.clone();
+            self.open_prompt(PromptKind::NewFile { dir: raiz }, "notas.md");
             return;
         }
         if valor == "menu" || valor == "modelos" {
@@ -11302,6 +11785,13 @@ impl AppState {
 
     /// Ejecuta la acción asociada a un click.
     pub fn handle_click(&mut self, x: f32, y: f32) {
+        // Un clic fuera del menú contextual lo cierra y sigue su camino.
+        if self.context_menu.is_some()
+            && !matches!(self.action_at(x, y), Some(ClickTargetAction::Ctx(..)) | Some(ClickTargetAction::CtxClose))
+        {
+            self.context_menu = None;
+            self.needs_render = true;
+        }
         let Some(action) = self.action_at(x, y) else {
             if self.is_overlay_active() {
                 self.close_overlay();
@@ -11553,6 +12043,11 @@ impl AppState {
             ClickTargetAction::ChatFocusInput => {
                 self.chat_popover = ChatPopover::None;
                 self.set_focus(FocusTarget::ChatInput);
+            }
+            ClickTargetAction::Ctx(op, path) => self.explorer_op(op, path),
+            ClickTargetAction::CtxClose => {
+                self.context_menu = None;
+                self.needs_render = true;
             }
             ClickTargetAction::WelcomeOpenRecent(path) => {
                 if path.is_dir() {
@@ -12303,6 +12798,16 @@ where
                         }
                         return;
                     }
+                    if self.state.context_menu.is_some()
+                        && matches!(event.logical_key, Key::Named(NamedKey::Escape))
+                    {
+                        self.state.context_menu = None;
+                        self.state.needs_render = true;
+                        if let Some(window) = &self.window {
+                            window.request_redraw();
+                        }
+                        return;
+                    }
                     if matches!(event.logical_key, Key::Named(NamedKey::F1)) {
                         self.state.open_manual();
                         if let Some(window) = &self.window {
@@ -12737,6 +13242,15 @@ where
             }
 
             WindowEvent::MouseInput { state, button, .. } => {
+                if button == MouseButton::Right && state == ElementState::Pressed {
+                    if let Some((x, y)) = self.state.cursor_pos {
+                        self.state.handle_right_click(x, y);
+                        if let Some(window) = &self.window {
+                            window.request_redraw();
+                        }
+                    }
+                    return;
+                }
                 if button == MouseButton::Left {
                     if state == ElementState::Pressed {
                         self.state.mouse_left_down = true;
@@ -13050,6 +13564,53 @@ mod tests {
         state.ai_provider = "claude_cli".to_string();
         state.selected_ai_model = "sonnet".to_string();
         assert_eq!(state.chat_model(), "sonnet");
+    }
+
+    #[test]
+    fn el_explorador_crea_renombra_copia_mueve_y_elimina_por_nombre() {
+        let workspace = TestWorkspace::new("explorador_ops");
+        let raiz = workspace.root_path();
+        let mut state = AppState::new_for_tests(raiz.clone());
+        // Nuevo archivo por nombre.
+        state.open_prompt(PromptKind::NewFile { dir: raiz.join("src") }, "");
+        state.overlay_query = "main.rs".to_string();
+        state.rebuild_prompt_items();
+        assert!(state.overlay_items[0].title.contains("main.rs"));
+        state.prompt_submit();
+        assert!(raiz.join("src/main.rs").is_file());
+        assert_eq!(state.overlay_mode, None);
+        // Nombre inválido.
+        state.open_prompt(PromptKind::NewFolder { dir: raiz.clone() }, "");
+        state.overlay_query = "../fuera".to_string();
+        state.prompt_submit();
+        assert!(!raiz.parent().unwrap().join("fuera").exists());
+        // Renombrar con la pestaña abierta.
+        state.open_file_from_explorer(raiz.join("src/main.rs"));
+        state.open_prompt(PromptKind::Rename { path: raiz.join("src/main.rs") }, "main.rs");
+        state.overlay_query = "lib.rs".to_string();
+        state.prompt_submit();
+        assert!(raiz.join("src/lib.rs").is_file() && !raiz.join("src/main.rs").exists());
+        assert!(state.open_tabs.iter().any(|t| t.path.as_deref() == Some(raiz.join("src/lib.rs").as_path())));
+        // Copiar y pegar (numera), cortar y mover.
+        state.explorer_op(ExplorerOp::Copy, raiz.join("src/lib.rs"));
+        state.explorer_op(ExplorerOp::Paste, raiz.join("src"));
+        assert!(raiz.join("src/lib_1.rs").is_file() || fs::read_dir(raiz.join("src")).unwrap().count() == 2);
+        fs::create_dir_all(raiz.join("otra")).unwrap();
+        state.explorer_op(ExplorerOp::Cut, raiz.join("src/lib.rs"));
+        state.explorer_op(ExplorerOp::Paste, raiz.join("otra"));
+        assert!(raiz.join("otra/lib.rs").is_file() && !raiz.join("src/lib.rs").exists());
+        // Eliminar pide confirmación y luego borra; la raíz nunca.
+        state.cursor_pos = Some((10.0, 10.0));
+        state.explorer_op(ExplorerOp::Delete, raiz.join("otra"));
+        assert!(state.context_menu.as_ref().is_some_and(|m| m.title.contains("Eliminar")));
+        state.explorer_op(ExplorerOp::DeleteConfirmed, raiz.join("otra"));
+        assert!(!raiz.join("otra").exists());
+        assert!(state.context_menu.is_none());
+        state.explorer_op(ExplorerOp::DeleteConfirmed, raiz.clone());
+        assert!(raiz.exists());
+        // Fuera del proyecto: nada.
+        state.explorer_op(ExplorerOp::DeleteConfirmed, PathBuf::from("/tmp"));
+        assert!(PathBuf::from("/tmp").exists());
     }
 
     #[test]

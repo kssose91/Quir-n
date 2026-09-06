@@ -102,6 +102,14 @@ está en marcha y permite cambiarlo:
   del pie enseñan el modelo, las manos, la longitud y el contexto gastado.
   Los adjuntos pasan por la guardia: nunca secretos ni archivos de fuera del
   proyecto.
+- **El explorador (Archivos)**: botón derecho sobre una carpeta o un archivo
+  abre su menú: nuevo archivo y nueva carpeta (piden el nombre), abrir en el
+  gestor de archivos o en una terminal, buscar en la carpeta, añadir la
+  carpeta o el archivo al chat, cortar, copiar y pegar (mover o copiar a otra
+  carpeta), copiar la ruta o la ruta relativa, renombrar y eliminar (pide
+  confirmación; las pestañas del archivo se cierran). Sobre el fondo del
+  árbol, el menú es el de la raíz del proyecto. Todo queda dentro del
+  proyecto; la raíz no se elimina.
 - Atajos: Ctrl+O abrir carpeta · Ctrl+P buscar archivo · Ctrl+Shift+P
   paleta de órdenes · F1 este manual · Esc cierra cualquier paleta.
 

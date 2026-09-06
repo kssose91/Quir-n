@@ -2825,6 +2825,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             OverlayMode::Problems => "PROBLEMS",
             OverlayMode::Agentes => "AGENTES",
             OverlayMode::Manual => "MANUAL",
+            OverlayMode::Prompt => "NOMBRE",
         };
         let title_buf = state
             .text_system
@@ -2860,6 +2861,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                 "Enter apply | query by editor/search/git/telemetry/runtime | Esc close"
             }
             OverlayMode::Agentes | OverlayMode::Manual => "",
+            OverlayMode::Prompt => "Intro confirma | Esc cancela",
         };
         let hint_buf = state
             .text_system
@@ -2881,6 +2883,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             OverlayMode::WorkspaceTextSearch => "> workspace text: ",
             OverlayMode::Problems => "> problem: ",
             OverlayMode::Agentes | OverlayMode::Manual => "",
+            OverlayMode::Prompt => "› ",
         };
         let query_text = if state.overlay_query.is_empty() {
             format!("{}|", query_prefix)
@@ -2951,6 +2954,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                         format!("{}  •  {}", item.title, truncate_chars(&item.detail, 82))
                     }
                     OverlayMode::Agentes | OverlayMode::Manual => String::new(),
+                    OverlayMode::Prompt => item.title.clone(),
                 };
                 let line_buf = state
                     .text_system
@@ -2972,6 +2976,51 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             }
         }
         }
+    }
+    // El menú contextual del explorador va encima de todo lo demás.
+    render_context_menu(canvas, state, &palette);
+}
+
+/// Menú contextual del explorador: un panel pequeño junto al cursor con el
+/// nombre de la ruta arriba y sus operaciones; «—» separa grupos.
+fn render_context_menu(canvas: &mut Canvas, state: &mut AppState, palette: &ThemePalette) {
+    let Some(menu) = state.context_menu.clone() else {
+        return;
+    };
+    let fila_h = 24.0;
+    let sep_h = 7.0;
+    let ancho = 250.0;
+    let alto: f32 = 30.0
+        + menu.items.iter().map(|(t, _)| if t == "—" { sep_h } else { fila_h }).sum::<f32>()
+        + 8.0;
+    let (lienzo_w, lienzo_h) = (canvas.width() as f32, canvas.height() as f32);
+    let x0 = menu.x.min(lienzo_w - ancho - 8.0).max(8.0);
+    let y0 = menu.y.min(lienzo_h - alto - 8.0).max(8.0);
+    let panel = Bounds::new(x0, y0, ancho, alto);
+    canvas.drop_shadow(panel, design::radius::MD, 3.0, 10.0, Color::from_hex(0x2D2B2B).with_alpha(50));
+    canvas.fill_rounded_rect(panel, design::radius::MD, Color::from_hex(palette.background));
+    canvas.stroke_rounded_rect(panel, design::radius::MD, Color::from_hex(palette.border).with_alpha(220), 1.0);
+    let titulo = state.text_system.create_label_buffer(&truncate_chars(&menu.title, 34), design::type_scale::XS, ancho - 24.0);
+    state.text_system.draw_buffer(canvas, &titulo, x0 + 12.0, y0 + 19.0, Color::from_hex(palette.text_muted));
+    let mut y = y0 + 30.0;
+    for (texto, accion) in menu.items {
+        if texto == "—" {
+            canvas.draw_line(x0 + 10.0, y + 3.0, x0 + ancho - 10.0, y + 3.0, Color::from_hex(palette.border).with_alpha(160), 1.0);
+            y += sep_h;
+            continue;
+        }
+        let fila = Bounds::new(x0 + 6.0, y, ancho - 12.0, fila_h);
+        let peligro = texto.starts_with("Eliminar") || texto.starts_with("Sí, eliminar");
+        let buf = state.text_system.create_line_buffer(&truncate_chars(&texto, 36), design::type_scale::SM, ancho - 24.0);
+        state.text_system.draw_buffer(
+            canvas,
+            &buf,
+            x0 + 12.0,
+            y + 16.0,
+            Color::from_hex(if peligro { palette.error } else { palette.text }),
+        );
+        state.add_click_target(fila, accion);
+        y += fila_h;
     }
 }
 
