@@ -89,7 +89,13 @@ está en marcha y permite cambiarlo:
   crea la identidad del proyecto en `.llore/` y la pantalla enseña la mente
   vectorial girando con el avance: fase, archivos leídos, archivo actual y
   fichas escritas. Según el tamaño del proyecto tarda más o menos; «Ir al
-  chat» deja la vectorización en segundo plano. Cancelar no crea nada.
+  chat» deja la vectorización en segundo plano y «Cancelar la vectorización»
+  la para (el chat sigue, sin fichas; se retoma en Agentes → Vectorizador →
+  Vectorizar). Cancelar en la pantalla de permiso no crea nada.
+- Hay un tope: 10 000 archivos o 64 MiB de texto por proyecto. Una carpeta
+  con muchos proyectos dentro (por ejemplo `~/Projects`) lo supera; la
+  pantalla lo dice tal cual y ofrece elegir otra carpeta. Abre el proyecto
+  concreto, no la carpeta que los contiene.
 - Pregunta en el chat como preguntarías a alguien que conoce el proyecto:
   «¿dónde se comprueba el hash antes de devolver un acierto?». La respuesta
   cita fichas; cada ficha lleva a su línea.

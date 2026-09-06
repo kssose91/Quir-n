@@ -648,6 +648,11 @@ pub enum ClickTargetAction {
     NewProjectAccept,
     NewProjectCancel,
     NewProjectContinue,
+    /// Vectorizando: cancelar la vectorización, elegir otra carpeta, o
+    /// (desde Agentes) vectorizar de nuevo.
+    NewProjectCancelIndex,
+    NewProjectPickOther,
+    IndexResume,
     Citation(Citation),
     /// Abre el archivo de una ficha de código en su primera línea.
     CodeSource(CodeHint),
@@ -2332,6 +2337,9 @@ pub struct AppState {
     /// a las que ya se dio permiso en esta sesión.
     pub new_project: Option<NewProjectScreen>,
     consented_folders: HashSet<PathBuf>,
+    /// Vectorización cancelada por el usuario: el sondeo no la reanuda hasta
+    /// que pida «Vectorizar» otra vez.
+    pub project_index_paused: bool,
     pub explorer_clipboard: Option<(PathBuf, bool)>,
     text_search_scope: Option<PathBuf>,
     /// Si el panel de telemetría en chat está visible.
@@ -2789,6 +2797,7 @@ impl AppState {
         if let Some(task) = self.project_index_task.take() { task.abort(); }
         self.project_index_progress = None;
         self.project_index_error = None;
+        self.project_index_paused = false;
         self.project_index_last_poll = Instant::now() - Duration::from_secs(5);
         self.project_id = Some(project_id.clone());
         self.set_quiron_project_id(Some(project_id));
@@ -2920,6 +2929,7 @@ impl AppState {
             context_menu: None,
             new_project: None,
             consented_folders: HashSet::new(),
+            project_index_paused: false,
             explorer_clipboard: None,
             text_search_scope: None,
             telemetry_panel_enabled: false,
@@ -5075,10 +5085,62 @@ impl AppState {
         self.needs_render = true;
     }
 
-    /// Texto del avance para la pantalla del vectorizador.
-    pub fn new_project_progress(&self) -> (String, f32, String, bool) {
+    /// «Cancelar» la vectorización: se para el monitor en el cerebro (el
+    /// índice que hubiera se conserva) y el sondeo no la reanuda solo.
+    pub fn cancel_project_index(&mut self) {
+        self.project_index_paused = true;
+        if let Some(task) = self.project_index_task.take() {
+            task.abort();
+        }
+        if let Some(project) = self.project_id.clone() {
+            if let Ok(quiron) = self.quiron.try_lock() {
+                let client = quiron.client_snapshot();
+                self.runtime.spawn(async move {
+                    let _ = client.stop_project_index(&project).await;
+                });
+            }
+        }
+        self.project_index_progress = None;
+        self.project_index_error = Some("cancelado · Agentes → Vectorizador → Vectorizar para retomarlo".to_string());
+        self.status_text = "vectorización cancelada".to_string();
+        self.needs_render = true;
+    }
+
+    /// «Vectorizar» (de nuevo): reanuda el sondeo, que vuelve a pedir el
+    /// monitor al cerebro, y enseña el avance.
+    pub fn resume_project_index(&mut self) {
+        if !self.workspace_is_open() {
+            return;
+        }
+        self.project_index_paused = false;
+        self.project_index_error = None;
+        self.project_index_progress = None;
+        self.project_index_last_poll = Instant::now() - Duration::from_secs(60);
+        self.close_overlay();
+        self.new_project = Some(NewProjectScreen {
+            folder: self.workspace_root.clone(),
+            stage: NewProjectStage::Indexing,
+            since: Instant::now(),
+        });
+        self.status_text = "vectorizando de nuevo".to_string();
+        self.needs_render = true;
+    }
+
+    /// Texto del avance para la pantalla del vectorizador: fase, fracción,
+    /// detalle, si terminó y si falló (entonces la fase es el error tal cual).
+    pub fn new_project_progress(&self) -> (String, f32, String, bool, bool) {
+        if let Some(error) = &self.project_index_error {
+            return (error.clone(), 0.0, String::new(), false, true);
+        }
         match &self.project_index_progress {
-            None => ("conectando con el cerebro…".to_string(), 0.0, String::new(), false),
+            None => ("conectando con el cerebro…".to_string(), 0.0, String::new(), false, false),
+            Some(p) if p.phase == "error" => (
+                p.error.clone().unwrap_or_else(|| "el índice falló".to_string()),
+                0.0,
+                String::new(),
+                false,
+                true,
+            ),
             Some(p) => {
                 let fase = match p.phase.as_str() {
                     "queued" => "en cola",
@@ -5087,7 +5149,7 @@ impl AppState {
                     "embedding" => "vectorizando",
                     "writing" => "guardando el mapa",
                     "watching" => "listo · vigilando cambios",
-                    "error" | "partial" => "reintentando",
+                    "partial" => "archivos pendientes · reintentando",
                     _ => "detenido",
                 };
                 let fraccion = if p.files_total > 0 { (p.files_done as f32 / p.files_total as f32).clamp(0.0, 1.0) } else { 0.0 };
@@ -5098,7 +5160,7 @@ impl AppState {
                 } else {
                     format!("{}/{} · {}", p.files_done, p.files_total, p.current_path)
                 };
-                (fase.to_string(), fraccion, detalle, p.phase == "watching")
+                (fase.to_string(), fraccion, detalle, p.phase == "watching", false)
             }
         }
     }
@@ -6517,7 +6579,7 @@ impl AppState {
                 let phase = match p.phase.as_str() {
                     "queued" => "en cola", "scanning" => "revisando", "summarizing" => "analizando lógica",
                     "embedding" => "vectorizando", "writing" => "guardando mapa", "watching" => "al día · vigilando cambios",
-                    "error" => "reintentando", "partial" => "archivos pendientes · reintentando", _ => "detenido",
+                    "error" => "error", "partial" => "archivos pendientes · reintentando", _ => "detenido",
                 };
                 if let Some(error) = &p.error { format!("índice · {phase}: {error}") }
                 else { format!("índice · {phase} · {}/{} archivos", p.files_done, p.files_total) }
@@ -6541,7 +6603,8 @@ impl AppState {
             }
         }
         #[cfg(not(test))]
-        if self.project_index_task.is_none()
+        if !self.project_index_paused
+            && self.project_index_task.is_none()
             && self.project_index_last_poll.elapsed()
                 >= if self.new_project.is_some() { Duration::from_millis(1500) } else { Duration::from_secs(5) }
         {
@@ -9304,6 +9367,23 @@ impl AppState {
         };
         if valor == "manual" {
             self.open_manual();
+            return;
+        }
+        if valor == "vectorizando-error" {
+            // Como cuando el cerebro rechaza una carpeta demasiado grande.
+            self.project_index_progress = Some(llore_brain::client::IndexProgress {
+                project_id: self.project_id.clone().unwrap_or_default(),
+                phase: "error".to_string(),
+                files_total: 0,
+                files_done: 0,
+                units_written: 0,
+                summaries_generated: 0,
+                current_path: String::new(),
+                error: Some("Proyecto demasiado grande (10000 archivos / 64 MiB de texto); abre una subcarpeta".to_string()),
+            });
+            self.project_index_paused = true;
+            self.new_project = Some(NewProjectScreen { folder: self.workspace_root.clone(), stage: NewProjectStage::Indexing, since: Instant::now() });
+            self.needs_render = true;
             return;
         }
         if valor == "nuevo-proyecto" || valor == "vectorizando" {
@@ -12160,6 +12240,17 @@ impl AppState {
                 self.set_focus(FocusTarget::ChatInput);
                 self.needs_render = true;
             }
+            ClickTargetAction::NewProjectCancelIndex => {
+                self.cancel_project_index();
+                self.new_project = None;
+                self.set_focus(FocusTarget::ChatInput);
+            }
+            ClickTargetAction::NewProjectPickOther => {
+                self.cancel_project_index();
+                self.new_project = None;
+                self.open_folder_picker();
+            }
+            ClickTargetAction::IndexResume => self.resume_project_index(),
             ClickTargetAction::Ctx(op, path) => self.explorer_op(op, path),
             ClickTargetAction::CtxClose => {
                 self.context_menu = None;
@@ -13719,8 +13810,15 @@ mod tests {
         state.new_project = Some(NewProjectScreen { folder: nueva.clone(), stage: NewProjectStage::Consent, since: Instant::now() });
         state.new_project_accept();
         assert_eq!(state.workspace_root, nueva.canonicalize().unwrap());
-        let (fase, fraccion, _, listo) = state.new_project_progress();
-        assert!(fase.contains("conectando") && fraccion == 0.0 && !listo);
+        let (fase, fraccion, _, listo, fallo) = state.new_project_progress();
+        assert!(fase.contains("conectando") && fraccion == 0.0 && !listo && !fallo);
+        // Cancelar para el sondeo y lo dice; vectorizar de nuevo lo reanuda.
+        state.cancel_project_index();
+        assert!(state.project_index_paused);
+        let (fase, _, _, _, fallo) = state.new_project_progress();
+        assert!(fallo && fase.contains("cancelado"));
+        state.resume_project_index();
+        assert!(!state.project_index_paused && state.new_project.is_some());
     }
 
     #[test]

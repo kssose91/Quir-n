@@ -3052,15 +3052,21 @@ fn render_new_project(canvas: &mut Canvas, state: &mut AppState, bounds: Bounds,
             state.text_system.draw_buffer(canvas, &pista, x, y + 20.0, Color::from_hex(palette.text_muted));
         }
         NewProjectStage::Indexing => {
-            let (fase, fraccion, detalle, listo) = state.new_project_progress();
+            let (fase, fraccion, detalle, listo, fallo) = state.new_project_progress();
             let titulo = state.text_system.create_heading_buffer(
-                &if listo { format!("{nombre}: vectorizado") } else { format!("Vectorizando {nombre}") },
+                &if fallo {
+                    format!("No se pudo vectorizar {nombre}")
+                } else if listo {
+                    format!("{nombre}: vectorizado")
+                } else {
+                    format!("Vectorizando {nombre}")
+                },
                 26.0,
                 ancho,
             );
             state.text_system.draw_buffer(canvas, &titulo, x, y + 26.0, Color::from_hex(palette.text));
             y += 48.0;
-            parrafo(state, canvas, &fase, design::type_scale::MD, Color::from_hex(palette.accent), &mut y);
+            parrafo(state, canvas, &fase, design::type_scale::MD, Color::from_hex(if fallo { palette.error } else { palette.accent }), &mut y);
             let barra = Bounds::new(x, y, ancho, 6.0);
             canvas.fill_rounded_rect(barra, 3.0, Color::from_hex(palette.border));
             if fraccion > 0.0 {
@@ -3072,8 +3078,17 @@ fn render_new_project(canvas: &mut Canvas, state: &mut AppState, bounds: Bounds,
             y += 30.0;
             parrafo(state, canvas, "Lee los archivos y carpetas, escribe qué hace cada función y lo vectoriza con el hash del archivo. Según el tamaño del proyecto tarda más o menos. Después se queda vigilando cambios.", design::type_scale::MD, Color::from_hex(palette.text), &mut y);
             y += 8.0;
-            let texto = if listo { "Empezar  →" } else { "Ir al chat (sigue en segundo plano)  →" };
-            boton(state, canvas, texto, x, y, true, ClickTargetAction::NewProjectContinue);
+            if fallo {
+                // La carpeta no vale como proyecto (o se canceló): otra carpeta,
+                // o seguir con el chat sin índice.
+                let w = boton(state, canvas, "Elegir otra carpeta  →", x, y, true, ClickTargetAction::NewProjectPickOther);
+                boton(state, canvas, "Seguir sin índice", x + w + 12.0, y, false, ClickTargetAction::NewProjectContinue);
+            } else if listo {
+                boton(state, canvas, "Empezar  →", x, y, true, ClickTargetAction::NewProjectContinue);
+            } else {
+                let w = boton(state, canvas, "Ir al chat (sigue en segundo plano)  →", x, y, true, ClickTargetAction::NewProjectContinue);
+                boton(state, canvas, "Cancelar la vectorización", x + w + 12.0, y, false, ClickTargetAction::NewProjectCancelIndex);
+            }
             y += 36.0;
             let pista = state.text_system.create_code_buffer("Intro o Esc: al chat", design::type_scale::XS, ancho);
             state.text_system.draw_buffer(canvas, &pista, x, y + 20.0, Color::from_hex(palette.text_muted));
@@ -3414,13 +3429,17 @@ fn render_agents_overlay(
                 (format!("{} · {marcha}", truncate_chars(&p.worker_current, 34)), p.worker_running)
             }
         };
+        let mut acciones_worker = vec![
+            ("Modelos", ClickTargetAction::AgentWorkerPick),
+            ("Añadir .gguf…", ClickTargetAction::AgentWorkerAddFile),
+        ];
+        if state.workspace_is_open() {
+            acciones_worker.push((if state.project_index_paused { "Vectorizar" } else { "Vectorizar de nuevo" }, ClickTargetAction::IndexResume));
+        }
         dibujar_tarjeta_agente(
             canvas, state, palette, Bounds::new(cx, cy, columna, tarjeta_h),
             "Vectorizador (worker)", "lee el proyecto, escribe qué hace cada función y vectoriza", &estado, ok, false,
-            vec![
-                ("Modelos", ClickTargetAction::AgentWorkerPick),
-                ("Añadir .gguf…", ClickTargetAction::AgentWorkerAddFile),
-            ],
+            acciones_worker,
         );
         y += cuerpo_h;
     }

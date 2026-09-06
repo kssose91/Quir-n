@@ -94,6 +94,27 @@ impl QuironClient {
             &serde_json::json!({"root":root,"project_id":project_id})).await
     }
 
+    /// Pide al cerebro que pare el monitor del proyecto (conserva el índice).
+    pub async fn stop_project_index(&self, project_id: &str) -> Result<(), ClientError> {
+        let client = reqwest::Client::builder()
+            .timeout(self.timeout)
+            .build()
+            .map_err(|e| ClientError::Transport(e.to_string()))?;
+        let response = client.delete(format!("{}/index/project/{}", self.base_url, project_id));
+        let response = self
+            .apply_auth(response)
+            .send()
+            .await
+            .map_err(|e| ClientError::Transport(e.to_string()))?;
+        if !response.status().is_success() {
+            return Err(ClientError::Http {
+                status: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
+        Ok(())
+    }
+
     /// Obtener contexto de startup (identidad, gates, eventos recientes)
     pub async fn get_context(&self) -> Result<ContextResponse, ClientError> {
         let url = format!("{}/context", self.base_url);
