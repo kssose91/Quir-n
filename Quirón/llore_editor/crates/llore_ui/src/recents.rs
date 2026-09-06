@@ -19,7 +19,9 @@ pub fn recents_path() -> Option<PathBuf> {
         .filter(|path| path.is_absolute())
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))?;
 
-    Some(base.join("llore").join("recents.txt"))
+    // Carpeta propia de Quirón: el editor del que nació (Llore) usa la suya,
+    // y sus proyectos recientes no tienen que aparecer aquí.
+    Some(base.join("quiron").join("recents.txt"))
 }
 
 /// Lee la lista de proyectos recientes, descartando los que ya no existen.

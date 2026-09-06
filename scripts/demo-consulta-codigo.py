@@ -98,7 +98,7 @@ def main():
     args = parser.parse_args()
 
     root = args.root.resolve()
-    project = (root / ".llore/project.id").read_text().strip()
+    project = (root / ".quiron/project.id").read_text().strip()
     brain = Brain(args.brain_url, leer_env(args.env)["QUIRON_API_TOKEN"])
     evidencia = {"fecha": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "proyecto": project,
                  "raiz": str(root), "modelo_pedido": args.model, "consultas": []}

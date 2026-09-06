@@ -86,7 +86,7 @@ está en marcha y permite cambiarlo:
   Quirón pide permiso antes de tocarla: explica que va a leerla, escribir
   una ficha por función y vectorizarla, y que los agentes que elijas podrán
   leer sus archivos (nunca secretos ni nada de fuera). Al dar el permiso se
-  crea la identidad del proyecto en `.llore/` y la pantalla enseña la mente
+  crea la identidad del proyecto en `.quiron/` y la pantalla enseña la mente
   vectorial girando con el avance: fase, archivos leídos, archivo actual y
   fichas escritas. Según el tamaño del proyecto tarda más o menos; «Ir al
   chat» deja la vectorización en segundo plano y «Cancelar la vectorización»
@@ -127,7 +127,8 @@ está en marcha y permite cambiarlo:
 
 ## Qué se guarda y dónde
 
-- En el proyecto: `.llore/` (identidad del proyecto y los hilos del chat).
+- En el proyecto: `.quiron/` (identidad del proyecto y los hilos del chat). Si la
+  carpeta tenía `.llore/` de otro editor, se copia una vez y no se toca.
 - En el equipo: los vectores en Qdrant y el grafo en Neo4j (`data/`), y el
   archivo privado `~/.config/quiron/quiron-brain.env` con la elección de
   agente y las claves locales. Nada sale del equipo salvo lo que va al

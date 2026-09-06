@@ -88,6 +88,7 @@ const NOISE_DIRS: &[&str] = &[
     ".idea",
     ".vscode",
     // Estado del propio editor: identidad del proyecto, sesión y disposición.
+    ".quiron",
     ".llore",
 ];
 

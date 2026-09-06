@@ -24,7 +24,41 @@ use std::path::{Path, PathBuf};
 use ulid::Ulid;
 
 /// Ruta del identificador, relativa a la raíz del proyecto.
-pub const PROJECT_ID_RELATIVE_PATH: &str = ".llore/project.id";
+pub const PROJECT_ID_RELATIVE_PATH: &str = ".quiron/project.id";
+
+/// Carpeta de estado de Quirón dentro del proyecto y la heredada del editor
+/// del que nació (Llore), que se copia una vez y no se toca.
+pub const STATE_DIR: &str = ".quiron";
+pub const LEGACY_STATE_DIR: &str = ".llore";
+
+/// Si el proyecto tiene `.llore/` pero aún no `.quiron/`, copia la identidad
+/// y el estado (hilos, disposición). Copia, no mueve: `.llore/` puede seguir
+/// siendo de otro editor. Devuelve si copió algo.
+pub fn migrate_legacy_state(root: &Path) -> bool {
+    let viejo = root.join(LEGACY_STATE_DIR);
+    let nuevo = root.join(STATE_DIR);
+    if nuevo.exists() || !viejo.join("project.id").is_file() {
+        return false;
+    }
+    let copiar = |desde: &Path, hasta: &Path| -> io::Result<()> {
+        if let Some(padre) = hasta.parent() {
+            fs::create_dir_all(padre)?;
+        }
+        fs::copy(desde, hasta).map(|_| ())
+    };
+    if copiar(&viejo.join("project.id"), &nuevo.join("project.id")).is_err() {
+        return false;
+    }
+    if let Ok(entradas) = fs::read_dir(viejo.join("state")) {
+        for entrada in entradas.flatten() {
+            let ruta = entrada.path();
+            if ruta.is_file() {
+                let _ = copiar(&ruta, &nuevo.join("state").join(entrada.file_name()));
+            }
+        }
+    }
+    true
+}
 
 /// Longitud de un ULID en su representación textual.
 const ULID_LEN: usize = 26;
@@ -47,6 +81,7 @@ pub fn path_for(root: &Path) -> PathBuf {
 ///
 /// No crea nada. Útil para saber si un directorio es ya un proyecto conocido.
 pub fn load(root: &Path) -> Option<String> {
+    migrate_legacy_state(root);
     let raw = fs::read_to_string(path_for(root)).ok()?;
     let candidate = raw.trim().to_string();
     is_valid(&candidate).then_some(candidate)
@@ -58,6 +93,7 @@ pub fn load(root: &Path) -> Option<String> {
 /// error. Sobrescribirlo desgajaría el proyecto de todo su historial, y esa es
 /// una decisión que no corresponde tomar en silencio.
 pub fn load_or_create(root: &Path) -> Result<String, ProjectIdError> {
+    migrate_legacy_state(root);
     let path = path_for(root);
 
     match fs::read_to_string(&path) {
@@ -205,11 +241,29 @@ mod tests {
         let root = carpeta("temporales");
         load_or_create(&root).expect("crear");
 
-        let sobrantes: Vec<_> = fs::read_dir(root.join(".llore"))
-            .expect("leer .llore")
+        let sobrantes: Vec<_> = fs::read_dir(root.join(".quiron"))
+            .expect("leer .quiron")
             .flatten()
             .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
             .collect();
         assert!(sobrantes.is_empty(), "quedaron temporales: {sobrantes:?}");
     }
+
+    #[test]
+    fn un_proyecto_con_llore_se_copia_a_quiron_sin_tocar_el_original() {
+        let root = carpeta("migracion");
+        fs::create_dir_all(root.join(".llore/state")).unwrap();
+        fs::write(root.join(".llore/project.id"), "01ARZ3NDEKTSV4RRFFQ69G5FAV").unwrap();
+        fs::write(root.join(".llore/state/chats.json"), "[]").unwrap();
+        assert_eq!(load(&root).as_deref(), Some("01ARZ3NDEKTSV4RRFFQ69G5FAV"));
+        assert!(root.join(".quiron/project.id").is_file());
+        assert!(root.join(".quiron/state/chats.json").is_file());
+        assert!(root.join(".llore/project.id").is_file(), "el original queda para el otro editor");
+        // La segunda vez no vuelve a copiar (ya hay .quiron).
+        fs::write(root.join(".llore/state/chats.json"), "[1]").unwrap();
+        assert!(!migrate_legacy_state(&root));
+        assert_eq!(fs::read_to_string(root.join(".quiron/state/chats.json")).unwrap(), "[]");
+        let _ = fs::remove_dir_all(&root);
+    }
+
 }

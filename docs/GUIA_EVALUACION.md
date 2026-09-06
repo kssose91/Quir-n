@@ -71,7 +71,7 @@ modelos y los atajos (`docs/MANUAL.md` es el mismo texto).
    proyecto (el gateway solo transporta la petición). En el chat se ve qué
    herramienta pidió y qué devolvió.
 4. **Nuevo chat** abre un hilo sin memoria vectorial; la pestaña
-   «Conversaciones» guarda los hilos por proyecto (`.llore/state/chats.json`).
+   «Conversaciones» guarda los hilos por proyecto (`.quiron/state/chats.json`).
 
 ## 4. Comprobar que las fuentes son verificables
 

@@ -30,7 +30,7 @@ Cada proyecto debe tener su propio mundo. Al abrir la carpeta de Quirón, el
 contexto es el de Quirón. Al abrir Templaris, el de Templaris. Ningún fragmento
 de un proyecto puede aparecer en las respuestas de otro.
 
-El editor asigna un ULID persistente en `.llore/project.id`. El nuevo worker
+El editor asigna un ULID persistente en `.quiron/project.id`. El nuevo worker
 mantiene fichas en segundo plano con Qwen2.5-Coder-1.5B Q4_K_M y embeddings
 BGE-M3 separados. La firma y los símbolos Rust proceden de Tree-sitter; el modelo
 solo propone un resumen. Este experimento no entrena un backbone propio.

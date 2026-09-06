@@ -18,6 +18,7 @@ const EXCLUDED_DIRS: &[&str] = &[
     ".git",
     "target",
     "node_modules",
+    ".quiron",
     ".llore",
     "dist",
     "build",

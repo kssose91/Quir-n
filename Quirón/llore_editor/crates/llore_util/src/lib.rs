@@ -13,5 +13,5 @@ pub mod result_ext;
 pub mod string_ext;
 
 // Re-exports
-pub use paths::LlorePaths;
+pub use paths::QuironPaths;
 pub use result_ext::ResultExt;

@@ -96,7 +96,7 @@ def main():
         for n in range(2):
             root=Path(tempfile.mkdtemp(prefix='quiron-worker-smoke-'))
             project=identity();projects.append((root,project))
-            (root/'.llore').mkdir();(root/'.llore/project.id').write_text(project)
+            (root/'.quiron').mkdir();(root/'.quiron/project.id').write_text(project)
             (root/'math.rs').write_text('pub fn total(prices: &[f64], discount: f64) -> Result<f64, &\'static str> {\n    if !(0.0..=1.0).contains(&discount) { return Err("invalid discount"); }\n    Ok(prices.iter().sum::<f64>() * (1.0 - discount))\n}\n')
             (root/'.env').write_text('TEST_SECRET=must_not_be_indexed')
             (root/'linked.rs').symlink_to('/etc/hostname')

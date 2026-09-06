@@ -184,8 +184,10 @@ pub fn validate_project(root: &Path, project: &str) -> Result<PathBuf> {
             bail!("No se indexan carpetas de credenciales");
         }
     }
-    let identity = root.join(".llore/project.id");
-    if std::fs::symlink_metadata(root.join(".llore"))?
+    // La identidad vive en .quiron/ (heredada de .llore/, que se sigue leyendo).
+    let carpeta = if root.join(".quiron/project.id").exists() { ".quiron" } else { ".llore" };
+    let identity = root.join(carpeta).join("project.id");
+    if std::fs::symlink_metadata(root.join(carpeta))?
         .file_type()
         .is_symlink()
         || std::fs::symlink_metadata(&identity)?
@@ -985,8 +987,8 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let id = ulid::Ulid::new().to_string();
         assert!(validate_project(tmp.path(), &id).is_err());
-        std::fs::create_dir(tmp.path().join(".llore")).unwrap();
-        std::fs::write(tmp.path().join(".llore/project.id"), &id).unwrap();
+        std::fs::create_dir(tmp.path().join(".quiron")).unwrap();
+        std::fs::write(tmp.path().join(".quiron/project.id"), &id).unwrap();
         assert!(validate_project(tmp.path(), &id).is_ok());
         assert!(validate_project(tmp.path(), &ulid::Ulid::new().to_string()).is_err());
     }

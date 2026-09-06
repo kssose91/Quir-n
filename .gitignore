@@ -16,6 +16,7 @@ auth.json
 
 # Estado efímero de sesión del editor
 **/.llore/state/
+**/.quiron/state/
 
 # Artefactos
 __pycache__/
@@ -36,3 +37,4 @@ node_modules/
 /dist/
 # Identidad y estado de cualquier carpeta abierta como proyecto, a cualquier nivel.
 .llore/
+.quiron/

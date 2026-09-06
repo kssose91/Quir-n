@@ -393,7 +393,7 @@ impl Quiron {
 
     /// Fija la identidad del proyecto activo para todas las peticiones.
     ///
-    /// Es el identificador de `<proyecto>/.llore/project.id`, no la ruta ni el
+    /// Es el identificador de `<proyecto>/.quiron/project.id`, no la ruta ni el
     /// nombre de la carpeta.
     pub fn set_project_id(&mut self, project_id: Option<String>) {
         self.client.set_project_id(project_id);

@@ -108,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn read_project_id(root: &Path) -> Option<String> {
-    let p = root.join(".llore/project.id");
+    let p = if root.join(".quiron/project.id").exists() { root.join(".quiron/project.id") } else { root.join(".llore/project.id") };
     std::fs::read_to_string(p)
         .ok()
         .map(|s| s.trim().to_string())

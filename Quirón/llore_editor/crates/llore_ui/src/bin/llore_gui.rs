@@ -3038,10 +3038,10 @@ fn render_new_project(canvas: &mut Canvas, state: &mut AppState, bounds: Bounds,
 
     match pantalla.stage {
         NewProjectStage::Consent => {
-            let titulo = state.text_system.create_heading_buffer(&format!("Proyecto nuevo: {nombre}"), 26.0, ancho);
+            let titulo = state.text_system.create_heading_buffer("Proyecto nuevo", 26.0, ancho);
             state.text_system.draw_buffer(canvas, &titulo, x, y + 26.0, Color::from_hex(palette.text));
             y += 48.0;
-            parrafo(state, canvas, "Quirón va a leer esta carpeta, escribir una ficha de cada función y vectorizarla. Así los agentes trabajan con un guion del proyecto que se mantiene al día solo. Todo se queda en este equipo.", design::type_scale::MD, Color::from_hex(palette.text), &mut y);
+            parrafo(state, canvas, &format!("Quirón va a leer la carpeta «{nombre}», escribir una ficha de cada función y vectorizarla. Así los agentes trabajan con un guion del proyecto que se mantiene al día solo. Todo se queda en este equipo."), design::type_scale::MD, Color::from_hex(palette.text), &mut y);
             parrafo(state, canvas, "Los agentes que elijas podrán leer los archivos del proyecto a través de Quirón; nunca secretos (.env, claves) ni nada de fuera de la carpeta.", design::type_scale::MD, Color::from_hex(palette.text), &mut y);
             parrafo(state, canvas, "Según el tamaño del proyecto, la primera vectorización tarda más o menos: de unos segundos a un buen rato. Mientras tanto ya puedes preguntar.", design::type_scale::MD, Color::from_hex(palette.text_muted), &mut y);
             y += 8.0;
@@ -3054,12 +3054,12 @@ fn render_new_project(canvas: &mut Canvas, state: &mut AppState, bounds: Bounds,
         NewProjectStage::Indexing => {
             let (fase, fraccion, detalle, listo, fallo) = state.new_project_progress();
             let titulo = state.text_system.create_heading_buffer(
-                &if fallo {
-                    format!("No se pudo vectorizar {nombre}")
+                if fallo {
+                    "No se pudo vectorizar"
                 } else if listo {
-                    format!("{nombre}: vectorizado")
+                    "Vectorizado"
                 } else {
-                    format!("Vectorizando {nombre}")
+                    "Vectorizando"
                 },
                 26.0,
                 ancho,
@@ -3073,7 +3073,8 @@ fn render_new_project(canvas: &mut Canvas, state: &mut AppState, bounds: Bounds,
                 canvas.fill_rounded_rect(Bounds::new(x, y, (ancho * fraccion).max(6.0), 6.0), 3.0, Color::from_hex(palette.accent));
             }
             y += 18.0;
-            let detalle_buf = state.text_system.create_code_buffer(&truncate_chars(&detalle, 90), design::type_scale::XS, ancho);
+            let detalle = if detalle.is_empty() { format!("carpeta: {nombre}") } else { format!("carpeta: {nombre} · {detalle}") };
+            let detalle_buf = state.text_system.create_code_buffer(&truncate_chars(&detalle, 100), design::type_scale::XS, ancho);
             state.text_system.draw_buffer(canvas, &detalle_buf, x, y + 12.0, Color::from_hex(palette.text_muted));
             y += 30.0;
             parrafo(state, canvas, "Lee los archivos y carpetas, escribe qué hace cada función y lo vectoriza con el hash del archivo. Según el tamaño del proyecto tarda más o menos. Después se queda vigilando cambios.", design::type_scale::MD, Color::from_hex(palette.text), &mut y);

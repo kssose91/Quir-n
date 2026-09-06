@@ -365,11 +365,11 @@ pub const SEARCH_RESULTS_MAX_ROWS: usize = 6;
 /// Umbral temporal para considerar doble click.
 pub const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(350);
 /// Ruta relativa del snapshot de sesión de tabs.
-pub const SESSION_SNAPSHOT_RELATIVE_PATH: &str = ".llore/state/session.txt";
+pub const SESSION_SNAPSHOT_RELATIVE_PATH: &str = ".quiron/state/session.txt";
 /// Ruta relativa del snapshot de layout de paneles.
-pub const LAYOUT_SNAPSHOT_RELATIVE_PATH: &str = ".llore/state/layout.txt";
+pub const LAYOUT_SNAPSHOT_RELATIVE_PATH: &str = ".quiron/state/layout.txt";
 /// Ruta del historial de conversaciones, dentro del proyecto.
-pub const CHATS_SNAPSHOT_RELATIVE_PATH: &str = ".llore/state/chats.json";
+pub const CHATS_SNAPSHOT_RELATIVE_PATH: &str = ".quiron/state/chats.json";
 /// Conversaciones que se conservan por proyecto.
 const CHAT_THREADS_MAX: usize = 20;
 /// Valor por defecto del ancho de sidebar.
@@ -2365,7 +2365,7 @@ pub struct AppState {
     pub project_index_error: Option<String>,
     project_index_task: Option<JoinHandle<(String, Result<llore_brain::client::IndexProgress, String>)>>,
     project_index_last_poll: Instant,
-    /// Identidad del proyecto abierto, leída de `.llore/project.id`.
+    /// Identidad del proyecto abierto, leída de `.quiron/project.id`.
     ///
     /// Sin proyecto abierto no hay identidad, y sin identidad el contexto
     /// recuperado no pertenece a ningún mundo.
@@ -3141,7 +3141,7 @@ impl AppState {
         let config = QuironConfig {
             brain_url: brain_url.clone(),
             api_token,
-            agent_path: workspace_root.join(".llore"),
+            agent_path: workspace_root.join(".quiron"),
             gates_enabled: defaults.gates_enabled,
             max_iterations: defaults.max_iterations,
         };
@@ -3388,7 +3388,7 @@ impl AppState {
         let config = QuironConfig {
             brain_url: normalized.clone(),
             api_token,
-            agent_path: self.workspace_root.join(".llore"),
+            agent_path: self.workspace_root.join(".quiron"),
             gates_enabled: defaults.gates_enabled,
             max_iterations: defaults.max_iterations,
         };
@@ -13801,7 +13801,7 @@ mod tests {
         fs::create_dir_all(&nueva).unwrap();
         // Sin ventana (pruebas) el permiso se da directo: no hay pantalla.
         state.open_workspace(nueva.clone());
-        assert!(nueva.join(".llore/project.id").is_file());
+        assert!(nueva.join(".quiron/project.id").is_file());
         assert!(state.new_project.is_none());
         // La pantalla, forzada como en el arnés, pasa por sus dos estados.
         state.new_project = Some(NewProjectScreen { folder: nueva.clone(), stage: NewProjectStage::Consent, since: Instant::now() });
@@ -16402,7 +16402,7 @@ mod tests {
             .map(|entry| entry.name.as_str())
             .collect();
         assert!(nombres.contains(&"src"), "{nombres:?}");
-        assert!(!nombres.contains(&".llore"), "{nombres:?}");
+        assert!(!nombres.contains(&".quiron") && !nombres.contains(&".llore"), "{nombres:?}");
     }
 
     #[test]

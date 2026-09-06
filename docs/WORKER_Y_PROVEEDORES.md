@@ -1,7 +1,7 @@
 # Worker y conexiones: estado probado el 5 de septiembre de 2026
 
 El editor inicia un monitor cuando se abre explícitamente una carpeta, también
-con `llore_gui /ruta/al/proyecto`. La identidad es `.llore/project.id`. El cerebro
+con `llore_gui /ruta/al/proyecto`. La identidad es `.quiron/project.id`. El cerebro
 revisa cambios cada diez segundos; la interfaz consulta el estado cada cinco
 segundos sin bloquear el chat y se actualiza aunque no haya actividad del ratón.
 Cerrar la ventana conserva el trabajo en segundo plano. `systemctl --user stop

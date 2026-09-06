@@ -152,7 +152,7 @@ def respuesta_guardada(question, desde_epoch):
     # Verdadero cuando el hilo de esta pregunta, creado en esta ronda, tiene ya
     # una respuesta guardada (los hilos viejos con la misma pregunta no cuentan).
     try:
-        hilos=json.loads((args.project/'.llore/state/chats.json').read_text())
+        hilos=json.loads((args.project/'.quiron/state/chats.json').read_text())
     except (OSError, ValueError):
         return False
     hilos=hilos if isinstance(hilos,list) else hilos.get('threads') or []
@@ -201,7 +201,7 @@ def chat_round(question):
             # El gateway ya contestó, pero el editor puede reclamar una vez más
             # si el cierre fue de juguete (otra llamada), y la respuesta aún
             # viaja cerebro → editor. La señal firme es la del propio editor:
-            # al terminar guarda el hilo en .llore/state/chats.json.
+            # al terminar guarda el hilo en .quiron/state/chats.json.
             if not respuesta_guardada(question, inicio_epoch):
                 time.sleep(1); continue
             time.sleep(0.5); key('Shift_L'); time.sleep(1); step_shot('3-respuesta')
@@ -226,7 +226,7 @@ evidence={'checks':{}}
 try:
     window=own_window()
     if args.edit_smoke:
-        project=(args.project/'.llore/project.id').read_text().strip()
+        project=(args.project/'.quiron/project.id').read_text().strip()
         before=indexed(project,lambda s:s['files_total']==1)
         open_math()
         key('End','CTRL')
@@ -238,14 +238,14 @@ try:
         evidence['checks'].update(open_edit_undo_redo_save=True, saved_change_indexed=True)
         evidence.update(project_id=project,before=before,after_save=after)
     if args.ask:
-        project=(args.project/'.llore/project.id').read_text().strip()
+        project=(args.project/'.quiron/project.id').read_text().strip()
         evidence['chat']=dict(question=args.ask,**ask_round(args.ask))
         evidence['index_after_chat']=api('/index/project/'+project)
         screenshot(window,args.output_dir/'gui-chat.png')
         evidence['checks']['chat_answered']=True
         project=None
     if args.chat:
-        project=(args.project/'.llore/project.id').read_text().strip()
+        project=(args.project/'.quiron/project.id').read_text().strip()
         evidence['chat']=dict(question=args.chat,**chat_round(args.chat))
         evidence['index_after_chat']=api('/index/project/'+project)
         screenshot(window,args.output_dir/'gui-chat.png')
@@ -274,7 +274,7 @@ try:
         for char in 'again': key(char)
         key('s','CTRL');time.sleep(.5)
         assert source.read_text()=='pub fn answer() -> u32 { 42 }\n// editedagain', repr(source.read_text())
-        assert (args.project/'.llore/project.id').read_text().strip()==project
+        assert (args.project/'.quiron/project.id').read_text().strip()==project
         evidence['after_reopen']=indexed(project,lambda s:s['summaries_generated']>after['summaries_generated'])
         screenshot(window,args.output_dir/'gui-reopened.png')
         close()

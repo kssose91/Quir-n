@@ -12,11 +12,11 @@ use std::sync::OnceLock;
 /// Rutas del sistema para Llore.
 ///
 /// Por defecto usa las rutas estándar de XDG en Linux:
-/// - Config: ~/.config/llore/
-/// - Data: ~/.local/share/llore/
-/// - Logs: ~/.local/share/llore/logs/
+/// - Config: ~/.config/quiron/
+/// - Data: ~/.local/share/quiron/
+/// - Logs: ~/.local/share/quiron/logs/
 #[derive(Debug, Clone)]
-pub struct LlorePaths {
+pub struct QuironPaths {
     /// Directorio de configuración (settings.json, themes, etc.)
     pub config_dir: PathBuf,
     /// Directorio de datos (memoria, estado, etc.)
@@ -27,9 +27,9 @@ pub struct LlorePaths {
     pub memory_dir: PathBuf,
 }
 
-impl LlorePaths {
+impl QuironPaths {
     /// Nombre de la aplicación (usado para rutas)
-    const APP_NAME: &'static str = "llore";
+    const APP_NAME: &'static str = "quiron";
 
     /// Crea rutas con los valores por defecto del sistema.
     pub fn default_paths() -> Self {
@@ -92,23 +92,23 @@ impl LlorePaths {
     }
 }
 
-impl Default for LlorePaths {
+impl Default for QuironPaths {
     fn default() -> Self {
         Self::default_paths()
     }
 }
 
 /// Singleton global de rutas.
-static PATHS: OnceLock<LlorePaths> = OnceLock::new();
+static PATHS: OnceLock<QuironPaths> = OnceLock::new();
 
 /// Obtiene las rutas globales de la aplicación.
-pub fn paths() -> &'static LlorePaths {
-    PATHS.get_or_init(LlorePaths::default_paths)
+pub fn paths() -> &'static QuironPaths {
+    PATHS.get_or_init(QuironPaths::default_paths)
 }
 
 /// Inicializa las rutas globales con rutas personalizadas.
 /// Debe llamarse antes del primer uso de `paths()`.
-pub fn init_paths(custom: LlorePaths) -> Result<(), LlorePaths> {
+pub fn init_paths(custom: QuironPaths) -> Result<(), QuironPaths> {
     PATHS.set(custom)
 }
 
@@ -118,15 +118,15 @@ mod tests {
 
     #[test]
     fn test_default_paths() {
-        let paths = LlorePaths::default_paths();
-        assert!(paths.config_dir.ends_with("llore"));
-        assert!(paths.data_dir.ends_with("llore"));
+        let paths = QuironPaths::default_paths();
+        assert!(paths.config_dir.ends_with("quiron"));
+        assert!(paths.data_dir.ends_with("quiron"));
     }
 
     #[test]
     fn test_from_base() {
         let base = PathBuf::from("/tmp/llore_test");
-        let paths = LlorePaths::from_base(base);
+        let paths = QuironPaths::from_base(base);
         assert_eq!(paths.config_dir, PathBuf::from("/tmp/llore_test/config"));
         assert_eq!(
             paths.settings_file(),
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn test_special_paths() {
-        let paths = LlorePaths::default_paths();
+        let paths = QuironPaths::default_paths();
         assert!(paths.quiron_state().ends_with("memory/state.json"));
     }
 }
