@@ -101,8 +101,114 @@ pub struct WorkerCatalogEntry {
     pub name: String,
     pub file: String,
     pub size_gb: f64,
+    /// VRAM de GPU dedicada con la que va bien; 0 = pensado para CPU.
+    pub min_vram_gb: f64,
     pub nota: String,
     pub present: bool,
+}
+
+/// Lo que se sabe del equipo para aconsejar un modelo del vectorizador.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct HardwareInfo {
+    pub gpu: Option<String>,
+    pub vram_gb: f64,
+    pub ram_gb: f64,
+}
+
+impl HardwareInfo {
+    /// `nvidia-smi` si hay GPU NVIDIA; la RAM, de /proc/meminfo.
+    pub fn detect() -> HardwareInfo {
+        let mut info = HardwareInfo::default();
+        if let Ok(salida) = std::process::Command::new("nvidia-smi")
+            .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+            .output()
+        {
+            let texto = String::from_utf8_lossy(&salida.stdout);
+            if let Some(linea) = texto.lines().next() {
+                let mut partes = linea.rsplitn(2, ',');
+                let mib: f64 = partes.next().and_then(|m| m.trim().parse().ok()).unwrap_or(0.0);
+                let nombre = partes.next().map(|n| n.trim().to_string()).filter(|n| !n.is_empty());
+                if mib > 0.0 {
+                    info.vram_gb = mib / 1024.0;
+                    info.gpu = nombre;
+                }
+            }
+        }
+        if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
+            for linea in meminfo.lines() {
+                if let Some(resto) = linea.strip_prefix("MemTotal:") {
+                    let kb: f64 = resto.trim().trim_end_matches("kB").trim().parse().unwrap_or(0.0);
+                    info.ram_gb = kb / 1024.0 / 1024.0;
+                }
+            }
+        }
+        info
+    }
+
+    /// Frase de una línea con lo que hay.
+    pub fn resumen(&self) -> String {
+        match &self.gpu {
+            Some(gpu) => format!("{} · {:.0} GB de VRAM · {:.0} GB de RAM", gpu, self.vram_gb, self.ram_gb),
+            None => format!("sin GPU NVIDIA detectada · {:.0} GB de RAM", self.ram_gb),
+        }
+    }
+
+    /// Consejo por tramos de hardware. Mejor worker, mejores fichas: cada
+    /// salto de tamaño mejora la ficha y tarda más por archivo.
+    pub fn recomendacion(&self) -> &'static str {
+        recomendar_modelo(self.vram_gb, self.ram_gb)
+    }
+
+    /// Si un modelo del catálogo cabe: por VRAM, o en CPU con RAM de sobra.
+    pub fn cabe(&self, entrada: &WorkerCatalogEntry) -> Ajuste {
+        if entrada.min_vram_gb <= 0.0 || self.vram_gb >= entrada.min_vram_gb {
+            Ajuste::Bien
+        } else if self.vram_gb > 0.0 && self.vram_gb >= entrada.size_gb + 1.2 {
+            // Pesos más caché de contexto y búferes: un margen de 1,2 GB.
+            Ajuste::Justo
+        } else if self.ram_gb >= entrada.size_gb * 2.5 {
+            Ajuste::SoloCpu
+        } else {
+            Ajuste::NoCabe
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ajuste {
+    Bien,
+    Justo,
+    SoloCpu,
+    NoCabe,
+}
+
+impl Ajuste {
+    pub fn etiqueta(self) -> &'static str {
+        match self {
+            Ajuste::Bien => "",
+            Ajuste::Justo => " · justo en esta GPU",
+            Ajuste::SoloCpu => " · aquí solo en CPU (lento)",
+            Ajuste::NoCabe => " · no cabe en este equipo",
+        }
+    }
+}
+
+pub fn recomendar_modelo(vram_gb: f64, ram_gb: f64) -> &'static str {
+    if vram_gb >= 24.0 || (vram_gb <= 0.0 && ram_gb >= 48.0) {
+        "Qwen3 8B (techo del catálogo) o un GGUF mayor con «Añadir .gguf…» (memoria unificada)"
+    } else if vram_gb >= 8.0 {
+        "Qwen3 8B a 4 bits: el techo del catálogo"
+    } else if vram_gb >= 6.0 {
+        "Coder 3B o Qwen3 4B (el 7B va justo)"
+    } else if vram_gb >= 4.0 {
+        "Coder 1.5B (el 3B si sobra memoria)"
+    } else if vram_gb > 0.0 {
+        "Coder 1.5B"
+    } else if ram_gb >= 16.0 {
+        "Coder 1.5B en CPU (lento) o 0.5B"
+    } else {
+        "Coder 0.5B"
+    }
 }
 
 impl WorkerCatalogEntry {
@@ -117,6 +223,7 @@ impl WorkerCatalogEntry {
                     name: e["name"].as_str()?.to_string(),
                     file: e["file"].as_str()?.to_string(),
                     size_gb: e["size_gb"].as_f64().unwrap_or(0.0),
+                    min_vram_gb: e["min_vram_gb"].as_f64().unwrap_or(0.0),
                     nota: e["nota"].as_str().unwrap_or("").to_string(),
                     present: e["presente"].as_bool().unwrap_or(false),
                 })
@@ -778,6 +885,8 @@ pub struct ProviderProbe {
     pub worker_running: Option<bool>,
     /// Catálogo de modelos descargables, con los ya presentes marcados.
     pub worker_catalog: Vec<WorkerCatalogEntry>,
+    /// GPU y memoria del equipo, para aconsejar un modelo.
+    pub hardware: HardwareInfo,
 }
 
 /// Lado de acoplamiento de un panel principal.
@@ -8770,6 +8879,7 @@ impl AppState {
             .map(|o| WorkerCatalogEntry::from_json(&String::from_utf8_lossy(&o.stdout)))
             .unwrap_or_default();
         probe.worker_dir = worker_dir;
+        probe.hardware = HardwareInfo::detect();
         probe.worker_running = std::process::Command::new("systemctl")
             .args(["--user", "is-active", "quiron-worker.service"])
             .output()
@@ -12338,6 +12448,24 @@ mod tests {
         assert_eq!(state.manual_section, 0);
         state.handle_overlay_key(&Key::Named(NamedKey::Escape), false, false, false);
         assert_eq!(state.overlay_mode, None);
+    }
+
+    #[test]
+    fn el_consejo_de_modelo_sigue_al_hardware() {
+        assert!(recomendar_modelo(6.0, 15.5).contains("3B"));
+        assert!(recomendar_modelo(12.0, 32.0).contains("Qwen3 8B"));
+        assert!(recomendar_modelo(0.0, 128.0).contains("memoria unificada"));
+        assert!(recomendar_modelo(0.0, 8.0).contains("0.5B"));
+        let ocho_b = WorkerCatalogEntry { size_gb: 5.03, min_vram_gb: 8.0, ..Default::default() };
+        let portatil = HardwareInfo { gpu: Some("RTX 3060".into()), vram_gb: 6.0, ram_gb: 15.5 };
+        assert_eq!(portatil.cabe(&ocho_b), Ajuste::SoloCpu);
+        let siete_b = WorkerCatalogEntry { size_gb: 4.68, min_vram_gb: 8.0, ..Default::default() };
+        assert_eq!(portatil.cabe(&siete_b), Ajuste::Justo);
+        let tres_b = WorkerCatalogEntry { size_gb: 2.1, min_vram_gb: 4.0, ..Default::default() };
+        assert_eq!(portatil.cabe(&tres_b), Ajuste::Bien);
+        let sin_gpu = HardwareInfo { gpu: None, vram_gb: 0.0, ram_gb: 8.0 };
+        assert_eq!(sin_gpu.cabe(&ocho_b), Ajuste::NoCabe);
+        assert!(portatil.resumen().contains("6 GB de VRAM"));
     }
 
     #[test]

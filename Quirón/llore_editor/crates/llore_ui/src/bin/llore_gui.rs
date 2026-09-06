@@ -2885,7 +2885,7 @@ fn render_agents_overlay(
     } else if state.agent_worker_pick {
         let locales = probe.as_ref().map_or(0, |p| p.worker_models.len().max(1));
         let pendientes = probe.as_ref().map_or(0, |p| p.worker_catalog.iter().filter(|c| !c.present).count());
-        60.0 + locales as f32 * 26.0 + if pendientes > 0 { 30.0 + pendientes as f32 * 26.0 } else { 0.0 }
+        124.0 + locales as f32 * 26.0 + if pendientes > 0 { 30.0 + pendientes as f32 * 26.0 } else { 0.0 }
     } else {
         3.0 * (tarjeta_h + 10.0)
     };
@@ -2952,13 +2952,27 @@ fn render_agents_overlay(
         state.text_system.draw_buffer(canvas, &pista, x0 + 20.0, y + 84.0, Color::from_hex(palette.text_muted));
         y += cuerpo_h;
     } else if state.agent_worker_pick {
+        // La guía de hardware, primero: qué hay en este equipo y qué le va.
+        let hardware = probe.as_ref().map(|p| p.hardware.clone()).unwrap_or_default();
+        let equipo = format!("Este equipo: {}", hardware.resumen());
+        let buf = state.text_system.create_line_buffer(&truncate_chars(&equipo, 110), design::type_scale::SM, ancho - 40.0);
+        state.text_system.draw_buffer(canvas, &buf, x0 + 20.0, y + 16.0, Color::from_hex(palette.text));
+        let consejo = format!("Te va: {}", hardware.recomendacion());
+        let buf = state.text_system.create_line_buffer(&truncate_chars(&consejo, 110), design::type_scale::SM, ancho - 40.0);
+        state.text_system.draw_buffer(canvas, &buf, x0 + 20.0, y + 34.0, Color::from_hex(palette.accent));
+        let buf = state.text_system.create_line_buffer(
+            "Mejor worker, mejores fichas: cada salto de tamaño entiende mejor el código y tarda más por archivo. El vectorizador no razona: lee y escribe fichas.",
+            design::type_scale::XS,
+            ancho - 40.0,
+        );
+        state.text_system.draw_buffer(canvas, &buf, x0 + 20.0, y + 52.0, Color::from_hex(palette.text_muted));
         let rotulo = state.text_system.create_line_buffer(
-            "Modelos del vectorizador · en la carpeta del worker (pulsa uno para usarlo)",
+            "En la carpeta del worker (pulsa uno para usarlo):",
             design::type_scale::SM,
             ancho - 40.0,
         );
-        state.text_system.draw_buffer(canvas, &rotulo, x0 + 20.0, y + 16.0, Color::from_hex(palette.text));
-        let mut fila_y = y + 30.0;
+        state.text_system.draw_buffer(canvas, &rotulo, x0 + 20.0, y + 80.0, Color::from_hex(palette.text));
+        let mut fila_y = y + 94.0;
         let modelos = probe.as_ref().map(|p| p.worker_models.clone()).unwrap_or_default();
         let actual = probe.as_ref().map(|p| p.worker_current.clone()).unwrap_or_default();
         let catalogo = probe.as_ref().map(|p| p.worker_catalog.clone()).unwrap_or_default();
@@ -2987,7 +3001,7 @@ fn render_agents_overlay(
         let pendientes: Vec<_> = catalogo.iter().filter(|c| !c.present).cloned().collect();
         if !pendientes.is_empty() {
             let rotulo = state.text_system.create_line_buffer(
-                "Descargar del catálogo (Qwen2.5-Coder, SHA-256 verificado; pulsa uno):",
+                "Descargar del catálogo (Qwen2.5-Coder y Qwen3, SHA-256 verificado; pulsa uno):",
                 design::type_scale::SM,
                 ancho - 40.0,
             );
@@ -2995,9 +3009,14 @@ fn render_agents_overlay(
             fila_y += 30.0;
             for entrada in pendientes {
                 let fila = Bounds::new(x0 + 20.0, fila_y, ancho - 40.0, 24.0);
-                let texto = format!("⤓ {} · {:.1} GB · {}", entrada.file, entrada.size_gb, entrada.nota);
-                let buf = state.text_system.create_line_buffer(&truncate_chars(&texto, 95), design::type_scale::SM, ancho - 60.0);
-                state.text_system.draw_buffer(canvas, &buf, fila.x + 10.0, fila_y + 16.0, Color::from_hex(palette.accent));
+                let ajuste = hardware.cabe(&entrada);
+                let texto = format!("⤓ {} · {:.1} GB · {}{}", entrada.file, entrada.size_gb, entrada.nota, ajuste.etiqueta());
+                let buf = state.text_system.create_line_buffer(&truncate_chars(&texto, 110), design::type_scale::SM, ancho - 60.0);
+                let color = match ajuste {
+                    llore_ui::app::Ajuste::Bien | llore_ui::app::Ajuste::Justo => Color::from_hex(palette.accent),
+                    _ => Color::from_hex(palette.text_muted),
+                };
+                state.text_system.draw_buffer(canvas, &buf, fila.x + 10.0, fila_y + 16.0, color);
                 state.add_click_target(fila, ClickTargetAction::AgentWorkerDownload(entrada.name.clone()));
                 fila_y += 26.0;
             }

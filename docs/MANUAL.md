@@ -59,13 +59,25 @@ está en marcha y permite cambiarlo:
   terminal con la descarga verificada (SHA-256).
 - **Añadir .gguf…**: copia a la carpeta del worker cualquier modelo que ya
   tengas en el disco.
-- El catálogo es la familia Qwen2.5-Coder (0.5B, 1.5B, 3B y 7B). Regla
-  práctica: 0.5B para portátiles sin GPU, 1.5B para 6 GB de VRAM, 3B y 7B
-  para tarjetas más grandes o para quien prefiera mejores fichas a cambio
-  de tiempo.
+- **Mejor worker, mejores fichas.** Cada salto de tamaño entiende mejor el
+  código y escribe fichas más precisas, y tarda más por archivo. La lista de
+  Modelos dice qué GPU y memoria tiene este equipo y qué modelo le va; las
+  entradas que no caben quedan marcadas.
+- Guía por equipo (todo a 4 bits, Q4_K_M):
+  sin GPU → Coder 0.5B (rápido) o Coder 1.5B en CPU (lento);
+  GPU de 4-6 GB (portátil) → Coder 1.5B de serie, Coder 3B o Qwen3 4B si
+  sobra memoria;
+  GPU de 8-12 GB → Coder 7B o **Qwen3 8B, el techo del catálogo para GPU
+  dedicada**;
+  memoria unificada de 32 GB o más (DGX Spark, Mac, Strix Halo) → Qwen3-Coder
+  30B-A3B (mezcla de expertos con 3B activos) o cualquier GGUF con «Añadir
+  .gguf…».
+- El vectorizador nunca «piensa»: el razonamiento de los Qwen3 va apagado
+  (miles de fichas no pueden esperar). Un modelo que razone tiene su sitio
+  como agente del chat, servido en local (tarjetas Ollama o Servidor en red).
 - Cambiar de modelo re-etiqueta las fichas: el proyecto se vuelve a resumir
   con el nuevo, y las fichas del anterior se conservan por si vuelves.
-- Sin interfaz: `scripts/setup-worker.py --model qwen2.5-coder-3b-q4_k_m` y
+- Sin interfaz: `scripts/setup-worker.py --model qwen3-8b-q4_k_m` y
   `scripts/configure-provider.py worker-model --worker-model ruta.gguf --apply`.
 
 ## Trabajar con proyectos grandes

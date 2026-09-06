@@ -25,9 +25,13 @@ fi
 # El modelo puede cambiarse desde la paleta Agentes (QUIRON_WORKER_MODEL_FILE).
 # Contexto de 8192: las fichas caben en 4096, pero como «servidor en red local»
 # del chat recibe el sistema, las fichas y las herramientas (≈4 700 tokens).
+# El vectorizador no «piensa»: con los Qwen3 híbridos, --reasoning-budget 0
+# cierra el pensamiento al instante y la ficha sale en el contenido, como con
+# los Coder. Miles de fichas no pueden esperar a un razonamiento por unidad.
 MODEL_FILE="${QUIRON_WORKER_MODEL_FILE:-$WORKER_DIR/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf}"
 exec "$SERVER" --device "$DEVICE" --model "$MODEL_FILE" \
   --alias quiron-worker --host 127.0.0.1 --port "${QUIRON_LOCAL_WORKER_PORT:-8092}" \
   --ctx-size "${QUIRON_WORKER_CTX:-8192}" --parallel 1 --n-gpu-layers "${QUIRON_WORKER_GPU_LAYERS:-99}" \
   --cache-ram "${QUIRON_WORKER_CACHE_RAM_MIB:-256}" \
+  --reasoning-budget 0 \
   --threads "${QUIRON_WORKER_THREADS:-4}" --no-webui

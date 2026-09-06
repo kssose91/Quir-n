@@ -37,7 +37,7 @@ está lista y en ámbar si falta algo, y qué hacer:
 | **OpenAI / compatible** | endpoint, modelo y clave de API | Configurar… (tres campos; la clave no se muestra ni sale en ninguna orden) → Usar |
 | **Servidor en red local** | un servidor compatible en la LAN (llama-server, vLLM, SGLang…) | Configurar… (endpoint, modelo y clave opcional) → Usar |
 | **Ollama local** | Ollama en marcha con un modelo descargado (`ollama pull qwen2.5-coder:7b`) | Instalar → Configurar… (propone el primer modelo descargado) → Usar |
-| **Vectorizador (worker)** | el Qwen que lee el proyecto, escribe qué hace cada función y vectoriza; no chatea | Modelos (elige un `.gguf` local o descarga uno del catálogo con SHA-256) · Añadir .gguf… |
+| **Vectorizador (worker)** | el Qwen que lee el proyecto, escribe qué hace cada función y vectoriza; no chatea | Modelos (guía de hardware del equipo, `.gguf` locales y catálogo descargable con SHA-256: de Coder 0.5B a Qwen3 8B, y 30B-A3B para memoria unificada) · Añadir .gguf… |
 
 «Usar» reescribe el archivo privado (`~/.config/quiron/quiron-brain.env`) y
 reinicia el cerebro; el editor reconecta solo. La aplicación no lee ni guarda

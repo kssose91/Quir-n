@@ -154,7 +154,8 @@ python3 scripts/configure-provider.py claude-cli --model sonnet
 
 Añadir `--apply` guarda esa elección en el entorno privado y reinicia el cerebro.
 Modelos del vectorizador: `scripts/setup-worker.py --catalog` lista el catálogo
-(Qwen2.5-Coder 0.5B/1.5B/3B/7B en GGUF oficial, con revisión y SHA-256 fijos)
+(Qwen2.5-Coder 0.5B/1.5B/3B/7B, Qwen3 4B y 8B en GGUF oficial, y Qwen3-Coder
+30B-A3B para memoria unificada; revisión, SHA-256 y VRAM orientativa fijos)
 y `--model NOMBRE` descarga uno a la carpeta del worker; la paleta Agentes hace
 lo mismo desde la tarjeta «Vectorizador» (Modelos → catálogo, o «Añadir .gguf…»
 para un archivo propio).

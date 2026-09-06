@@ -18,30 +18,46 @@ CACHE = ROOT / 'data/worker'
 LLAMA = ('llama-b10816-bin-ubuntu-vulkan-x64.tar.gz',
          'https://github.com/ggml-org/llama.cpp/releases/download/b10816/llama-b10816-bin-ubuntu-vulkan-x64.tar.gz',
          '6a880a63a019c0967373f6f8c98adc63c2c40d91234160e86411e9add2d17ff2')
-# Catálogo: familia Qwen2.5-Coder en GGUF oficial, revisiones y sumas fijadas
+# Catálogo: Qwen2.5-Coder y Qwen3 en GGUF oficial, revisiones y sumas fijadas
 # (API de Hugging Face, 6 de septiembre de 2026). El nombre es el que se pasa
 # a --model; el archivo es el que queda en la carpeta del worker.
 CATALOGO = [
+    # min_vram_gb: VRAM de GPU dedicada con la que va bien (0 = pensado para CPU).
+    # La regla general: mejor worker, mejores fichas, más tiempo por archivo.
     {'name': 'qwen2.5-coder-0.5b-q4_k_m', 'file': 'qwen2.5-coder-0.5b-instruct-q4_k_m.gguf',
      'repo': 'Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF', 'revision': 'ebb2015119c907b064c512bf053e945850b5875f',
      'sha256': '1d9614638d18024d0fbb36575a15f1302a3adf044df10345688ec4f6e1c4ff32', 'size_gb': 0.49,
-     'nota': 'muy rápido; fichas más pobres; vale sin GPU'},
+     'min_vram_gb': 0, 'nota': 'sin GPU (CPU): rápido, fichas más pobres'},
     {'name': 'qwen2.5-coder-1.5b-q4_k_m', 'file': 'qwen2.5-coder-1.5b-instruct-q4_k_m.gguf',
      'repo': 'Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF', 'revision': 'f86cb2c1fa58255f8052cc32aeede1b7482d4361',
      'sha256': 'cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046', 'size_gb': 1.12,
-     'nota': 'de serie: equilibrio para 6 GB de VRAM'},
+     'min_vram_gb': 2, 'nota': 'de serie: GPU de 4-6 GB (o CPU, lento)'},
     {'name': 'qwen2.5-coder-1.5b-q8_0', 'file': 'qwen2.5-coder-1.5b-instruct-q8_0.gguf',
      'repo': 'Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF', 'revision': 'f86cb2c1fa58255f8052cc32aeede1b7482d4361',
      'sha256': '507de59046601282ba768a9789900e6ccf60ed93ddf346730b7c68eb0715bc47', 'size_gb': 1.89,
-     'nota': 'misma red, menos pérdida por cuantización'},
+     'min_vram_gb': 3, 'nota': 'misma red con menos pérdida; GPU de 4-6 GB'},
     {'name': 'qwen2.5-coder-3b-q4_k_m', 'file': 'qwen2.5-coder-3b-instruct-q4_k_m.gguf',
      'repo': 'Qwen/Qwen2.5-Coder-3B-Instruct-GGUF', 'revision': 'f74adce6aa16316c625447af059dbebe4983757c',
      'sha256': '724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7', 'size_gb': 2.10,
-     'nota': 'mejores fichas; 4 GB de VRAM o CPU lenta'},
+     'min_vram_gb': 4, 'nota': 'mejores fichas; GPU de 6 GB'},
+    {'name': 'qwen3-4b-q4_k_m', 'file': 'Qwen3-4B-Q4_K_M.gguf',
+     'repo': 'Qwen/Qwen3-4B-GGUF', 'revision': 'bc640142c66e1fdd12af0bd68f40445458f3869b',
+     'sha256': '7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5', 'size_gb': 2.50,
+     'min_vram_gb': 4, 'nota': 'Qwen3: entiende mejor la intención; GPU de 6 GB'},
     {'name': 'qwen2.5-coder-7b-q4_k_m', 'file': 'qwen2.5-coder-7b-instruct-q4_k_m.gguf',
      'repo': 'Qwen/Qwen2.5-Coder-7B-Instruct-GGUF', 'revision': '13fb94bfda8c8cf22497dc57b78f391a9acb426a',
      'sha256': '509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c', 'size_gb': 4.68,
-     'nota': 'las mejores fichas; 6 GB de VRAM justos, CPU muy lenta'},
+     'min_vram_gb': 8, 'nota': 'fichas muy buenas; GPU de 8 GB (en 6 GB va justo)'},
+    {'name': 'qwen3-8b-q4_k_m', 'file': 'Qwen3-8B-Q4_K_M.gguf',
+     'repo': 'Qwen/Qwen3-8B-GGUF', 'revision': '7c41481f57cb95916b40956ab2f0b139b296d974',
+     'sha256': 'd98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785', 'size_gb': 5.03,
+     'min_vram_gb': 8, 'nota': 'el techo para GPU dedicada: 8-12 GB; las mejores fichas'},
+    # Por encima del techo, solo con memoria unificada (DGX Spark, Mac, Strix
+    # Halo): mezcla de expertos con 3B activos, rápido para vectorizar.
+    {'name': 'qwen3-coder-30b-a3b-q4_k_m', 'file': 'Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf',
+     'repo': 'unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF', 'revision': 'b17cb02dd882d5b6ab62fc777ad2995f19668350',
+     'sha256': 'fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad', 'size_gb': 18.56,
+     'min_vram_gb': 24, 'nota': 'memoria unificada de 32 GB o más (DGX Spark, Mac, Strix Halo)'},
 ]
 DE_SERIE = CATALOGO[1]
 
