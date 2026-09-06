@@ -17,6 +17,7 @@ parser.add_argument('--stay',type=float,default=0.0,help='Segundos extra con la 
 parser.add_argument('--enter',action='store_true',help='Pulsa Intro en la bienvenida (Empezar) y captura el programa sin proyecto')
 parser.add_argument('--cursor',nargs=2,type=int,metavar=('X','Y'),help='Mueve el cursor a esa posición relativa a la ventana y captura gui-cursor.png')
 parser.add_argument('--panel',help='Arranca con una paleta abierta: agentes, agentes:compatible|red|ollama|worker, manual')
+parser.add_argument('--consent',action='store_true',help='No saltar la pantalla de permiso del proyecto nuevo (para probarla; --enter acepta)')
 parser.add_argument('--output-dir',type=Path,required=True)
 args=parser.parse_args()
 if args.edit_smoke and args.project:
@@ -106,7 +107,9 @@ def indexed(project,predicate):
         if progress['phase']=='watching' and predicate(progress): return progress
         time.sleep(1)
     raise AssertionError(progress)
-env=dict(os.environ,QUIRON_FRAME_TIMING='1',QUIRON_UI_TRACE='1',XDG_DATA_HOME=isolated_data.name)
+# QUIRON_UI_AUTO_CONSENT: el arnés abre carpetas nuevas sin la pantalla de permiso.
+env=dict(os.environ,QUIRON_FRAME_TIMING='1',QUIRON_UI_TRACE='1',QUIRON_UI_AUTO_CONSENT='1',XDG_DATA_HOME=isolated_data.name)
+if args.consent: env.pop('QUIRON_UI_AUTO_CONSENT',None)
 if args.panel: env['QUIRON_UI_START_PANEL']=args.panel
 if args.ask: env['QUIRON_UI_ASK']=args.ask
 env.pop('WAYLAND_DISPLAY',None)

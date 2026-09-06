@@ -82,8 +82,14 @@ está en marcha y permite cambiarlo:
 
 ## Trabajar con proyectos grandes
 
-- **Abrir carpeta** (botón azul o Ctrl+O). La primera vez el índice tarda lo
-  que tarde el worker en leerlo todo; puedes preguntar mientras.
+- **Abrir carpeta** (botón azul o Ctrl+O). La primera vez con una carpeta,
+  Quirón pide permiso antes de tocarla: explica que va a leerla, escribir
+  una ficha por función y vectorizarla, y que los agentes que elijas podrán
+  leer sus archivos (nunca secretos ni nada de fuera). Al dar el permiso se
+  crea la identidad del proyecto en `.llore/` y la pantalla enseña la mente
+  vectorial girando con el avance: fase, archivos leídos, archivo actual y
+  fichas escritas. Según el tamaño del proyecto tarda más o menos; «Ir al
+  chat» deja la vectorización en segundo plano. Cancelar no crea nada.
 - Pregunta en el chat como preguntarías a alguien que conoce el proyecto:
   «¿dónde se comprueba el hash antes de devolver un acierto?». La respuesta
   cita fichas; cada ficha lleva a su línea.

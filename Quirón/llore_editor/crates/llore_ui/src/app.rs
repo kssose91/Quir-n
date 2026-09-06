@@ -644,6 +644,10 @@ pub enum ClickTargetAction {
     /// Menú contextual del explorador: una operación sobre una ruta; cerrar.
     Ctx(ExplorerOp, PathBuf),
     CtxClose,
+    /// Pantalla del proyecto nuevo: dar permiso, cancelar, ir al chat.
+    NewProjectAccept,
+    NewProjectCancel,
+    NewProjectContinue,
     Citation(Citation),
     /// Abre el archivo de una ficha de código en su primera línea.
     CodeSource(CodeHint),
@@ -1189,6 +1193,21 @@ pub enum ExplorerOp {
     Rename,
     Delete,
     DeleteConfirmed,
+}
+
+/// Pantalla del proyecto nuevo: primero el permiso, luego el vectorizador
+/// trabajando a la vista.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NewProjectStage {
+    Consent,
+    Indexing,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewProjectScreen {
+    pub folder: PathBuf,
+    pub stage: NewProjectStage,
+    pub since: Instant,
 }
 
 /// Menú contextual abierto: dónde, sobre qué y sus entradas.
@@ -2309,6 +2328,10 @@ pub struct AppState {
     /// interno (ruta, cortar) y carpeta a la que se acota la búsqueda.
     pub prompt: Option<PromptKind>,
     pub context_menu: Option<ContextMenu>,
+    /// Proyecto nuevo: pantalla de permiso y de vectorización, y las carpetas
+    /// a las que ya se dio permiso en esta sesión.
+    pub new_project: Option<NewProjectScreen>,
+    consented_folders: HashSet<PathBuf>,
     pub explorer_clipboard: Option<(PathBuf, bool)>,
     text_search_scope: Option<PathBuf>,
     /// Si el panel de telemetría en chat está visible.
@@ -2739,6 +2762,19 @@ impl AppState {
     pub fn open_workspace(&mut self, folder: PathBuf) {
         let folder = folder.canonicalize().unwrap_or(folder);
 
+        // Primera vez con esta carpeta: se pide el permiso antes de crear la
+        // identidad, porque crearla es conceder el acceso. Sin ventana
+        // (pruebas) o con QUIRON_UI_AUTO_CONSENT (arnés) se concede directo.
+        let es_nueva = project_id::load(&folder).is_none();
+        let interactivo = self.event_proxy.is_some() && std::env::var_os("QUIRON_UI_AUTO_CONSENT").is_none();
+        if es_nueva && interactivo && !self.consented_folders.contains(&folder) {
+            self.new_project = Some(NewProjectScreen { folder, stage: NewProjectStage::Consent, since: Instant::now() });
+            self.welcome_dismissed = true;
+            self.needs_render = true;
+            return;
+        }
+        let recien_consentida = self.consented_folders.remove(&folder);
+
         // Conceder acceso a un directorio es lo que lo convierte en proyecto.
         // Sin identidad no hay proyecto: no se abre, y el estado no cambia.
         let project_id = match project_id::load_or_create(&folder) {
@@ -2777,6 +2813,15 @@ impl AppState {
         // una pregunta. Las pestañas de la sesión quedan abiertas, pero el foco
         // no se lo lleva el editor hasta que el usuario lo pida.
         self.set_focus(FocusTarget::ChatInput);
+        // Con el permiso recién dado, la pantalla pasa a enseñar el
+        // vectorizador trabajando hasta que el usuario vaya al chat.
+        if recien_consentida {
+            self.new_project = Some(NewProjectScreen {
+                folder: self.workspace_root.clone(),
+                stage: NewProjectStage::Indexing,
+                since: Instant::now(),
+            });
+        }
         self.apply_start_panel_hook();
         // Para el arnés: QUIRON_UI_ASK hace la pregunta nada más abrir, como
         // si se hubiera tecleado, sin depender del teclado del compositor.
@@ -2873,6 +2918,8 @@ impl AppState {
             quick_open_mention: false,
             prompt: None,
             context_menu: None,
+            new_project: None,
+            consented_folders: HashSet::new(),
             explorer_clipboard: None,
             text_search_scope: None,
             telemetry_panel_enabled: false,
@@ -4667,7 +4714,8 @@ impl AppState {
             self.editor_focused = editor;
             self.input_focused = input;
             self.focused_editor_pane = pane;
-            self.status_text = status.to_string();
+            // El foco no es un mensaje: no se enseña «focus: chat» en la barra.
+            let _ = status;
             self.needs_render = true;
         }
     }
@@ -5003,6 +5051,54 @@ impl AppState {
             Err(err) => {
                 self.status_text = format!("explorer new file failed: {}", err);
                 self.needs_render = true;
+            }
+        }
+    }
+
+    /// «Dar permiso y vectorizar»: la carpeta pasa a ser proyecto y la
+    /// pantalla enseña el vectorizador.
+    pub fn new_project_accept(&mut self) {
+        let Some(pantalla) = self.new_project.take() else {
+            return;
+        };
+        self.consented_folders.insert(pantalla.folder.clone());
+        self.open_workspace(pantalla.folder);
+    }
+
+    /// «Cancelar»: nada se crea en la carpeta; se vuelve a donde se estaba.
+    pub fn new_project_cancel(&mut self) {
+        self.new_project = None;
+        if !self.workspace_is_open() {
+            self.welcome_dismissed = false;
+        }
+        self.status_text = "carpeta no abierta: no se creó nada en ella".to_string();
+        self.needs_render = true;
+    }
+
+    /// Texto del avance para la pantalla del vectorizador.
+    pub fn new_project_progress(&self) -> (String, f32, String, bool) {
+        match &self.project_index_progress {
+            None => ("conectando con el cerebro…".to_string(), 0.0, String::new(), false),
+            Some(p) => {
+                let fase = match p.phase.as_str() {
+                    "queued" => "en cola",
+                    "scanning" => "leyendo archivos y carpetas",
+                    "summarizing" => "escribiendo la ficha de cada función",
+                    "embedding" => "vectorizando",
+                    "writing" => "guardando el mapa",
+                    "watching" => "listo · vigilando cambios",
+                    "error" | "partial" => "reintentando",
+                    _ => "detenido",
+                };
+                let fraccion = if p.files_total > 0 { (p.files_done as f32 / p.files_total as f32).clamp(0.0, 1.0) } else { 0.0 };
+                let detalle = if p.phase == "watching" {
+                    format!("{} archivos · {} fichas nuevas en esta pasada", p.files_total, p.summaries_generated)
+                } else if p.current_path.is_empty() {
+                    format!("{}/{} archivos · {} fichas", p.files_done, p.files_total, p.summaries_generated)
+                } else {
+                    format!("{}/{} · {}", p.files_done, p.files_total, p.current_path)
+                };
+                (fase.to_string(), fraccion, detalle, p.phase == "watching")
             }
         }
     }
@@ -6445,7 +6541,10 @@ impl AppState {
             }
         }
         #[cfg(not(test))]
-        if self.project_index_task.is_none() && self.project_index_last_poll.elapsed() >= Duration::from_secs(5) {
+        if self.project_index_task.is_none()
+            && self.project_index_last_poll.elapsed()
+                >= if self.new_project.is_some() { Duration::from_millis(1500) } else { Duration::from_secs(5) }
+        {
             if let Some(project) = self.project_id.clone() {
                 // Copiamos el cliente antes del I/O; el chat queda libre durante toda la indexación.
                 if let Ok(quiron) = self.quiron.try_lock() {
@@ -9205,6 +9304,16 @@ impl AppState {
         };
         if valor == "manual" {
             self.open_manual();
+            return;
+        }
+        if valor == "nuevo-proyecto" || valor == "vectorizando" {
+            let carpeta = self.workspace_root.clone();
+            self.new_project = Some(NewProjectScreen {
+                folder: carpeta,
+                stage: if valor == "vectorizando" { NewProjectStage::Indexing } else { NewProjectStage::Consent },
+                since: Instant::now(),
+            });
+            self.needs_render = true;
             return;
         }
         if valor == "menu-explorador" {
@@ -12044,6 +12153,13 @@ impl AppState {
                 self.chat_popover = ChatPopover::None;
                 self.set_focus(FocusTarget::ChatInput);
             }
+            ClickTargetAction::NewProjectAccept => self.new_project_accept(),
+            ClickTargetAction::NewProjectCancel => self.new_project_cancel(),
+            ClickTargetAction::NewProjectContinue => {
+                self.new_project = None;
+                self.set_focus(FocusTarget::ChatInput);
+                self.needs_render = true;
+            }
             ClickTargetAction::Ctx(op, path) => self.explorer_op(op, path),
             ClickTargetAction::CtxClose => {
                 self.context_menu = None;
@@ -12761,6 +12877,26 @@ where
                         "tecla {:?} ctrl={ctrl} shift={shift} alt={alt}",
                         event.logical_key
                     ));
+                    // En la pantalla del proyecto nuevo: Intro acepta o va al
+                    // chat; Escape cancela o va al chat.
+                    if let Some(pantalla) = self.state.new_project.clone() {
+                        let tecla = &event.logical_key;
+                        if *tecla == Key::Named(NamedKey::Enter) || *tecla == Key::Named(NamedKey::Escape) {
+                            match (pantalla.stage, *tecla == Key::Named(NamedKey::Enter)) {
+                                (NewProjectStage::Consent, true) => self.state.new_project_accept(),
+                                (NewProjectStage::Consent, false) => self.state.new_project_cancel(),
+                                (NewProjectStage::Indexing, _) => {
+                                    self.state.new_project = None;
+                                    self.state.set_focus(FocusTarget::ChatInput);
+                                    self.state.needs_render = true;
+                                }
+                            }
+                            if let Some(window) = &self.window {
+                                window.request_redraw();
+                            }
+                            return;
+                        }
+                    }
                     // En la bienvenida, Intro equivale a «Empezar».
                     if self.state.welcome_visible()
                         && event.logical_key == Key::Named(NamedKey::Enter)
@@ -13461,7 +13597,7 @@ where
         // la bienvenida a la vista, el holograma se anima: fotograma cada 33 ms.
         // Con la bienvenida o una respuesta en curso el holograma gira:
         // fotograma cada 33 ms; el resto del tiempo, 250 ms.
-        let animando = self.state.welcome_visible() || self.state.loading;
+        let animando = self.state.welcome_visible() || self.state.loading || self.state.new_project.is_some();
         let intervalo = if animando { 33 } else { 250 };
         event_loop.set_control_flow(ControlFlow::WaitUntil(
             Instant::now() + Duration::from_millis(intervalo),
@@ -13564,6 +13700,27 @@ mod tests {
         state.ai_provider = "claude_cli".to_string();
         state.selected_ai_model = "sonnet".to_string();
         assert_eq!(state.chat_model(), "sonnet");
+    }
+
+    #[test]
+    fn la_pantalla_del_proyecto_nuevo_no_crea_nada_hasta_dar_permiso() {
+        let workspace = TestWorkspace::new("permiso");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        let nueva = workspace.root_path().join("otra");
+        fs::create_dir_all(&nueva).unwrap();
+        // Sin ventana (pruebas) el permiso se da directo: no hay pantalla.
+        state.open_workspace(nueva.clone());
+        assert!(nueva.join(".llore/project.id").is_file());
+        assert!(state.new_project.is_none());
+        // La pantalla, forzada como en el arnés, pasa por sus dos estados.
+        state.new_project = Some(NewProjectScreen { folder: nueva.clone(), stage: NewProjectStage::Consent, since: Instant::now() });
+        state.new_project_cancel();
+        assert!(state.new_project.is_none() && state.workspace_is_open());
+        state.new_project = Some(NewProjectScreen { folder: nueva.clone(), stage: NewProjectStage::Consent, since: Instant::now() });
+        state.new_project_accept();
+        assert_eq!(state.workspace_root, nueva.canonicalize().unwrap());
+        let (fase, fraccion, _, listo) = state.new_project_progress();
+        assert!(fase.contains("conectando") && fraccion == 0.0 && !listo);
     }
 
     #[test]

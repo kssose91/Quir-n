@@ -7,7 +7,7 @@
 use llore_ui::app::{
     run, top_menu_entries, AppState, ChatMessage, ClickTargetAction, CommandPaletteAction,
     EditorPane, OverlayMode, PanelDock, SearchInputFocus, SessionTelemetryTimelineSource,
-    manual_blocks, manual_sections, AgentTarget, ChatMenuItem, ChatPopover, ManualBlock, ProviderKind, SidebarPanel, SidebarProblemSeverity,
+    manual_blocks, manual_sections, AgentTarget, ChatMenuItem, ChatPopover, ManualBlock, NewProjectStage, ProviderKind, SidebarPanel, SidebarProblemSeverity,
     TabSnapshot, TelemetryTimelineFilter, TopMenuKind,
     UiAppearancePreset,
     UiDensity, EDITOR_BODY_BOTTOM_PADDING, EDITOR_BODY_TOP_PADDING, EDITOR_GUTTER_WIDTH,
@@ -2793,6 +2793,12 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         canvas.fill_rect(pantalla, Color::from_hex(palette.background));
         render_welcome(canvas, state, pantalla, &palette);
     }
+    // Proyecto nuevo: permiso primero; después, el vectorizador a la vista.
+    if state.new_project.is_some() {
+        let pantalla = Bounds::new(0.0, header_height, bounds.width, content_height);
+        canvas.fill_rect(pantalla, Color::from_hex(palette.background));
+        render_new_project(canvas, state, pantalla, &palette);
+    }
 
     // === Overlay (Quick Open / Command Palette / Symbols) ===
     if let Some(mode) = state.overlay_mode {
@@ -2979,6 +2985,100 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     }
     // El menú contextual del explorador va encima de todo lo demás.
     render_context_menu(canvas, state, &palette);
+}
+
+/// Pantalla del proyecto nuevo. Izquierda: la mente vectorial girando.
+/// Derecha: en el permiso, qué va a pasar y por qué; vectorizando, la fase,
+/// la barra, el archivo actual y el aviso de que el tiempo depende del tamaño.
+fn render_new_project(canvas: &mut Canvas, state: &mut AppState, bounds: Bounds, palette: &ThemePalette) {
+    let Some(pantalla) = state.new_project.clone() else {
+        return;
+    };
+    let nombre = pantalla.folder.file_name().and_then(|n| n.to_str()).unwrap_or("proyecto").to_string();
+    let margen = (bounds.width * 0.06).clamp(32.0, 96.0);
+    let lado = (bounds.height * 0.52).clamp(180.0, 340.0);
+    let cx = bounds.x + margen + lado * 0.5;
+    let cy = bounds.y + bounds.height * 0.5;
+    let velocidad = if pantalla.stage == NewProjectStage::Indexing { 1.0 } else { 0.35 };
+    draw_brain_hologram(
+        canvas,
+        cx,
+        cy,
+        lado,
+        pantalla.since.elapsed().as_secs_f32() * velocidad,
+        (0.0, 0.0),
+        state.cursor_pos,
+        Color::from_hex(palette.accent),
+        Color::from_hex(palette.text_muted),
+    );
+
+    let x = cx + lado * 0.5 + margen;
+    let ancho = (bounds.x + bounds.width - margen - x).max(240.0);
+    let mut y = bounds.y + bounds.height * 0.22;
+    let parrafo = |state: &mut AppState, canvas: &mut Canvas, texto: &str, size: f32, color: Color, y: &mut f32| {
+        let (_, h) = state.text_system.measure(texto, size, ancho);
+        let buf = state.text_system.create_buffer(texto, size, ancho);
+        state.text_system.draw_buffer(canvas, &buf, x, *y + size, color);
+        *y += h + 10.0;
+    };
+    let boton = |state: &mut AppState, canvas: &mut Canvas, texto: &str, bx: f32, by: f32, primario: bool, accion: ClickTargetAction| -> f32 {
+        let w = 28.0 + texto.chars().count() as f32 * 7.4;
+        let b = Bounds::new(bx, by, w, 36.0);
+        if primario {
+            canvas.fill_rounded_rect(b, 18.0, Color::from_hex(palette.accent));
+        } else {
+            canvas.fill_rounded_rect(b, 18.0, Color::from_hex(palette.surface));
+            canvas.stroke_rounded_rect(b, 18.0, Color::from_hex(palette.border).with_alpha(200), 1.0);
+        }
+        let buf = state.text_system.create_line_buffer(texto, design::type_scale::MD, w);
+        state.text_system.draw_buffer(canvas, &buf, bx + 14.0, by + 23.0, Color::from_hex(if primario { palette.background } else { palette.text }));
+        state.add_click_target(b, accion);
+        w
+    };
+
+    match pantalla.stage {
+        NewProjectStage::Consent => {
+            let titulo = state.text_system.create_heading_buffer(&format!("Proyecto nuevo: {nombre}"), 26.0, ancho);
+            state.text_system.draw_buffer(canvas, &titulo, x, y + 26.0, Color::from_hex(palette.text));
+            y += 48.0;
+            parrafo(state, canvas, "Quirón va a leer esta carpeta, escribir una ficha de cada función y vectorizarla. Así los agentes trabajan con un guion del proyecto que se mantiene al día solo. Todo se queda en este equipo.", design::type_scale::MD, Color::from_hex(palette.text), &mut y);
+            parrafo(state, canvas, "Los agentes que elijas podrán leer los archivos del proyecto a través de Quirón; nunca secretos (.env, claves) ni nada de fuera de la carpeta.", design::type_scale::MD, Color::from_hex(palette.text), &mut y);
+            parrafo(state, canvas, "Según el tamaño del proyecto, la primera vectorización tarda más o menos: de unos segundos a un buen rato. Mientras tanto ya puedes preguntar.", design::type_scale::MD, Color::from_hex(palette.text_muted), &mut y);
+            y += 8.0;
+            let w = boton(state, canvas, "Dar permiso y vectorizar  →", x, y, true, ClickTargetAction::NewProjectAccept);
+            boton(state, canvas, "Cancelar", x + w + 12.0, y, false, ClickTargetAction::NewProjectCancel);
+            y += 36.0;
+            let pista = state.text_system.create_code_buffer("Intro acepta · Esc cancela", design::type_scale::XS, ancho);
+            state.text_system.draw_buffer(canvas, &pista, x, y + 20.0, Color::from_hex(palette.text_muted));
+        }
+        NewProjectStage::Indexing => {
+            let (fase, fraccion, detalle, listo) = state.new_project_progress();
+            let titulo = state.text_system.create_heading_buffer(
+                &if listo { format!("{nombre}: vectorizado") } else { format!("Vectorizando {nombre}") },
+                26.0,
+                ancho,
+            );
+            state.text_system.draw_buffer(canvas, &titulo, x, y + 26.0, Color::from_hex(palette.text));
+            y += 48.0;
+            parrafo(state, canvas, &fase, design::type_scale::MD, Color::from_hex(palette.accent), &mut y);
+            let barra = Bounds::new(x, y, ancho, 6.0);
+            canvas.fill_rounded_rect(barra, 3.0, Color::from_hex(palette.border));
+            if fraccion > 0.0 {
+                canvas.fill_rounded_rect(Bounds::new(x, y, (ancho * fraccion).max(6.0), 6.0), 3.0, Color::from_hex(palette.accent));
+            }
+            y += 18.0;
+            let detalle_buf = state.text_system.create_code_buffer(&truncate_chars(&detalle, 90), design::type_scale::XS, ancho);
+            state.text_system.draw_buffer(canvas, &detalle_buf, x, y + 12.0, Color::from_hex(palette.text_muted));
+            y += 30.0;
+            parrafo(state, canvas, "Lee los archivos y carpetas, escribe qué hace cada función y lo vectoriza con el hash del archivo. Según el tamaño del proyecto tarda más o menos. Después se queda vigilando cambios.", design::type_scale::MD, Color::from_hex(palette.text), &mut y);
+            y += 8.0;
+            let texto = if listo { "Empezar  →" } else { "Ir al chat (sigue en segundo plano)  →" };
+            boton(state, canvas, texto, x, y, true, ClickTargetAction::NewProjectContinue);
+            y += 36.0;
+            let pista = state.text_system.create_code_buffer("Intro o Esc: al chat", design::type_scale::XS, ancho);
+            state.text_system.draw_buffer(canvas, &pista, x, y + 20.0, Color::from_hex(palette.text_muted));
+        }
+    }
 }
 
 /// Menú contextual del explorador: un panel pequeño junto al cursor con el
