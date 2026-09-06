@@ -165,7 +165,8 @@ El proveedor se elige desde el editor, en la paleta **Agentes** (suscripción de
 Claude por su CLI, suscripción de ChatGPT vía Codex, OpenAI o un servidor
 compatible con clave, servidor en la red local, Ollama), o con
 `scripts/configure-provider.py`. Para evaluar la aplicación en un equipo nuevo:
-[docs/GUIA_EVALUACION.md](docs/GUIA_EVALUACION.md). Con `codex_direct` el gateway lee las
+[docs/GUIA_EVALUACION.md](docs/GUIA_EVALUACION.md). El manual de uso está dentro
+de la aplicación (F1) y es [docs/MANUAL.md](docs/MANUAL.md). Con `codex_direct` el gateway lee las
 credenciales de sesión que mantiene Codex en `~/.codex/auth.json`, extrae el
 testigo de acceso y el identificador de cuenta, y envía la petición a la API de
 respuestas de Codex.

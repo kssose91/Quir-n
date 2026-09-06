@@ -27,6 +27,102 @@ use winit::window::WindowId;
 pub enum AppEvent {
     FileOpened(PathBuf),
     FolderOpened(PathBuf),
+    /// Un `.gguf` elegido en el diálogo de archivos para el vectorizador.
+    WorkerModelPicked(PathBuf),
+}
+
+/// Texto del manual que se enseña dentro de la aplicación (F1). Es el mismo
+/// archivo que va en el paquete: una sola fuente.
+pub const MANUAL_MD: &str = include_str!("../../../../../docs/MANUAL.md");
+
+/// Secciones del manual: (título, cuerpo). La cabecera `# …` y su
+/// introducción forman la primera; cada `## …` abre otra.
+pub fn manual_sections() -> Vec<(String, String)> {
+    let mut secciones: Vec<(String, String)> = Vec::new();
+    for linea in MANUAL_MD.lines() {
+        if let Some(titulo) = linea.strip_prefix("# ") {
+            secciones.push((titulo.trim().to_string(), String::new()));
+        } else if let Some(titulo) = linea.strip_prefix("## ") {
+            secciones.push((titulo.trim().to_string(), String::new()));
+        } else if let Some((_, cuerpo)) = secciones.last_mut() {
+            cuerpo.push_str(linea);
+            cuerpo.push('\n');
+        }
+    }
+    secciones
+}
+
+/// Bloques de una sección del manual, listos para pintar: párrafos unidos,
+/// viñetas y subtítulos; sin marcas de Markdown.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ManualBlock {
+    Heading(String),
+    Paragraph(String),
+    Bullet(String),
+}
+
+pub fn manual_blocks(cuerpo: &str) -> Vec<ManualBlock> {
+    let limpia = |t: &str| t.replace("**", "").replace('*', "").replace('`', "").trim().to_string();
+    let mut bloques = Vec::new();
+    let mut actual: Option<ManualBlock> = None;
+    let cerrar = |actual: &mut Option<ManualBlock>, bloques: &mut Vec<ManualBlock>| {
+        if let Some(b) = actual.take() {
+            bloques.push(b);
+        }
+    };
+    for linea in cuerpo.lines() {
+        let recortada = linea.trim_end();
+        if recortada.trim().is_empty() {
+            cerrar(&mut actual, &mut bloques);
+        } else if let Some(t) = recortada.strip_prefix("### ") {
+            cerrar(&mut actual, &mut bloques);
+            bloques.push(ManualBlock::Heading(limpia(t)));
+        } else if let Some(t) = recortada.strip_prefix("- ") {
+            cerrar(&mut actual, &mut bloques);
+            actual = Some(ManualBlock::Bullet(limpia(t)));
+        } else {
+            let texto = limpia(recortada);
+            match &mut actual {
+                Some(ManualBlock::Bullet(b)) | Some(ManualBlock::Paragraph(b)) => {
+                    b.push(' ');
+                    b.push_str(&texto);
+                }
+                _ => actual = Some(ManualBlock::Paragraph(texto)),
+            }
+        }
+    }
+    cerrar(&mut actual, &mut bloques);
+    bloques
+}
+
+/// Modelo del catálogo del vectorizador (`setup-worker.py --catalog`).
+#[derive(Debug, Clone, Default)]
+pub struct WorkerCatalogEntry {
+    pub name: String,
+    pub file: String,
+    pub size_gb: f64,
+    pub nota: String,
+    pub present: bool,
+}
+
+impl WorkerCatalogEntry {
+    pub fn from_json(texto: &str) -> Vec<WorkerCatalogEntry> {
+        serde_json::from_str::<serde_json::Value>(texto)
+            .ok()
+            .and_then(|v| v.as_array().cloned())
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|e| {
+                Some(WorkerCatalogEntry {
+                    name: e["name"].as_str()?.to_string(),
+                    file: e["file"].as_str()?.to_string(),
+                    size_gb: e["size_gb"].as_f64().unwrap_or(0.0),
+                    nota: e["nota"].as_str().unwrap_or("").to_string(),
+                    present: e["presente"].as_bool().unwrap_or(false),
+                })
+            })
+            .collect()
+    }
 }
 
 use llore_brain::client::{
@@ -355,7 +451,12 @@ pub enum ClickTargetAction {
     AgentConfigure(AgentTarget),
     AgentWorkerPick,
     AgentWorkerModel(String),
+    /// Descargar un modelo del catálogo (terminal) y añadir un .gguf del disco.
+    AgentWorkerDownload(String),
+    AgentWorkerAddFile,
     AgentClose,
+    /// Manual: ir a una sección.
+    ManualSection(usize),
     Citation(Citation),
     /// Abre el archivo de una ficha de código en su primera línea.
     CodeSource(CodeHint),
@@ -675,6 +776,8 @@ pub struct ProviderProbe {
     pub worker_models: Vec<String>,
     pub worker_current: String,
     pub worker_running: Option<bool>,
+    /// Catálogo de modelos descargables, con los ya presentes marcados.
+    pub worker_catalog: Vec<WorkerCatalogEntry>,
 }
 
 /// Lado de acoplamiento de un panel principal.
@@ -866,6 +969,8 @@ pub enum OverlayMode {
     Problems,
     /// Paleta Agentes: proveedores, sesiones y modelo del worker.
     Agentes,
+    /// Manual de la aplicación (F1).
+    Manual,
 }
 
 /// Acción ejecutable desde command palette.
@@ -965,6 +1070,8 @@ pub enum CommandPaletteAction {
     ReconnectQuironSecureLocal,
     ReconnectQuironSecureEnv,
     ShowQuironConnectionStatus,
+    /// Manual de la aplicación (F1).
+    OpenManual,
 }
 
 /// Entrada visible dentro de un menú superior.
@@ -1125,6 +1232,10 @@ const TOP_MENU_HELP_ENTRIES: &[TopMenuEntry] = &[
     TopMenuEntry {
         label: "Connection Status",
         action: CommandPaletteAction::ShowQuironConnectionStatus,
+    },
+    TopMenuEntry {
+        label: "Manual (F1)",
+        action: CommandPaletteAction::OpenManual,
     },
     TopMenuEntry {
         label: "Session Telemetry Status",
@@ -1752,6 +1863,12 @@ const COMMAND_DESCRIPTORS: &[CommandDescriptor] = &[
         detail: "Elegir proveedor, iniciar sesión, modelo del worker",
         keywords: "agentes proveedor conexión sesión claude chatgpt ollama api worker",
     },
+    CommandDescriptor {
+        action: CommandPaletteAction::OpenManual,
+        label: "Manual de Quirón (F1)",
+        detail: "Qué hace el vectorizador, los agentes, los modelos y los atajos",
+        keywords: "manual ayuda help guía documentación vectorizador worker",
+    },
 ];
 
 /// Pestaña abierta en el editor central.
@@ -2018,6 +2135,10 @@ pub struct AppState {
     /// Campo en curso de la paleta Agentes y selector de modelo del worker.
     pub agent_field: Option<AgentField>,
     pub agent_worker_pick: bool,
+    /// Manual: sección abierta y desplazamiento (el máximo lo fija el dibujo).
+    pub manual_section: usize,
+    pub manual_scroll: f32,
+    pub manual_scroll_max: f32,
     /// Bounds de la columna sidebar (explorer)
     pub sidebar_bounds: Option<Bounds>,
     /// Panel activo del sidebar (explorer/search/git).
@@ -2508,6 +2629,9 @@ impl AppState {
             provider_notice: None,
             agent_field: None,
             agent_worker_pick: false,
+            manual_section: 0,
+            manual_scroll: 0.0,
+            manual_scroll_max: 0.0,
             sidebar_bounds: None,
             sidebar_panel: SidebarPanel::Explorer,
             explorer_dock: PanelDock::Left,
@@ -5427,6 +5551,7 @@ impl AppState {
         self.overlay_selected = 0;
         self.agent_field = None;
         self.agent_worker_pick = false;
+        self.manual_scroll = 0.0;
     }
 
     /// Cambia panel activo del sidebar.
@@ -6423,6 +6548,7 @@ impl AppState {
             Some(OverlayMode::WorkspaceTextSearch) => "Find in Workspace",
             Some(OverlayMode::Problems) => "Problems",
             Some(OverlayMode::Agentes) => "Agentes",
+            Some(OverlayMode::Manual) => "Manual",
             None => "",
         }
     }
@@ -7128,7 +7254,7 @@ impl AppState {
                 self.rebuild_workspace_text_search_overlay_items()
             }
             Some(OverlayMode::Problems) => self.rebuild_problems_overlay_items(),
-            Some(OverlayMode::Agentes) => self.overlay_items.clear(),
+            Some(OverlayMode::Agentes) | Some(OverlayMode::Manual) => self.overlay_items.clear(),
             None => {}
         }
     }
@@ -7948,6 +8074,7 @@ impl AppState {
                 self.needs_render = true;
             }
             CommandPaletteAction::ShowQuironConnectionStatus => self.open_agents_overlay(),
+            CommandPaletteAction::OpenManual => self.open_manual(),
         }
     }
 
@@ -8071,6 +8198,9 @@ impl AppState {
         }
         if self.overlay_mode == Some(OverlayMode::Agentes) {
             return self.handle_agents_key(key, ctrl);
+        }
+        if self.overlay_mode == Some(OverlayMode::Manual) {
+            return self.handle_manual_key(key);
         }
 
         match key {
@@ -8346,6 +8476,10 @@ impl AppState {
         let Ok(valor) = std::env::var("QUIRON_UI_START_PANEL") else {
             return;
         };
+        if valor == "manual" {
+            self.open_manual();
+            return;
+        }
         let Some(resto) = valor.strip_prefix("agentes") else {
             return;
         };
@@ -8621,6 +8755,20 @@ impl AppState {
         probe.worker_current = Self::provider_setting("QUIRON_WORKER_MODEL_FILE")
             .and_then(|p| Path::new(&p).file_name().map(|n| n.to_string_lossy().into_owned()))
             .unwrap_or_else(|| "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf".to_string());
+        probe.worker_catalog = worker_dir
+            .as_ref()
+            .zip(Self::script_path("scripts/setup-worker.py"))
+            .and_then(|(dir, script)| {
+                std::process::Command::new("python3")
+                    .arg(script)
+                    .arg("--catalog")
+                    .arg("--directory")
+                    .arg(dir)
+                    .output()
+                    .ok()
+            })
+            .map(|o| WorkerCatalogEntry::from_json(&String::from_utf8_lossy(&o.stdout)))
+            .unwrap_or_default();
         probe.worker_dir = worker_dir;
         probe.worker_running = std::process::Command::new("systemctl")
             .args(["--user", "is-active", "quiron-worker.service"])
@@ -8736,16 +8884,160 @@ impl AppState {
     }
 
     fn configure_provider_script() -> Option<PathBuf> {
+        Self::script_path("scripts/configure-provider.py")
+    }
+
+    /// Un script del programa: junto al binario (`bin/../scripts`) o en el
+    /// directorio de trabajo.
+    fn script_path(relativo: &str) -> Option<PathBuf> {
         let mut candidatos = Vec::new();
         if let Ok(exe) = std::env::current_exe() {
             if let Some(raiz) = exe.parent().and_then(|p| p.parent()) {
-                candidatos.push(raiz.join("scripts/configure-provider.py"));
+                candidatos.push(raiz.join(relativo));
             }
         }
         if let Ok(cwd) = std::env::current_dir() {
-            candidatos.push(cwd.join("scripts/configure-provider.py"));
+            candidatos.push(cwd.join(relativo));
         }
         candidatos.into_iter().find(|p| p.is_file())
+    }
+
+    /// «Descargar» en el catálogo: la descarga verificada del script, en una
+    /// terminal para ver el avance. Al acabar, «Comprobar» la lista.
+    pub fn worker_download(&mut self, nombre: &str) {
+        let Some(dir) = self.provider_probe.as_ref().and_then(|p| p.worker_dir.clone()) else {
+            self.provider_notice = Some("No encuentro la carpeta del worker.".to_string());
+            self.needs_render = true;
+            return;
+        };
+        let Some(script) = Self::script_path("scripts/setup-worker.py") else {
+            self.provider_notice = Some("No encuentro scripts/setup-worker.py junto al programa.".to_string());
+            self.needs_render = true;
+            return;
+        };
+        let Some(python) = Self::busca_en_path("python3") else {
+            self.provider_notice = Some("Hace falta python3 para descargar modelos.".to_string());
+            self.needs_render = true;
+            return;
+        };
+        let dir_texto = dir.to_string_lossy().into_owned();
+        let script_texto = script.to_string_lossy().into_owned();
+        let args = [script_texto.as_str(), "--model", nombre, "--directory", dir_texto.as_str()];
+        self.provider_notice = Some(match Self::abrir_terminal(&python, &args) {
+            Ok(()) => format!("Descargando {nombre} en una terminal (SHA-256 verificado). Al acabar, pulsa Comprobar y elígelo en Modelos."),
+            Err(e) => format!("{e}. Ejecuta: python3 {} --model {nombre} --directory {}", script_texto, dir_texto),
+        });
+        self.agent_worker_pick = false;
+        self.needs_render = true;
+    }
+
+    /// «Añadir .gguf…»: diálogo de archivos; el elegido llega como evento y se
+    /// copia (o enlaza) a la carpeta del worker.
+    pub fn pick_worker_model_file(&mut self) {
+        let Some(proxy) = self.event_proxy.clone() else {
+            return;
+        };
+        let start_dir = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"));
+        std::thread::spawn(move || {
+            let result: Option<PathBuf> = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .ok()
+                .and_then(|rt| {
+                    rt.block_on(async {
+                        AsyncFileDialog::new()
+                            .add_filter("Modelo GGUF", &["gguf"])
+                            .set_directory(&start_dir)
+                            .pick_file()
+                            .await
+                            .map(|h: FileHandle| h.path().to_path_buf())
+                    })
+                });
+            if let Some(path) = result {
+                let _ = proxy.send_event(AppEvent::WorkerModelPicked(path));
+            }
+        });
+    }
+
+    pub fn add_worker_model_file(&mut self, origen: PathBuf) {
+        let Some(dir) = self.provider_probe.as_ref().and_then(|p| p.worker_dir.clone()) else {
+            self.provider_notice = Some("No encuentro la carpeta del worker.".to_string());
+            self.needs_render = true;
+            return;
+        };
+        if origen.extension().and_then(|e| e.to_str()) != Some("gguf") {
+            self.provider_notice = Some("Solo se admiten archivos .gguf.".to_string());
+            self.needs_render = true;
+            return;
+        }
+        if self.provider_apply_task.is_some() {
+            return;
+        }
+        let nombre = origen.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let destino = dir.join(&nombre);
+        self.provider_notice = Some(format!("Añadiendo {nombre}…"));
+        // Enlace duro si es el mismo sistema de archivos (instantáneo); si no,
+        // copia. Fuera del hilo de la interfaz: pueden ser gigabytes.
+        self.provider_apply_task = Some(self.runtime.spawn_blocking(move || {
+            if destino.exists() {
+                return Ok(format!("{nombre} ya estaba en la carpeta del worker. Elígelo en Modelos."));
+            }
+            if fs::hard_link(&origen, &destino).is_err() {
+                fs::copy(&origen, &destino).map_err(|e| format!("no se pudo copiar {nombre}: {e}"))?;
+            }
+            Ok(format!("Añadido {nombre}. Elígelo en Modelos."))
+        }));
+        self.needs_render = true;
+    }
+
+    /// Manual dentro de la aplicación (F1, chip «Manual», paleta de órdenes).
+    pub fn open_manual(&mut self) {
+        self.reset_overlay_state();
+        self.overlay_mode = Some(OverlayMode::Manual);
+        self.status_text = "manual · F1".to_string();
+        self.needs_render = true;
+    }
+
+    fn handle_manual_key(&mut self, key: &Key) -> bool {
+        let total = manual_sections().len().max(1);
+        match key {
+            Key::Named(NamedKey::Escape) => self.close_overlay(),
+            Key::Named(NamedKey::ArrowDown) => self.scroll_manual(3),
+            Key::Named(NamedKey::ArrowUp) => self.scroll_manual(-3),
+            Key::Named(NamedKey::PageDown) | Key::Named(NamedKey::Space) => self.scroll_manual(20),
+            Key::Named(NamedKey::PageUp) => self.scroll_manual(-20),
+            Key::Named(NamedKey::Home) => self.scroll_manual(i32::MIN / 2),
+            Key::Named(NamedKey::ArrowRight) | Key::Named(NamedKey::Tab) => {
+                self.manual_section = (self.manual_section + 1) % total;
+                self.manual_scroll = 0.0;
+                self.needs_render = true;
+            }
+            Key::Named(NamedKey::ArrowLeft) => {
+                self.manual_section = (self.manual_section + total - 1) % total;
+                self.manual_scroll = 0.0;
+                self.needs_render = true;
+            }
+            Key::Character(c) => {
+                if let Some(d) = c.chars().next().and_then(|ch| ch.to_digit(10)) {
+                    if d >= 1 && (d as usize) <= total {
+                        self.manual_section = d as usize - 1;
+                        self.manual_scroll = 0.0;
+                        self.needs_render = true;
+                    }
+                }
+            }
+            _ => {}
+        }
+        true
+    }
+
+    /// Desplaza el manual; el tope lo fijó el último dibujo.
+    pub fn scroll_manual(&mut self, delta_lines: i32) {
+        let nuevo = (self.manual_scroll + delta_lines as f32 * 14.4).clamp(0.0, self.manual_scroll_max);
+        if (nuevo - self.manual_scroll).abs() > f32::EPSILON {
+            self.manual_scroll = nuevo;
+            self.needs_render = true;
+        }
     }
 
     /// Aplica el proveedor con `scripts/configure-provider.py --apply`, que
@@ -10633,7 +10925,14 @@ impl AppState {
                 self.needs_render = true;
             }
             ClickTargetAction::AgentWorkerModel(nombre) => self.apply_worker_model(&nombre),
+            ClickTargetAction::AgentWorkerDownload(nombre) => self.worker_download(&nombre),
+            ClickTargetAction::AgentWorkerAddFile => self.pick_worker_model_file(),
             ClickTargetAction::AgentClose => self.close_overlay(),
+            ClickTargetAction::ManualSection(i) => {
+                self.manual_section = i;
+                self.manual_scroll = 0.0;
+                self.needs_render = true;
+            }
             ClickTargetAction::WelcomeOpenRecent(path) => {
                 if path.is_dir() {
                     self.open_workspace(path);
@@ -11277,6 +11576,13 @@ where
                         }
                         return;
                     }
+                    if matches!(event.logical_key, Key::Named(NamedKey::F1)) {
+                        self.state.open_manual();
+                        if let Some(window) = &self.window {
+                            window.request_redraw();
+                        }
+                        return;
+                    }
                     if matches!(event.logical_key, Key::Named(NamedKey::F8)) {
                         let handled = if shift {
                             self.state.navigate_problem(-1)
@@ -11757,6 +12063,17 @@ where
 
             WindowEvent::MouseWheel { delta, .. } => {
                 if self.state.is_overlay_active() {
+                    // El manual se desplaza con la rueda; el resto de paletas no.
+                    if self.state.overlay_mode == Some(OverlayMode::Manual) {
+                        let paso = match delta {
+                            MouseScrollDelta::LineDelta(_, y) => -(y.signum() as i32) * 3,
+                            MouseScrollDelta::PixelDelta(pos) => -(pos.y.signum() as i32) * 2,
+                        };
+                        self.state.scroll_manual(paso);
+                        if let Some(window) = &self.window {
+                            window.request_redraw();
+                        }
+                    }
                     return;
                 }
                 if let Some((x, y)) = self.state.cursor_pos {
@@ -11864,6 +12181,12 @@ where
         match event {
             AppEvent::FileOpened(path) => {
                 self.state.open_file_from_explorer(path);
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
+            AppEvent::WorkerModelPicked(path) => {
+                self.state.add_worker_model_file(path);
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
@@ -11986,6 +12309,46 @@ mod tests {
         state.ai_provider = "claude_cli".to_string();
         state.selected_ai_model = "sonnet".to_string();
         assert_eq!(state.chat_model(), "sonnet");
+    }
+
+    #[test]
+    fn el_manual_tiene_secciones_y_bloques_limpios() {
+        let secciones = manual_sections();
+        assert!(secciones.len() >= 6, "{}", secciones.len());
+        assert_eq!(secciones[0].0, "Manual de Quirón");
+        assert!(secciones.iter().any(|(t, _)| t.contains("vectorizador")));
+        let bloques = manual_blocks("Intro con `código`, *cursiva* y **negrita**.\n\n- una viñeta\n  que sigue\n- otra\n\n### Sub\ntexto");
+        assert_eq!(
+            bloques,
+            vec![
+                ManualBlock::Paragraph("Intro con código, cursiva y negrita.".into()),
+                ManualBlock::Bullet("una viñeta que sigue".into()),
+                ManualBlock::Bullet("otra".into()),
+                ManualBlock::Heading("Sub".into()),
+                ManualBlock::Paragraph("texto".into()),
+            ]
+        );
+        let workspace = TestWorkspace::new("manual");
+        let mut state = AppState::new_for_tests(workspace.root_path());
+        state.open_manual();
+        assert_eq!(state.overlay_mode, Some(OverlayMode::Manual));
+        state.handle_overlay_key(&Key::Named(NamedKey::ArrowRight), false, false, false);
+        assert_eq!(state.manual_section, 1);
+        state.handle_overlay_key(&Key::Character("1".into()), false, false, false);
+        assert_eq!(state.manual_section, 0);
+        state.handle_overlay_key(&Key::Named(NamedKey::Escape), false, false, false);
+        assert_eq!(state.overlay_mode, None);
+    }
+
+    #[test]
+    fn el_catalogo_del_vectorizador_se_lee_del_json_del_script() {
+        let json = r#"[{"name":"qwen2.5-coder-3b-q4_k_m","file":"qwen2.5-coder-3b-instruct-q4_k_m.gguf","size_gb":2.1,"nota":"mejores fichas","presente":false},{"name":"x","file":"x.gguf","presente":true}]"#;
+        let catalogo = WorkerCatalogEntry::from_json(json);
+        assert_eq!(catalogo.len(), 2);
+        assert_eq!(catalogo[0].file, "qwen2.5-coder-3b-instruct-q4_k_m.gguf");
+        assert!((catalogo[0].size_gb - 2.1).abs() < 1e-9 && !catalogo[0].present);
+        assert!(catalogo[1].present && catalogo[1].nota.is_empty());
+        assert!(WorkerCatalogEntry::from_json("no es json").is_empty());
     }
 
     #[test]

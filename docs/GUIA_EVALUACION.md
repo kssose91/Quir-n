@@ -37,7 +37,7 @@ está lista y en ámbar si falta algo, y qué hacer:
 | **OpenAI / compatible** | endpoint, modelo y clave de API | Configurar… (tres campos; la clave no se muestra ni sale en ninguna orden) → Usar |
 | **Servidor en red local** | un servidor compatible en la LAN (llama-server, vLLM, SGLang…) | Configurar… (endpoint, modelo y clave opcional) → Usar |
 | **Ollama local** | Ollama en marcha con un modelo descargado (`ollama pull qwen2.5-coder:7b`) | Instalar → Configurar… (propone el primer modelo descargado) → Usar |
-| **Worker local** | el Qwen que resume el código para el índice | Modelos (elige otro `.gguf` de su carpeta) |
+| **Vectorizador (worker)** | el Qwen que lee el proyecto, escribe qué hace cada función y vectoriza; no chatea | Modelos (elige un `.gguf` local o descarga uno del catálogo con SHA-256) · Añadir .gguf… |
 
 «Usar» reescribe el archivo privado (`~/.config/quiron/quiron-brain.env`) y
 reinicia el cerebro; el editor reconecta solo. La aplicación no lee ni guarda
@@ -51,6 +51,10 @@ scripts/configure-provider.py claude-cli --model sonnet --apply
 scripts/configure-provider.py openai-compatible --endpoint https://api.openai.com --model gpt-5.5 --api-key-from-stdin --apply
 scripts/configure-provider.py openai-compatible --endpoint http://127.0.0.1:11434 --model qwen2.5-coder:7b --apply   # Ollama
 ```
+
+El manual de la aplicación está dentro: **F1**, el chip «Manual» de la barra
+superior o la paleta de órdenes. Explica el vectorizador, los agentes, los
+modelos y los atajos (`docs/MANUAL.md` es el mismo texto).
 
 ## 3. Abrir un proyecto y preguntar
 

@@ -153,6 +153,11 @@ python3 scripts/configure-provider.py claude-cli --model sonnet
 ```
 
 Añadir `--apply` guarda esa elección en el entorno privado y reinicia el cerebro.
+Modelos del vectorizador: `scripts/setup-worker.py --catalog` lista el catálogo
+(Qwen2.5-Coder 0.5B/1.5B/3B/7B en GGUF oficial, con revisión y SHA-256 fijos)
+y `--model NOMBRE` descarga uno a la carpeta del worker; la paleta Agentes hace
+lo mismo desde la tarjeta «Vectorizador» (Modelos → catálogo, o «Añadir .gguf…»
+para un archivo propio).
 Otras formas: `openai-compatible --endpoint URL --model M [--api-key-from-stdin]`,
 `ollama-native --model M` (endpoint `http://127.0.0.1:11434` por defecto) y
 `worker-model --worker-model ruta.gguf` (fija `QUIRON_WORKER_MODEL_FILE`, que

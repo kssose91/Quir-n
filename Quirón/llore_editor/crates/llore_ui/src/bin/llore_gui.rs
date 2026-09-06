@@ -7,8 +7,8 @@
 use llore_ui::app::{
     run, top_menu_entries, AppState, ChatMessage, ClickTargetAction, CommandPaletteAction,
     EditorPane, OverlayMode, PanelDock, SearchInputFocus, SessionTelemetryTimelineSource,
-    AgentTarget, ProviderKind, SidebarPanel, SidebarProblemSeverity, TabSnapshot, TelemetryTimelineFilter,
-    TopMenuKind,
+    manual_blocks, manual_sections, AgentTarget, ManualBlock, ProviderKind, SidebarPanel, SidebarProblemSeverity,
+    TabSnapshot, TelemetryTimelineFilter, TopMenuKind,
     UiAppearancePreset,
     UiDensity, EDITOR_BODY_BOTTOM_PADDING, EDITOR_BODY_TOP_PADDING, EDITOR_GUTTER_WIDTH,
     EDITOR_TAB_BAR_HEIGHT, OVERLAY_RESULTS_MAX, SEARCH_RESULTS_MAX_ROWS,
@@ -2297,6 +2297,13 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             )),
         ),
         (
+            "Manual".to_string(),
+            Color::from_hex(palette.surface),
+            Color::from_hex(palette.text_muted),
+            Color::from_hex(palette.surface),
+            Some(ClickTargetAction::TopMenuExecute(CommandPaletteAction::OpenManual)),
+        ),
+        (
             "Segundo plano".to_string(),
             Color::from_hex(palette.surface),
             if state.background_panel_visible {
@@ -2677,6 +2684,8 @@ fn render_app(window: &mut Window, state: &mut AppState) {
 
         if mode == OverlayMode::Agentes {
             render_agents_overlay(canvas, state, &palette, bounds, header_height);
+        } else if mode == OverlayMode::Manual {
+            render_manual_overlay(canvas, state, &palette, bounds, header_height);
         } else {
         let panel_width = (bounds.width * 0.62).clamp(420.0, 900.0);
         let panel_rows = state.overlay_items.len().max(1).min(OVERLAY_RESULTS_MAX);
@@ -2699,6 +2708,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             OverlayMode::WorkspaceTextSearch => "FIND IN WORKSPACE",
             OverlayMode::Problems => "PROBLEMS",
             OverlayMode::Agentes => "AGENTES",
+            OverlayMode::Manual => "MANUAL",
         };
         let title_buf = state
             .text_system
@@ -2733,7 +2743,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             OverlayMode::Problems => {
                 "Enter apply | query by editor/search/git/telemetry/runtime | Esc close"
             }
-            OverlayMode::Agentes => "",
+            OverlayMode::Agentes | OverlayMode::Manual => "",
         };
         let hint_buf = state
             .text_system
@@ -2754,7 +2764,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
             OverlayMode::WorkspaceSymbols => "> workspace symbol: ",
             OverlayMode::WorkspaceTextSearch => "> workspace text: ",
             OverlayMode::Problems => "> problem: ",
-            OverlayMode::Agentes => "",
+            OverlayMode::Agentes | OverlayMode::Manual => "",
         };
         let query_text = if state.overlay_query.is_empty() {
             format!("{}|", query_prefix)
@@ -2824,7 +2834,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                     OverlayMode::Problems => {
                         format!("{}  •  {}", item.title, truncate_chars(&item.detail, 82))
                     }
-                    OverlayMode::Agentes => String::new(),
+                    OverlayMode::Agentes | OverlayMode::Manual => String::new(),
                 };
                 let line_buf = state
                     .text_system
@@ -2873,7 +2883,9 @@ fn render_agents_overlay(
     let cuerpo_h = if state.agent_field.is_some() {
         120.0
     } else if state.agent_worker_pick {
-        40.0 + probe.as_ref().map_or(0, |p| p.worker_models.len().max(1)) as f32 * 26.0
+        let locales = probe.as_ref().map_or(0, |p| p.worker_models.len().max(1));
+        let pendientes = probe.as_ref().map_or(0, |p| p.worker_catalog.iter().filter(|c| !c.present).count());
+        60.0 + locales as f32 * 26.0 + if pendientes > 0 { 30.0 + pendientes as f32 * 26.0 } else { 0.0 }
     } else {
         3.0 * (tarjeta_h + 10.0)
     };
@@ -2941,7 +2953,7 @@ fn render_agents_overlay(
         y += cuerpo_h;
     } else if state.agent_worker_pick {
         let rotulo = state.text_system.create_line_buffer(
-            "Modelo del worker: archivos .gguf en su carpeta (Esc para volver)",
+            "Modelos del vectorizador · en la carpeta del worker (pulsa uno para usarlo)",
             design::type_scale::SM,
             ancho - 40.0,
         );
@@ -2949,6 +2961,7 @@ fn render_agents_overlay(
         let mut fila_y = y + 30.0;
         let modelos = probe.as_ref().map(|p| p.worker_models.clone()).unwrap_or_default();
         let actual = probe.as_ref().map(|p| p.worker_current.clone()).unwrap_or_default();
+        let catalogo = probe.as_ref().map(|p| p.worker_catalog.clone()).unwrap_or_default();
         if modelos.is_empty() {
             let vacio = state.text_system.create_line_buffer(
                 "no hay archivos .gguf en la carpeta del worker",
@@ -2956,17 +2969,45 @@ fn render_agents_overlay(
                 ancho - 40.0,
             );
             state.text_system.draw_buffer(canvas, &vacio, x0 + 30.0, fila_y + 14.0, Color::from_hex(palette.text_muted));
+            fila_y += 26.0;
         }
         for nombre in modelos {
             let fila = Bounds::new(x0 + 20.0, fila_y, ancho - 40.0, 24.0);
             if nombre == actual {
                 canvas.fill_rounded_rect(fila, 4.0, Color::from_hex(palette.selection).with_alpha(120));
             }
-            let buf = state.text_system.create_line_buffer(&nombre, design::type_scale::SM, ancho - 60.0);
+            let nota = catalogo.iter().find(|c| c.file == nombre).map(|c| c.nota.clone()).unwrap_or_default();
+            let texto = if nota.is_empty() { nombre.clone() } else { format!("{nombre} · {nota}") };
+            let buf = state.text_system.create_line_buffer(&truncate_chars(&texto, 90), design::type_scale::SM, ancho - 60.0);
             state.text_system.draw_buffer(canvas, &buf, fila.x + 10.0, fila_y + 16.0, Color::from_hex(palette.text));
             state.add_click_target(fila, ClickTargetAction::AgentWorkerModel(nombre));
             fila_y += 26.0;
         }
+        // Catálogo: lo que no está, se puede descargar con su suma verificada.
+        let pendientes: Vec<_> = catalogo.iter().filter(|c| !c.present).cloned().collect();
+        if !pendientes.is_empty() {
+            let rotulo = state.text_system.create_line_buffer(
+                "Descargar del catálogo (Qwen2.5-Coder, SHA-256 verificado; pulsa uno):",
+                design::type_scale::SM,
+                ancho - 40.0,
+            );
+            state.text_system.draw_buffer(canvas, &rotulo, x0 + 20.0, fila_y + 18.0, Color::from_hex(palette.text));
+            fila_y += 30.0;
+            for entrada in pendientes {
+                let fila = Bounds::new(x0 + 20.0, fila_y, ancho - 40.0, 24.0);
+                let texto = format!("⤓ {} · {:.1} GB · {}", entrada.file, entrada.size_gb, entrada.nota);
+                let buf = state.text_system.create_line_buffer(&truncate_chars(&texto, 95), design::type_scale::SM, ancho - 60.0);
+                state.text_system.draw_buffer(canvas, &buf, fila.x + 10.0, fila_y + 16.0, Color::from_hex(palette.accent));
+                state.add_click_target(fila, ClickTargetAction::AgentWorkerDownload(entrada.name.clone()));
+                fila_y += 26.0;
+            }
+        }
+        let pista = state.text_system.create_code_buffer(
+            "Esc para volver · «Añadir .gguf…» copia un modelo que ya tengas",
+            design::type_scale::XS,
+            ancho - 40.0,
+        );
+        state.text_system.draw_buffer(canvas, &pista, x0 + 20.0, fila_y + 14.0, Color::from_hex(palette.text_muted));
         y += cuerpo_h;
     } else {
         // Rejilla de tarjetas.
@@ -3025,11 +3066,13 @@ fn render_agents_overlay(
                 (format!("{} · {marcha}", truncate_chars(&p.worker_current, 34)), p.worker_running)
             }
         };
-        let n = probe.as_ref().map_or(0, |p| p.worker_models.len());
         dibujar_tarjeta_agente(
             canvas, state, palette, Bounds::new(cx, cy, columna, tarjeta_h),
-            "Worker local", "fichas del índice · Qwen en la GPU", &estado, ok, false,
-            vec![(if n > 1 { "Modelo…" } else { "Modelos" }, ClickTargetAction::AgentWorkerPick)],
+            "Vectorizador (worker)", "lee el proyecto, escribe qué hace cada función y vectoriza", &estado, ok, false,
+            vec![
+                ("Modelos", ClickTargetAction::AgentWorkerPick),
+                ("Añadir .gguf…", ClickTargetAction::AgentWorkerAddFile),
+            ],
         );
         y += cuerpo_h;
     }
@@ -3045,8 +3088,116 @@ fn render_agents_overlay(
     let buf = state.text_system.create_line_buffer("Comprobar", design::type_scale::SM, 100.0);
     state.text_system.draw_buffer(canvas, &buf, boton.x + 14.0, boton.y + 18.0, Color::from_hex(palette.text_muted));
     state.add_click_target(boton, ClickTargetAction::ProviderRefresh);
+    let manual = Bounds::new(boton.x + boton.width + 10.0, boton.y, 100.0, 26.0);
+    let buf = state.text_system.create_line_buffer("Manual (F1)", design::type_scale::SM, 100.0);
+    state.text_system.draw_buffer(canvas, &buf, manual.x + 10.0, manual.y + 18.0, Color::from_hex(palette.text_muted));
+    state.add_click_target(manual, ClickTargetAction::TopMenuExecute(CommandPaletteAction::OpenManual));
     let pista = state.text_system.create_code_buffer("Esc cierra", design::type_scale::XS, 120.0);
     state.text_system.draw_buffer(canvas, &pista, x0 + ancho - 90.0, boton.y + 18.0, Color::from_hex(palette.text_muted));
+}
+
+/// Manual dentro de la aplicación: panel centrado con el índice de secciones
+/// a la izquierda y el texto de la sección a la derecha, con desplazamiento
+/// (rueda, flechas, AvPág). El texto sale de docs/MANUAL.md, embebido.
+fn render_manual_overlay(
+    canvas: &mut Canvas,
+    state: &mut AppState,
+    palette: &ThemePalette,
+    bounds: Bounds,
+    header_height: f32,
+) {
+    let secciones = manual_sections();
+    if secciones.is_empty() {
+        return;
+    }
+    let ancho = (bounds.width * 0.74).clamp(600.0, 940.0);
+    let x0 = bounds.x + (bounds.width - ancho) * 0.5;
+    let y0 = header_height + 24.0;
+    let alto = (bounds.y + bounds.height - 24.0 - y0).max(300.0);
+    let panel = Bounds::new(x0, y0, ancho, alto);
+    canvas.fill_rounded_rect(panel, design::radius::LG, Color::from_hex(palette.background));
+    canvas.stroke_rect(panel, Color::from_hex(palette.border).with_alpha(200), 1.0);
+
+    let seccion = state.manual_section.min(secciones.len() - 1);
+    let titulo = state.text_system.create_heading_buffer("Manual", 18.0, 200.0);
+    state.text_system.draw_buffer(canvas, &titulo, x0 + 20.0, y0 + 30.0, Color::from_hex(palette.text));
+    let cerrar = Bounds::new(x0 + ancho - 40.0, y0 + 14.0, 24.0, 24.0);
+    let cerrar_buf = state.text_system.create_line_buffer("×", design::type_scale::MD, 20.0);
+    state.text_system.draw_buffer(canvas, &cerrar_buf, cerrar.x + 7.0, cerrar.y + 17.0, Color::from_hex(palette.text_muted));
+    state.add_click_target(cerrar, ClickTargetAction::AgentClose);
+
+    // Índice de secciones.
+    let indice_w = 200.0;
+    let mut iy = y0 + 56.0;
+    for (i, (nombre, _)) in secciones.iter().enumerate() {
+        let fila = Bounds::new(x0 + 12.0, iy, indice_w - 12.0, 26.0);
+        if i == seccion {
+            canvas.fill_rounded_rect(fila, 6.0, Color::from_hex(palette.selection).with_alpha(120));
+        }
+        let etiqueta = format!("{} {}", i + 1, if i == 0 { "Qué es Quirón" } else { nombre.as_str() });
+        let buf = state.text_system.create_line_buffer(&truncate_chars(&etiqueta, 28), design::type_scale::SM, fila.width - 16.0);
+        state.text_system.draw_buffer(
+            canvas,
+            &buf,
+            fila.x + 8.0,
+            iy + 17.0,
+            Color::from_hex(if i == seccion { palette.text } else { palette.text_muted }),
+        );
+        state.add_click_target(fila, ClickTargetAction::ManualSection(i));
+        iy += 28.0;
+    }
+
+    // Texto de la sección, con recorte y desplazamiento.
+    let tx = x0 + indice_w + 24.0;
+    let tw = ancho - indice_w - 48.0;
+    let top = y0 + 56.0;
+    let bottom = y0 + alto - 36.0;
+    let (nombre, cuerpo) = &secciones[seccion];
+    let mut y = top - state.manual_scroll;
+    let pintar = |state: &mut AppState, canvas: &mut Canvas, texto: &str, size: f32, x: f32, y: f32, color: Color, heading: bool| -> f32 {
+        let (_, h) = state.text_system.measure(texto, size, tw - (x - tx));
+        let buf = if heading {
+            state.text_system.create_heading_buffer(texto, size, tw - (x - tx))
+        } else {
+            state.text_system.create_buffer(texto, size, tw - (x - tx))
+        };
+        if y + h >= top && y <= bottom {
+            state.text_system.draw_buffer_within(canvas, &buf, x, y + size, color, top, bottom);
+        }
+        h
+    };
+    let h = pintar(state, canvas, nombre, 15.0, tx, y, Color::from_hex(palette.text), true);
+    y += h + 10.0;
+    for bloque in manual_blocks(cuerpo) {
+        match bloque {
+            ManualBlock::Heading(t) => {
+                y += 6.0;
+                let h = pintar(state, canvas, &t, design::type_scale::MD, tx, y, Color::from_hex(palette.text), true);
+                y += h + 6.0;
+            }
+            ManualBlock::Paragraph(t) => {
+                let h = pintar(state, canvas, &t, design::type_scale::SM, tx, y, Color::from_hex(palette.text), false);
+                y += h + 10.0;
+            }
+            ManualBlock::Bullet(t) => {
+                pintar(state, canvas, "•", design::type_scale::SM, tx + 4.0, y, Color::from_hex(palette.accent), false);
+                let h = pintar(state, canvas, &t, design::type_scale::SM, tx + 18.0, y, Color::from_hex(palette.text), false);
+                y += h + 6.0;
+            }
+        }
+    }
+    let total = y + state.manual_scroll - top;
+    state.manual_scroll_max = (total - (bottom - top)).max(0.0);
+    // Si la sección cambió a una más corta, el desplazamiento se acota.
+    if state.manual_scroll > state.manual_scroll_max {
+        state.manual_scroll = state.manual_scroll_max;
+    }
+    let pista = state.text_system.create_code_buffer(
+        "rueda o ↑↓ desplaza · ←→ o 1-9 sección · Esc cierra",
+        design::type_scale::XS,
+        ancho - 40.0,
+    );
+    state.text_system.draw_buffer(canvas, &pista, x0 + 20.0, y0 + alto - 14.0, Color::from_hex(palette.text_muted));
 }
 
 /// Estado de un proveedor según el sondeo: texto y si está listo.
