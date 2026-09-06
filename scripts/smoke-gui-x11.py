@@ -163,6 +163,7 @@ def ask_round(question):
     # editor guarde la respuesta en el hilo de esta ronda y capturar.
     inicio_epoch=arranque_epoch-5
     t0=time.monotonic()
+    time.sleep(6); step_shot('2-pensando')
     while time.monotonic()-t0<300:
         if respuesta_guardada(question, inicio_epoch):
             time.sleep(0.5); key('Shift_L'); time.sleep(1); step_shot('3-respuesta')

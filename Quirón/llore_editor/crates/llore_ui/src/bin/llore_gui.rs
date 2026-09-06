@@ -2001,8 +2001,11 @@ fn render_app(window: &mut Window, state: &mut AppState) {
     if state.chat_scroll > state.chat_scroll_max {
         state.chat_scroll = state.chat_scroll_max;
     }
+    // Mientras piensa, el holograma pequeño gira donde va a salir la
+    // respuesta; los mensajes se apilan por encima de él.
+    let hueco_pensando = if state.loading { 96.0 } else { 0.0 };
     let mut placements: Vec<(usize, f32)> = Vec::new();
-    let mut cursor_y = msg_limit_y + state.chat_scroll;
+    let mut cursor_y = msg_limit_y + state.chat_scroll - hueco_pensando;
     for (index, (_, _, _, block_h)) in measured.iter().enumerate().rev() {
         let top = cursor_y - block_h;
         if cursor_y <= messages_start_y {
@@ -2036,6 +2039,30 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         );
     }
     let visible = |base: f32| base >= banda_top && base <= msg_limit_y;
+
+    if state.loading {
+        let lado = 72.0;
+        let cx = msg_card_x + lado * 0.5 + 6.0;
+        let cy = msg_limit_y - hueco_pensando * 0.5;
+        draw_brain_hologram(
+            canvas,
+            cx,
+            cy,
+            lado,
+            state.thinking_secs(),
+            (0.0, 0.0),
+            None,
+            Color::from_hex(palette.accent),
+            Color::from_hex(palette.text_muted),
+        );
+        let ultima = state.chat_activity_lines().last().cloned().unwrap_or_else(|| "pensando".to_string());
+        let buf = state.text_system.create_line_buffer(
+            &truncate_chars(&ultima, 60),
+            design::type_scale::XS,
+            msg_card_w - lado - 20.0,
+        );
+        state.text_system.draw_buffer(canvas, &buf, cx + lado * 0.5 + 12.0, cy + 4.0, Color::from_hex(palette.text_muted));
+    }
 
     for (index, msg_y) in placements {
         let (msg, text, text_h, block_h) = &measured[index];
@@ -2103,15 +2130,11 @@ fn render_app(window: &mut Window, state: &mut AppState) {
 
         let card_bounds = Bounds::new(msg_card_x, msg_y, msg_card_w, block_h);
 
-        // Etiqueta de rol encima, en mayúsculas, apagada — la maqueta no usa
-        // iconos redondos ni tarjetas con fondo para cada mensaje.
-        let etiqueta_buf = state.text_system.create_label_buffer(
-            if msg.is_user { "TÚ" } else { "QUIRÓN" },
-            design::type_scale::XS,
-            120.0,
-        );
+        // Etiqueta de rol solo para el usuario; la respuesta no la necesita:
+        // Quirón es el programa, no un interlocutor que se presenta.
+        let etiqueta_buf = state.text_system.create_label_buffer("TÚ", design::type_scale::XS, 120.0);
         let etiqueta_base = card_bounds.y + design::type_scale::XS;
-        if visible(etiqueta_base) {
+        if msg.is_user && visible(etiqueta_base) {
             state.text_system.draw_buffer(
                 canvas,
                 &etiqueta_buf,
@@ -2468,6 +2491,7 @@ fn render_app(window: &mut Window, state: &mut AppState) {
                     0.0
                 },
             ),
+            None if state.loading => ("chat · pensando".to_string(), 0.0),
             None => ("chat · sin llamadas".to_string(), 0.0),
         };
         let stats_buf = state
@@ -2492,7 +2516,31 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         }
         y += design::space::XL;
 
-        if state.last_tool_runs.is_empty() {
+        if state.loading {
+            // En vivo: lo que hace ahora mismo, la última línea encendida.
+            let rotulo = state.text_system.create_label_buffer("AHORA", design::type_scale::XS, fw);
+            state.text_system.draw_buffer(canvas, &rotulo, fx, y, Color::from_hex(palette.text_muted));
+            y += design::space::LG;
+            let lineas = state.chat_activity_lines();
+            let n = lineas.len();
+            for (i, linea) in lineas.iter().enumerate().skip(n.saturating_sub(9)) {
+                if y > tope {
+                    break;
+                }
+                let texto = truncate_chars(linea, 70);
+                let (_, alto) = state.text_system.measure_code(&texto, design::type_scale::XS, fw);
+                let buf = state.text_system.create_code_buffer(&texto, design::type_scale::XS, fw);
+                let color = if i + 1 == n {
+                    Color::from_hex(palette.accent)
+                } else if linea.starts_with('✗') {
+                    Color::from_hex(palette.error)
+                } else {
+                    Color::from_hex(palette.text_muted)
+                };
+                state.text_system.draw_buffer(canvas, &buf, fx, y, color);
+                y += paso.max(alto + 2.0);
+            }
+        } else if state.last_tool_runs.is_empty() {
             // Sin manos usadas no se enseña nada: el vacío ya lo dice.
         } else {
             // Flujo: una línea por herramienta, en el orden en que ocurrieron.

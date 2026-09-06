@@ -2164,6 +2164,10 @@ pub struct AppState {
     /// El chat en curso, fuera del hilo de la interfaz; cuándo empezó.
     chat_task: Option<JoinHandle<ChatTaskResult>>,
     chat_started: Option<Instant>,
+    /// Lo que el chat está haciendo ahora mismo, línea a línea, escrito desde
+    /// la tarea (consulta del índice, espera del modelo, cada mano). Se enseña
+    /// en Segundo plano mientras piensa y se vacía al terminar.
+    pub chat_activity: Arc<std::sync::Mutex<Vec<String>>>,
     /// Cursor del campo del chat: fase del parpadeo y último texto visto.
     pub caret_on: bool,
     caret_epoch: Instant,
@@ -2473,8 +2477,11 @@ impl AppState {
             .unwrap_or("sin nombre");
 
         format!(
-            "Eres el asistente de Llore, un editor de código. Trabajas sobre el \
-             proyecto «{proyecto}».\n\n\
+            "Eres Quirón, el chat del proyecto «{proyecto}». Contesta a lo que se \
+             pregunta, directamente: sin saludos, sin presentarte y sin repetir \
+             el contexto que recibes (raíz, archivo abierto, pestañas), que el \
+             usuario ya ve en pantalla. Si el mensaje es solo un saludo, responde \
+             en una línea y pregunta qué necesita.\n\n\
              Recibes como contexto el archivo que el usuario tiene abierto y su \
              selección si la hay. Además tienes manos: las herramientas \
              read_file (leer un archivo por su ruta relativa a la raíz), \
@@ -2712,6 +2719,7 @@ impl AppState {
             loading: false,
             chat_task: None,
             chat_started: None,
+            chat_activity: Arc::new(std::sync::Mutex::new(Vec::new())),
             caret_on: true,
             caret_epoch: Instant::now(),
             caret_last_text: String::new(),
@@ -11416,6 +11424,13 @@ impl AppState {
         // la interfaz: la ventana sigue viva mientras el modelo piensa y usa
         // las manos, y el resultado se recoge en `poll_chat_task`.
         self.chat_started = Some(Instant::now());
+        let actividad = self.chat_activity.clone();
+        if let Ok(mut lineas) = actividad.lock() {
+            lineas.clear();
+            lineas.push("consulta el índice: vectores y grafo del proyecto".to_string());
+            lineas.push(format!("pregunta al modelo ({model})"));
+        }
+        let modelo_para_actividad = model.clone();
         self.chat_task = Some(self.runtime.spawn(async move {
             let mut corridas: Vec<ToolRun> = Vec::new();
             let q = quiron.lock().await;
@@ -11445,10 +11460,28 @@ impl AppState {
                         .find_map(|k| input.get(*k).and_then(|v| v.as_str()))
                         .unwrap_or("")
                         .to_string();
+                    let que_hace = match name {
+                        "read_file" => format!("lee {arg}"),
+                        "search_text" => format!("busca «{arg}»"),
+                        "list_files" => format!("lista {}", if arg.is_empty() { "." } else { arg.as_str() }),
+                        otro => format!("{otro} {arg}"),
+                    };
+                    if let Ok(mut lineas) = actividad.lock() {
+                        lineas.push(format!("{que_hace}…"));
+                    }
                     let t0 = Instant::now();
                     let outcome = chat_tools::execute(&ctx, name, input);
                     let took = t0.elapsed();
                     let lineas = outcome.content.lines().count();
+                    if let Ok(mut vivas) = actividad.lock() {
+                        vivas.pop();
+                        vivas.push(if outcome.is_error {
+                            format!("✗ {que_hace}: {}", outcome.content.lines().next().unwrap_or("denegado"))
+                        } else {
+                            format!("{que_hace} → {lineas} línea{}", if lineas == 1 { "" } else { "s" })
+                        });
+                        vivas.push(format!("vuelve al modelo ({modelo_para_actividad}) con el resultado"));
+                    }
                     let summary = if outcome.is_error {
                         outcome
                             .content
@@ -11519,6 +11552,16 @@ impl AppState {
         false
     }
 
+    /// Segundos que lleva pensando la respuesta en curso.
+    pub fn thinking_secs(&self) -> f32 {
+        self.chat_started.map(|t| t.elapsed().as_secs_f32()).unwrap_or(0.0)
+    }
+
+    /// Copia de lo que el chat hace ahora mismo (vacío si no piensa).
+    pub fn chat_activity_lines(&self) -> Vec<String> {
+        self.chat_activity.lock().map(|l| l.clone()).unwrap_or_default()
+    }
+
     fn finish_chat(
         &mut self,
         result: Result<llore_brain::ChatOutcome, llore_brain::client::ClientError>,
@@ -11526,6 +11569,9 @@ impl AppState {
         corridas: Vec<ToolRun>,
         pensado: Duration,
     ) {
+        if let Ok(mut lineas) = self.chat_activity.lock() {
+            lineas.clear();
+        }
         self.last_thought_secs = pensado.as_secs_f32();
         self.last_tool_runs = corridas;
         self.background_snapshot = Some(BackgroundSnapshot {
@@ -12404,7 +12450,9 @@ where
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         // Progreso y monitores deben avanzar aunque no se mueva el ratón. Con
         // la bienvenida a la vista, el holograma se anima: fotograma cada 33 ms.
-        let animando = self.state.welcome_visible();
+        // Con la bienvenida o una respuesta en curso el holograma gira:
+        // fotograma cada 33 ms; el resto del tiempo, 250 ms.
+        let animando = self.state.welcome_visible() || self.state.loading;
         let intervalo = if animando { 33 } else { 250 };
         event_loop.set_control_flow(ControlFlow::WaitUntil(
             Instant::now() + Duration::from_millis(intervalo),
