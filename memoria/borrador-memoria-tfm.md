@@ -235,8 +235,8 @@ Tres reglas ordenaron el trabajo. **Medir antes de decidir:** los diagnósticos 
 
 ## 4.3 Recursos requeridos
 
-- Portátil con RTX 3060 de 6 GB y 15 GiB de RAM utilizable, Linux (Arch) con servicios de usuario de systemd: equipo de desarrollo y de todas las pruebas registradas.
-- Dos estaciones de trabajo adicionales con dos RTX 3090, accesibles por SSH: disponibles; no se atribuyen resultados de entrenamiento.
+- Portátil Razer Blade 15 (2021) con Intel Core i7-10750H, RTX 3060 de 6 GB y 16 GB de RAM (15 GiB utilizables), Linux (Arch) con servicios de usuario de systemd: equipo de desarrollo y de todas las pruebas registradas.
+- Dos torres adicionales accesibles por SSH en la red local, ambas con Arch Linux: una estación con AMD Ryzen 9 9950X, 128 GB de RAM, dos RTX 3090 de 24 GB y 8 TB de almacenamiento NVMe, prevista para el entrenamiento de la red obrera; y una segunda torre con AMD Ryzen 7 9800X3D, 64 GB de RAM y 3 TB de almacenamiento NVMe, sin GPU dedicada, usada como servidor de apoyo. No se atribuyen resultados de entrenamiento a ninguna de las dos.
 - Software libre: Rust y su ecosistema (`winit`, `tiny-skia`, `softbuffer`, `taffy`, `cosmic-text`, Tree-sitter, Sled), Qdrant, Neo4j Community, llama.cpp, ONNX Runtime, Docker, Python.
 - Modelos preentrenados abiertos: Qwen2.5-Coder-1.5B-Instruct (GGUF Q4_K_M) y `bge-m3` (BAAI).
 - Acceso a modelos de lenguaje por suscripción (CLI de Claude y de Codex) y endpoints configurables.
@@ -251,8 +251,9 @@ El coste inicial de una instalación incluye descargas: aproximadamente 1,15 GB 
 | Tipo de coste | Valor | Comentarios |
 | --- | --- | --- |
 | Horas de trabajo en el proyecto | [COMPLETAR — horas totales] | Trabajo del autor de febrero a septiembre de 2026; no han participado otras personas |
-| Equipo técnico: portátil con RTX 3060 de 6 GB y 15 GiB de RAM | [COMPLETAR — valor de mercado] € | Equipo propio, no adquirido para el proyecto; en él se hicieron todas las pruebas registradas |
-| Equipo técnico: dos estaciones con dos RTX 3090 | [COMPLETAR — valor de mercado] € | Equipos propios accesibles por SSH; no se usaron para entrenar |
+| Equipo técnico: portátil Razer Blade 15 (2021), i7-10750H, RTX 3060 de 6 GB, 16 GB de RAM | ≈ 1 800 € | Equipo propio, no adquirido para el proyecto; precio aproximado a nuevo. En él se hicieron todas las pruebas registradas |
+| Equipo técnico: estación con Ryzen 9 9950X, 128 GB de RAM, dos RTX 3090 de 24 GB y 8 TB NVMe | ≈ 5 600 € | Equipo propio accesible por SSH; valor aproximado a nuevo por componentes, con las RTX 3090 a su precio de lanzamiento. Prevista para entrenar la red obrera; no se usó para entrenar |
+| Equipo técnico: torre con Ryzen 7 9800X3D, 64 GB de RAM y 3 TB NVMe, sin GPU dedicada | ≈ 1 300 € | Equipo propio accesible por SSH; valor aproximado a nuevo por componentes. Servidor de apoyo |
 | Software utilizado | 0 € | Rust, Sled, Qdrant, Neo4j, llama.cpp, ONNX Runtime, Python, Docker y los pesos de Qwen y BGE-M3 son de código abierto o de descarga gratuita bajo sus licencias |
 | Suscripciones a asistentes (Claude y ChatGPT/Codex) | [COMPLETAR — gasto real por periodo] € | Usadas como agentes conectados a Quirón y como apoyo al desarrollo; los servidores compatibles y Ollama no requieren suscripción |
 | Estudios e informes | 0 € | Todas las fuentes consultadas son de acceso abierto |
