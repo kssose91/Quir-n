@@ -33,7 +33,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (BaseDocTemplate, Frame, Image, KeepTogether, PageBreak,
+from reportlab.platypus import (BaseDocTemplate, Flowable, Frame, Image, KeepTogether, PageBreak,
                                 PageTemplate, Paragraph, Spacer, Table, TableStyle)
 from reportlab.platypus.tableofcontents import TableOfContents
 
@@ -100,6 +100,38 @@ class MemoriaTemplate(BaseDocTemplate):
                 self.canv.addOutlineEntry(flowable.entry_text, key, level=flowable.entry_level, closed=False)
 
 
+class CaptionedTable(Flowable):
+    """Rótulo y tabla: el rótulo va siempre con las primeras filas y el resto de la tabla puede partirse."""
+
+    GAP = 4
+    MIN_ROWS = 3
+
+    def __init__(self, caption, table):
+        super().__init__()
+        self.caption = caption
+        self.table = table
+        self.spaceBefore = caption.style.spaceBefore
+        self.spaceAfter = 0
+
+    def wrap(self, aW, aH):
+        _, self._cap_h = self.caption.wrap(aW, aH)
+        _, self._tab_h = self.table.wrap(aW, aH)
+        self.width = aW
+        self.height = self._cap_h + self.GAP + self._tab_h
+        return self.width, self.height
+
+    def split(self, aW, aH):
+        self.wrap(aW, aH)
+        first_rows = sum(self.table._rowHeights[:self.MIN_ROWS])
+        if self._cap_h + self.GAP + first_rows > aH:
+            return []
+        return [self.caption, self.table]
+
+    def draw(self):
+        self.caption.drawOn(self.canv, 0, self.height - self._cap_h)
+        self.table.drawOn(self.canv, 0, 0)
+
+
 def register_fonts():
     font_dir = Path('/usr/share/fonts/liberation')
     if not (font_dir / 'LiberationSans-Regular.ttf').is_file():
@@ -133,6 +165,7 @@ def build_styles():
                               spaceBefore=4, alignment=TA_CENTER))
     styles.add(ParagraphStyle('TableCaption', fontName='Body-Italic', fontSize=9, leading=12, spaceBefore=8,
                               spaceAfter=4, alignment=TA_CENTER, keepWithNext=1))
+    styles.add(ParagraphStyle('TableCaptionInner', parent=styles['TableCaption'], keepWithNext=0))
     styles.add(ParagraphStyle('CodeBlock', fontName='Code', fontSize=8, leading=10, spaceAfter=10,
                               backColor=colors.HexColor('#f1f3f5'), leftIndent=4, borderPadding=4))
     styles.add(ParagraphStyle('CoverCenter', fontName='Body-Bold', fontSize=13, leading=18, alignment=TA_CENTER,
@@ -427,9 +460,11 @@ def main():
                                            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                                            ('LEFTPADDING', (0, 0), (-1, -1), 6), ('RIGHTPADDING', (0, 0), (-1, -1), 6),
                                            ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5)]))
-            caption = Paragraph(escape(f'Tabla {counters["tab"]}. {caption_text}'), styles['TableCaption'])
+            caption = Paragraph(escape(f'Tabla {counters["tab"]}. {caption_text}'), styles['TableCaptionInner'])
             caption.entry_kind, caption.entry_level, caption.entry_text = 'TabEntry', 0, f'Tabla {counters["tab"]}. {caption_text}'
-            story.extend([caption, pdf_table, Spacer(1, 14)])
+            block = CaptionedTable(caption, pdf_table)
+            block.entry_kind, block.entry_level, block.entry_text = caption.entry_kind, caption.entry_level, caption.entry_text
+            story.extend([block, Spacer(1, 14)])
             counters['tab'] += 1
             i = j + 1
             continue

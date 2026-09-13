@@ -144,20 +144,21 @@ El beneficio directo es económico y de agilidad: con las lógicas localizadas, 
 El sistema se levanta en fases, y cada una exige que la anterior funcione. La decisión rectora es que **la red neuronal es la última pieza, no la primera**: las cinco primeras fases producen un sistema útil sin una sola red entrenada por el autor; la sexta lo mejora, no lo sostiene. Construir la red antes que el indexador significaría entrenarla sobre un corpus que no existe. Esa decisión fue la que permitió cerrar el proyecto cuando la sexta fase cambió de naturaleza.
 
 <!-- tabla: Fases del proyecto: planificación y realización -->
-| Fase | Periodo (2026) | Contenido planificado | Realización |
+| Fase | Periodo | Contenido planificado | Realización |
 | --- | --- | --- | --- |
-| F0 | Febrero | Anteproyecto y definición del alcance | Realizada |
-| F1 | Febrero–abril | Infraestructura de servicios: cerebro con API local, embeddings y reranker, pasarela a modelos, Qdrant y Neo4j en contenedores | Realizada; el servicio de embeddings pasó después a ejecutarse dentro del cerebro |
-| F2 | Abril–junio | Editor nativo, integración de escritorio, confinamiento con pruebas | Realizada |
-| F3 | Junio–julio | Arquitectura de memoria: registro inmutable, estados de promoción, diagnóstico medido de la recuperación | Realizada |
-| F4 | Julio | Estudio matemático de la red obrera sobre más de 40 fuentes primarias | Realizada (Anexo A) |
-| F5 | Agosto–septiembre | Índice de código, grafo de dependencias y recuperación conectada al chat | Realizada con el alcance del Capítulo 3: unidades de Archivo y Lógica en Rust, aristas de llamadas aproximadas, recuperación sin reranker |
-| F6 | Septiembre | Red obrera: corpus, destilación, cuantización y despliegue; medición final | Sustituida: worker con modelos preentrenados descargables, selección por dispositivo, proveedores desde la interfaz, paquete Linux y evaluación exploratoria |
-| Cierre | 10–13 de septiembre | Redacción final | Contraste entre código y memoria, registro v2, fichas v5, limpieza del código y memoria |
+| Previo | Diciembre de 2025 – enero de 2026 | Estudio propio, anterior al proyecto: grafos y Neo4j, y construcción de las primeras redes neuronales del autor | Realizado; no forma parte del código entregado. Orientó la elección del grafo y la decisión de situar la red como última pieza |
+| F0 | Febrero de 2026 | Anteproyecto y definición del alcance | Realizada |
+| F1 | Febrero–abril de 2026 | Infraestructura de servicios: cerebro con API local, embeddings y reranker, pasarela a modelos, Qdrant y Neo4j en contenedores | Realizada; el servicio de embeddings pasó después a ejecutarse dentro del cerebro |
+| F2 | Abril–junio de 2026 | Editor nativo, integración de escritorio, confinamiento con pruebas | Realizada |
+| F3 | Junio–julio de 2026 | Arquitectura de memoria: registro inmutable, estados de promoción, diagnóstico medido de la recuperación | Realizada |
+| F4 | Julio de 2026 | Estudio matemático de la red obrera sobre más de 40 fuentes primarias | Realizada (Anexo A) |
+| F5 | Agosto–septiembre de 2026 | Índice de código, grafo de dependencias y recuperación conectada al chat | Realizada con el alcance del Capítulo 3: unidades de Archivo y Lógica en Rust, aristas de llamadas aproximadas, recuperación sin reranker |
+| F6 | Septiembre de 2026 | Red obrera: corpus, destilación, cuantización y despliegue; medición final | Sustituida: worker con modelos preentrenados descargables, selección por dispositivo, proveedores desde la interfaz, paquete Linux y evaluación exploratoria |
+| Cierre | 10–13 de septiembre de 2026 | Redacción final | Contraste entre código y memoria, registro v2, fichas v5, limpieza del código y memoria |
 
 ![Cronograma del proyecto: actividades realizadas entre febrero y septiembre de 2026](figuras/fig-cronograma.png)
 
-El esfuerzo en horas se recoge en el presupuesto del apartado 4.4. El historial Git del repositorio de entrega comienza el 29 de agosto de 2026 con la reorganización documental del proyecto; el código de las fases F1 a F4 se incorporó en ese primer commit. La entrega del programa, acordada con el tutor, se realiza mediante repositorio: **[COMPLETAR — URL del repositorio de entrega]**. La revisión entregada lleva la etiqueta `entrega-tfm`; el paquete binario incluye un inventario de hashes (`BUILD.json` y `SHA256SUMS`).
+El esfuerzo en horas se recoge en el presupuesto del apartado 4.4. El historial Git del repositorio de entrega comienza el 29 de agosto de 2026 con la reorganización documental del proyecto; el código de las fases F1 a F4 se incorporó en ese primer commit. La entrega del programa, acordada con el tutor, se realiza mediante repositorio: **https://github.com/kssose91/Quir-n** (rama `main`). La revisión entregada lleva la etiqueta `entrega-tfm`; el paquete binario incluye un inventario de hashes (`BUILD.json` y `SHA256SUMS`).
 
 ## 4.2 Descripción de la solución, metodologías y herramientas empleadas
 
@@ -250,17 +251,17 @@ El coste inicial de una instalación incluye descargas: aproximadamente 1,15 GB 
 <!-- tabla: Presupuesto del proyecto -->
 | Tipo de coste | Valor | Comentarios |
 | --- | --- | --- |
-| Horas de trabajo en el proyecto | [COMPLETAR — horas totales] | Trabajo del autor de febrero a septiembre de 2026; no han participado otras personas |
+| Horas de trabajo en el proyecto | ≈ 900 h | Estimación del autor: unas 20 h semanales de febrero a septiembre de 2026 (≈ 740 h) más unas 150 h de estudio previo en diciembre de 2025 y enero de 2026 (grafos, Neo4j y primeras redes neuronales). No han participado otras personas |
 | Equipo técnico: portátil Razer Blade 15 (2021), i7-10750H, RTX 3060 de 6 GB, 16 GB de RAM | ≈ 1 800 € | Equipo propio, no adquirido para el proyecto; precio aproximado a nuevo. En él se hicieron todas las pruebas registradas |
 | Equipo técnico: estación con Ryzen 9 9950X, 128 GB de RAM, dos RTX 3090 de 24 GB y 8 TB NVMe | ≈ 5 600 € | Equipo propio accesible por SSH; valor aproximado a nuevo por componentes, con las RTX 3090 a su precio de lanzamiento. Prevista para entrenar la red obrera; no se usó para entrenar |
 | Equipo técnico: torre con Ryzen 7 9800X3D, 64 GB de RAM y 3 TB NVMe, sin GPU dedicada | ≈ 1 300 € | Equipo propio accesible por SSH; valor aproximado a nuevo por componentes. Servidor de apoyo |
 | Software utilizado | 0 € | Rust, Sled, Qdrant, Neo4j, llama.cpp, ONNX Runtime, Python, Docker y los pesos de Qwen y BGE-M3 son de código abierto o de descarga gratuita bajo sus licencias |
-| Suscripciones a asistentes (Claude y ChatGPT/Codex) | [COMPLETAR — gasto real por periodo] € | Usadas como agentes conectados a Quirón y como apoyo al desarrollo; los servidores compatibles y Ollama no requieren suscripción |
+| Suscripciones a asistentes (Claude y ChatGPT/Codex) | 0 € imputados | El autor dispone de Claude Max y ChatGPT Pro por motivos laborales; no se contrataron para el proyecto. Se usaron como agentes conectados a Quirón y como apoyo al desarrollo; los servidores compatibles y Ollama no requieren suscripción |
 | Estudios e informes | 0 € | Todas las fuentes consultadas son de acceso abierto |
 | Materiales empleados | 0 € | Sin material de laboratorio; descargas de unos 1,15 GB para el runtime y el modelo del worker, además de BGE-M3 y las imágenes de los almacenes |
-| Electricidad y almacenamiento | [COMPLETAR — estimación, si se incluye] | Coste de la inferencia local; no se ha medido el consumo |
+| Electricidad y almacenamiento | No imputada | Inferencia local en equipos propios; no se ha medido el consumo |
 
-No se presenta un coste total hasta completar las filas pendientes. La disponibilidad de software y pesos descargables no elimina las condiciones de licencia ni los costes operativos; la revisión de licencias de distribución acompaña al paquete.
+El desembolso directamente imputable al proyecto es de 0 €: el equipo es propio y anterior al proyecto (valor aproximado a nuevo de 8 700 € en conjunto), el software y los pesos son libres, y las suscripciones no se contrataron para el trabajo. El coste real es el tiempo del autor, unas 900 horas. La disponibilidad de software y pesos descargables no elimina las condiciones de licencia ni los costes operativos; la revisión de licencias de distribución acompaña al paquete.
 
 ## 4.5 Viabilidad y despliegue
 
@@ -373,7 +374,7 @@ Este proyecto ha sido un año de aprendizaje acelerado: de usuario de asistentes
 
 Debo decir algo con honestidad. Cuando concebí este proyecto, hace un año, tenía mucho más sentido que hoy. Las alucinaciones eran constantes y la duplicación de lógica era lo normal: el asistente reescribía una función que ya existía tres archivos más allá porque no la había visto, e inventaba firmas que nunca existieron. Un índice verificable contra el código vigente era la respuesta natural a un problema que sufría a diario. En este año, la forma de trabajar con redes neuronales y los propios modelos de lenguaje han avanzado muchísimo: las ventanas de contexto son mayores, los agentes exploran el repositorio con sus propias herramientas y las alucinaciones sobre código que tienen delante son mucho menos frecuentes. Por desgracia para mi trabajo, parte de la motivación original se ha diluido por el camino. No toda: en el día a día Quirón sigue teniendo sentido por velocidad y por ahorro de tokens, porque un conjunto de fichas de unos dos mil quinientos tokens sigue siendo más rápido y más barato que releer cuatrocientos mil, y porque esas fichas están comprobadas contra el código, no adivinadas. La lección que me llevo es que construir infraestructura sobre un límite actual de los modelos es apostar contra su progreso, y ese progreso ha sido más rápido de lo que preví.
 
-La decisión más difícil fue renunciar a entrenar la red obrera y cerrar con modelos preentrenados. La planificación lo había previsto sin saberlo: al poner la red como última pieza, el sistema tenía que ser útil sin ella, y lo es. Aprendí que el orden de las fases es una decisión de riesgo, no de calendario.
+La decisión más difícil fue renunciar a entrenar la red obrera y cerrar con modelos preentrenados. Ya en diciembre y enero, al construir mis primeras redes neuronales por mi cuenta, había visto lo difícil que es producir algo realmente útil sin un hardware inmenso, y eso pesó en la decisión. La planificación lo había previsto sin saberlo: al poner la red como última pieza, el sistema tenía que ser útil sin ella, y lo es. Aprendí que el orden de las fases es una decisión de riesgo, no de calendario.
 
 Lo que más me ha enseñado ha sido medir. El diagnóstico de julio, donde tres hipótesis plausibles resultaron falsas, y la revisión de septiembre, donde fichas que pasaban el esquema contenían errores que solo aparecían leyendo el código, me han dejado una disciplina: distinguir lo verificado de lo plausible, no aceptar un diagnóstico sin datos y diseñar sistemas cuyo peor error sea reversible. También aprendí, bloqueando el portátil por falta de memoria, que el hardware local tiene límites que hay que respetar por diseño.
 
@@ -468,4 +469,4 @@ Los informes técnicos de modelos se citan como resultados de sus autores; no so
 - **Anexo B — Informes técnicos de cierre:** `docs/CIERRE_TFM_2026-09-10.md` (contraste entre código y memoria, con los límites técnicos encontrados), `docs/ESTABILIZACION_2026-09-10.md` (correcciones del registro, de las fichas y del paquete) y `docs/CODEX_EN_QUIRON_2026-09-10.md` (integración de Codex).
 - **Anexo C — Manual e instalación:** `docs/MANUAL.md` (manual de uso, accesible desde la aplicación), `docs/GUIA_EVALUACION.md` (guía para evaluar la aplicación en otro equipo), `docs/WORKER_Y_PROVEEDORES.md` (contrato del worker y de las conexiones) y `deploy/LINUX.md` (requisitos y límites del paquete Linux). El código es la referencia para resolver cualquier discrepancia con la documentación.
 - **Anexo D — Evidencias:** `docs/evidencias/2026-09-05/` para las pruebas de la primera integración y `docs/evidencias/2026-09-10*/` para las del cierre. Los archivos de cada ejecución indican su alcance; una captura o una simulación no se presenta como ensayo de instalación limpia.
-- **Anexo E — Fuentes y artefactos:** repositorio de entrega [COMPLETAR — URL], revisión etiquetada `entrega-tfm`. Este Markdown es la fuente de las exportaciones DOCX y PDF, generadas con `scripts/export-memory.py`; el paquete binario se construye con `scripts/package-linux-portable.sh` y lleva su inventario de hashes.
+- **Anexo E — Fuentes y artefactos:** repositorio de entrega https://github.com/kssose91/Quir-n, rama `main`, revisión etiquetada `entrega-tfm`. Este Markdown es la fuente de las exportaciones DOCX y PDF, generadas con `scripts/export-memory.py`; el paquete binario se construye con `scripts/package-linux-portable.sh` y lleva su inventario de hashes.
