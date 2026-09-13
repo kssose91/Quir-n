@@ -38,3 +38,6 @@ node_modules/
 # Identidad y estado de cualquier carpeta abierta como proyecto, a cualquier nivel.
 .llore/
 .quiron/
+
+# Permisos locales de la sesión del asistente
+.claude/
