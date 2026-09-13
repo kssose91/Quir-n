@@ -131,6 +131,8 @@ def build_styles():
     styles.add(ParagraphStyle('Cell', fontName='Body', fontSize=9, leading=12, spaceAfter=2))
     styles.add(ParagraphStyle('Caption', fontName='Body-Italic', fontSize=9, leading=12, spaceAfter=14,
                               spaceBefore=4, alignment=TA_CENTER))
+    styles.add(ParagraphStyle('TableCaption', fontName='Body-Italic', fontSize=9, leading=12, spaceBefore=8,
+                              spaceAfter=4, alignment=TA_CENTER, keepWithNext=1))
     styles.add(ParagraphStyle('CodeBlock', fontName='Code', fontSize=8, leading=10, spaceAfter=10,
                               backColor=colors.HexColor('#f1f3f5'), leftIndent=4, borderPadding=4))
     styles.add(ParagraphStyle('CoverCenter', fontName='Body-Bold', fontSize=13, leading=18, alignment=TA_CENTER,
@@ -400,6 +402,7 @@ def main():
                 j += 1
             caption_text = pending_table_caption or heading
             pending_table_caption = None
+            docx_caption(document, 'Tabla', caption_text)
             table = document.add_table(rows=len(rows), cols=len(rows[0]))
             table.style = 'Table Grid'
             for row, cells in zip(table.rows, rows):
@@ -410,7 +413,6 @@ def main():
             for cell in table.rows[0].cells:
                 for run in cell.paragraphs[0].runs:
                     run.bold = True
-            docx_caption(document, 'Tabla', caption_text)
             cells = [[Paragraph(html_inline(t.children), styles['Cell']) for t in row] for row in rows]
             ncols = len(rows[0])
             if ncols == 2:
@@ -425,9 +427,9 @@ def main():
                                            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                                            ('LEFTPADDING', (0, 0), (-1, -1), 6), ('RIGHTPADDING', (0, 0), (-1, -1), 6),
                                            ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5)]))
-            caption = Paragraph(escape(f'Tabla {counters["tab"]}. {caption_text}'), styles['Caption'])
+            caption = Paragraph(escape(f'Tabla {counters["tab"]}. {caption_text}'), styles['TableCaption'])
             caption.entry_kind, caption.entry_level, caption.entry_text = 'TabEntry', 0, f'Tabla {counters["tab"]}. {caption_text}'
-            story.extend([pdf_table, caption])
+            story.extend([caption, pdf_table, Spacer(1, 14)])
             counters['tab'] += 1
             i = j + 1
             continue
