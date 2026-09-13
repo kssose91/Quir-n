@@ -1,0 +1,11 @@
+{
+  "source_sha256": "164e72b66a8590042f10b2537e2bc91c6e276ea16a2cc83275343ab4eec3e15c",
+  "annex_sha256": "8960daafd471291a19ad8c957abca867e0f98e0372dae86374aa828073b2c5f5",
+  "outputs": {
+    "Memoria TFM - Quirón.docx": "e2c21b8d96621431d20669949f3450e92cbf5495aee7156e36626130da4a820f",
+    "Memoria TFM - Quirón.pdf": "a4906e50df8270274606f2d3c5037f622243311e8215922cd7c545dc07cba277"
+  },
+  "pending_fields": 9,
+  "figures": 5,
+  "tables": 10
+}

@@ -143,7 +143,6 @@ Cada proveedor determina cómo se inicia sesión y qué uso cubren sus límites.
 |---|---|
 | `claude_cli` | CLI oficial autenticada mediante `claude auth login`; probado con sesión de claude.ai |
 | `codex_cli` | CLI oficial autenticada; modelo y esfuerzo explícitos, contrato JSON y herramientas ejecutadas por Quirón |
-| `codex_direct` | Adaptador histórico de HTTP que lee la sesión; se conserva para configuraciones existentes, pero «Usar ChatGPT» selecciona ahora `codex_cli` |
 | `openai_compatible` | Endpoint, modelo y credencial de API propia (OpenAI, un servidor compatible en la red local u Ollama por su `/v1`); transporta la conversación estructurada y las herramientas de Quirón (`tools` de OpenAI; las llamadas escritas como JSON por modelos pequeños también se aceptan) |
 | `ollama_native` | API nativa de Ollama (`/api/chat`), sin herramientas; la paleta usa la compatible |
 

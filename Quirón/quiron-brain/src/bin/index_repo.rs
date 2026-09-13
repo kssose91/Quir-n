@@ -12,7 +12,7 @@
 //!
 //! Con `QUIRON_INDEX_VECTORIZE=1` vectoriza además las unidades a Qdrant
 //! (colección `quiron_code`), usando el servicio semántico configurado. Esto
-//! requiere Qdrant y `semantic-ia-local` en marcha.
+//! requiere Qdrant en marcha.
 
 use quiron_brain::graph::GraphBuilder;
 use quiron_brain::index::Indexer;

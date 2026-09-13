@@ -3,15 +3,15 @@
 **Algoritmos y ecuaciones de los LLM recientes, y cómo reutilizarlos en nuestro worker**
 **TFM Quirón · Anexo A de la memoria · 10 de julio de 2026**
 
-> **Revisión de alcance — 10 de septiembre de 2026.** Este documento recoge
-> alternativas estudiadas para el diseño inicial. La versión implementada usa
-> modelos preentrenados descargables (Qwen como generador y BGE-M3 para embeddings);
-> no se entrenó ni exportó a ONNX el backbone aquí propuesto. Las etiquetas de
-> «verificación adversarial» describen el procedimiento declarado en julio y no
-> sustituyen una reproducción experimental ni una matriz pública de cada juicio.
-> La recuperación actual del índice de código usa archivos y caché local: no es
-> una reconstrucción completa desde el ledger. Los límites y resultados vigentes
-> se recogen en la memoria revisada y `docs/CIERRE_TFM_2026-09-10.md`.
+> **Nota sobre el alcance.** Este estudio recoge las alternativas que analicé
+> para el diseño inicial de la red obrera. La versión entregada de Quirón usa
+> modelos preentrenados descargables (Qwen como generador de fichas y BGE-M3
+> para los embeddings); el backbone que aquí se propone no llegó a entrenarse
+> ni a exportarse a ONNX. Las etiquetas de «verificación adversarial» describen
+> el procedimiento que seguí en julio al contrastar las fuentes; no sustituyen
+> una reproducción experimental. El índice de código de la versión final se
+> mantiene desde los archivos y una caché local, no como reconstrucción completa
+> desde el registro de eventos. Los resultados vigentes están en la memoria.
 
 Este documento extrae **la matemática** de los mecanismos con los que se han
 construido los LLM recientes —no compara modelos— y explica, para cada uno:
@@ -392,7 +392,7 @@ Combinando **solo lo reutilizable**, una **única red pequeña** con esta forma:
 4. **Entrenamiento por Sequence-Level KD (§3.2)** desde el profesor por login (solo
    texto): una vía de destilación viable sin logits, no ejecutada en esta versión.
 5. **Despliegue cuantizado con AWQ INT4 (§4.1)** para caber en 48 GB y correr en el
-   mismo `ort` de Rust que ya usa `semantic-ia-local`.
+   mismo `ort` de Rust que ya usa el cerebro para BGE-M3.
 
 ## Qué es reutilizable y qué es solo principio de diseño
 

@@ -17,7 +17,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::embed::EmbedService;
-use super::remote::RemoteSemanticClient;
 use super::search::{CragResult, RankedResult, SearchResult};
 use super::{SemanticBackendKind, SemanticConfig};
 use crate::memory::MemoryEnvelope;
@@ -25,10 +24,9 @@ use crate::types::Event;
 
 enum SemanticComputeBackend {
     InProcess(EmbedService),
-    Remote(RemoteSemanticClient),
 }
 
-/// Semantic client combining local or remote semantic compute with local Qdrant.
+/// Semantic client combining the in-process embedding runtime with local Qdrant.
 pub struct SemanticClient {
     qdrant: Qdrant,
     compute: SemanticComputeBackend,
@@ -45,9 +43,6 @@ impl SemanticClient {
         let compute = match config.backend {
             SemanticBackendKind::InProcess => {
                 SemanticComputeBackend::InProcess(EmbedService::new(&config.embed_model)?)
-            }
-            SemanticBackendKind::Remote => {
-                SemanticComputeBackend::Remote(RemoteSemanticClient::connect(config.clone()).await?)
             }
         };
 
@@ -296,25 +291,16 @@ impl SemanticClient {
 
     pub async fn search_ranked(&self, query: &str, limit: u64) -> Result<Vec<RankedResult>> {
         let candidates = self.search(query, limit * 3, None).await?;
-        let rerank_scores = self.remote_rerank_scores(query, &candidates).await;
 
         let mut ranked: Vec<RankedResult> = candidates
             .into_iter()
-            .enumerate()
-            .map(|(index, result)| {
+            .map(|result| {
                 let importance = result.importance.unwrap_or(0.5);
                 let freshness = calculate_freshness(&result.timestamp);
-                let remote_score = rerank_scores
-                    .as_ref()
-                    .and_then(|scores| scores.get(index).copied());
-
-                let base_score = remote_score.unwrap_or(result.score);
+                let base_score = result.score;
                 let final_score = base_score * importance * freshness;
 
                 let mut reasons = vec![];
-                if remote_score.is_some() {
-                    reasons.push("semantic_ia rerank".to_string());
-                }
                 if importance > 0.8 {
                     reasons.push("high importance".to_string());
                 }
@@ -346,7 +332,6 @@ impl SemanticClient {
     pub async fn health_check(&self) -> bool {
         let compute_ok = match &self.compute {
             SemanticComputeBackend::InProcess(embed) => embed.health_check().await,
-            SemanticComputeBackend::Remote(remote) => remote.health_check().await,
         };
 
         let qdrant_ok = self
@@ -365,56 +350,18 @@ impl SemanticClient {
     pub(crate) fn vector_dimension(&self) -> usize {
         match &self.compute {
             SemanticComputeBackend::InProcess(embed) => embed.dimension(),
-            SemanticComputeBackend::Remote(remote) => remote.dimension(),
         }
     }
 
     pub(crate) async fn embed_query(&self, query: &str) -> Result<Vec<f32>> {
         match &self.compute {
             SemanticComputeBackend::InProcess(embed) => embed.embed(query).await,
-            SemanticComputeBackend::Remote(remote) => remote.embed_query(query).await,
         }
     }
 
     pub(crate) async fn embed_passage(&self, text: &str) -> Result<Vec<f32>> {
         match &self.compute {
             SemanticComputeBackend::InProcess(embed) => embed.embed(text).await,
-            SemanticComputeBackend::Remote(remote) => remote.embed_passage(text).await,
-        }
-    }
-
-    async fn remote_rerank_scores(
-        &self,
-        query: &str,
-        candidates: &[SearchResult],
-    ) -> Option<Vec<f32>> {
-        let SemanticComputeBackend::Remote(remote) = &self.compute else {
-            return None;
-        };
-
-        let documents = candidates
-            .iter()
-            .map(candidate_document_for_rerank)
-            .collect::<Vec<_>>();
-
-        match remote.rerank(query, &documents, documents.len()).await {
-            Ok(items) => {
-                let mut scores = vec![0.0; documents.len()];
-                for item in items {
-                    if let Some(slot) = scores.get_mut(item.index) {
-                        *slot = item.score;
-                    }
-                }
-                Some(scores)
-            }
-            Err(err) => {
-                tracing::warn!(
-                    error = %err,
-                    remote_url = %self.config.remote_url,
-                    "semantic_ia rerank failed; falling back to local heuristic ranking"
-                );
-                None
-            }
         }
     }
 
@@ -431,7 +378,7 @@ impl SemanticClient {
         );
 
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(self.config.remote_timeout_secs.max(10)))
+            .timeout(std::time::Duration::from_secs(120))
             .build()
             .context("Failed to build REST fallback client")?;
 
@@ -576,33 +523,6 @@ fn extract_f32(v: &qdrant_client::qdrant::Value) -> Option<f32> {
         Some(qdrant_client::qdrant::value::Kind::DoubleValue(value)) => Some(*value as f32),
         Some(qdrant_client::qdrant::value::Kind::IntegerValue(value)) => Some(*value as f32),
         _ => None,
-    }
-}
-
-fn candidate_document_for_rerank(candidate: &SearchResult) -> String {
-    if let Some(description) = candidate
-        .description
-        .as_ref()
-        .filter(|value| !value.is_empty())
-    {
-        return description.clone();
-    }
-
-    let mut fallback = Vec::new();
-    if let Some(kind) = candidate.kind.as_ref() {
-        fallback.push(kind.clone());
-    }
-    if let Some(event_id) = candidate.event_id.as_ref() {
-        fallback.push(event_id.clone());
-    }
-    if let Some(timestamp) = candidate.timestamp.as_ref() {
-        fallback.push(timestamp.clone());
-    }
-
-    if fallback.is_empty() {
-        "memory candidate".to_string()
-    } else {
-        fallback.join(" | ")
     }
 }
 

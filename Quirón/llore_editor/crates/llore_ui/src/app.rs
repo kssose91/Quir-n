@@ -4351,7 +4351,7 @@ impl AppState {
     pub fn chat_model(&self) -> String { self.selected_ai_model.clone() }
 
     pub fn ai_provider_is_codex(&self) -> bool {
-        ["codex_cli", "codex-cli", "codex_direct", "codex-direct", "codex"].contains(&self.ai_provider.as_str())
+        ["codex_cli", "codex-cli"].contains(&self.ai_provider.as_str())
     }
 
     pub fn ai_model_options(&self) -> Vec<&str> {
@@ -4436,7 +4436,7 @@ impl AppState {
         &self.selected_ai_model
     }
 
-    /// Backend del gateway en uso (`claude_cli`, `codex_direct`…), tal como
+    /// Backend del gateway en uso (`claude_cli`, `codex_cli`…), tal como
     /// está en el archivo privado; vacío si no hay ninguno.
     pub fn ai_provider(&self) -> &str {
         &self.ai_provider
@@ -10134,7 +10134,7 @@ impl AppState {
     pub fn provider_configured_for(backend: &str, endpoint: bool, modelo: bool, claude_cli: bool, codex_auth: bool) -> bool {
         match backend {
             "claude_cli" | "claude-cli" | "claude" => claude_cli,
-            "codex_cli" | "codex-cli" | "codex_direct" | "codex-direct" | "codex" => codex_auth,
+            "codex_cli" | "codex-cli" => codex_auth,
             "openai_compatible" | "openai-compatible" | "ollama_native" | "ollama-native" | "ollama" => endpoint && modelo,
             _ => false,
         }
@@ -13879,7 +13879,7 @@ mod tests {
         state.selected_ai_model = "qwen2.5-coder:7b".to_string();
         state.ai_provider = "openai_compatible".to_string();
         assert_eq!(state.chat_model(), "qwen2.5-coder:7b");
-        state.ai_provider = "codex_direct".to_string();
+        state.ai_provider = "codex_cli".to_string();
         assert_eq!(state.chat_model(), "qwen2.5-coder:7b");
         state.ai_provider = "claude_cli".to_string();
         state.selected_ai_model = "sonnet".to_string();
@@ -14115,7 +14115,7 @@ mod tests {
         assert!(AppState::provider_configured_for("openai_compatible", true, true, false, false));
         assert!(AppState::provider_configured_for("claude_cli", false, false, true, false));
         assert!(!AppState::provider_configured_for("claude_cli", true, true, false, true));
-        assert!(AppState::provider_configured_for("codex_direct", false, false, false, true));
+        assert!(AppState::provider_configured_for("codex_cli", false, false, false, true));
         assert!(!AppState::provider_configured_for("", true, true, true, true));
     }
 
@@ -14380,7 +14380,7 @@ mod tests {
         let mut restored=AppState::new_for_tests(workspace.root_path());
         restored.ai_provider="codex_cli".into();restored.ai_models=catalog();restored.restore_layout_snapshot();
         assert_eq!(restored.chat_model(),"gpt-6-astra");assert_eq!(restored.reasoning_effort(),Some("xhigh"));
-        restored.ai_provider="codex_direct".into();assert_eq!(restored.reasoning_effort(),None);
+        restored.ai_provider="claude_cli".into();assert_eq!(restored.reasoning_effort(),None);
         assert!(restored.reasoning_options().is_empty());restored.ai_provider="codex_cli".into();
         restored.selected_ai_model="limited".into();assert_eq!(restored.reasoning_effort(),Some("low"));
         restored.ai_provider="openai_compatible".into();assert_eq!(restored.reasoning_effort(),None);

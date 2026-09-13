@@ -71,14 +71,12 @@ async fn main() -> anyhow::Result<()> {
         let config = semantic::SemanticConfig::from_env();
         let backend_label = config.backend_label();
         let collection = config.collection.clone();
-        let remote_url = config.remote_url.clone();
 
         match semantic::create_semantic_client(config).await {
             Ok(client) => {
                 tracing::info!(
                     backend = backend_label,
                     collection = %collection,
-                    remote_url = %remote_url,
                     "✨ Semantic search enabled"
                 );
 
@@ -99,7 +97,6 @@ async fn main() -> anyhow::Result<()> {
             Err(e) => {
                 tracing::warn!(
                     backend = backend_label,
-                    remote_url = %remote_url,
                     "Semantic search disabled: {}",
                     e
                 );

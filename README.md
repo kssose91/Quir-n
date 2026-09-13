@@ -1,11 +1,13 @@
 # Proyecto TFM: editor con índice de código, grafo y red obrera
 
-**Revisión de cierre, 5 de septiembre de 2026:** consultar
-[`docs/CIERRE_2026-09-05.md`](docs/CIERRE_2026-09-05.md) para el estado comprobado,
-los defectos corregidos y el plan de los cinco días. Las descripciones de diseño
-de este documento no implican que todos los objetivos estén implementados.
-El candidato de instalación Linux se construye con `bash scripts/package-linux.sh`;
-requisitos y límites en [`deploy/LINUX.md`](deploy/LINUX.md).
+**Estado y alcance:** la memoria del TFM (`memoria/borrador-memoria-tfm.md`) es
+la fuente de verdad sobre qué está implementado y qué queda pendiente; el cierre
+técnico se documenta en [`docs/CIERRE_TFM_2026-09-10.md`](docs/CIERRE_TFM_2026-09-10.md)
+y [`docs/ESTABILIZACION_2026-09-10.md`](docs/ESTABILIZACION_2026-09-10.md).
+Las descripciones de diseño de este documento no implican que todos los
+objetivos estén implementados. El paquete Linux se construye con
+`bash scripts/package-linux-portable.sh`; requisitos y límites en
+[`deploy/LINUX.md`](deploy/LINUX.md).
 
 Trabajar con repositorios grandes exige saber qué hace cada archivo, de qué
 depende, qué cambió y por qué. Quirón construye ese conocimiento como un índice
@@ -19,8 +21,8 @@ existe, porque el índice se la pone delante.
 ## Componentes
 
 - **`Quirón/llore_editor`** — editor nativo. Interfaz propia en Rust.
-- **`Quirón/quiron-brain`** — indexador, grafo, API HTTP y orquestación.
-- **`Quirón/semantic-ia-local`** — embeddings y reranker sobre GPU.
+- **`Quirón/quiron-brain`** — indexador, grafo, embeddings en proceso (BGE-M3
+  sobre ONNX Runtime), API HTTP y orquestación.
 - **`Quirón/vertex-gateway`** — salida hacia los modelos de lenguaje, con
   backends intercambiables.
 
@@ -153,8 +155,8 @@ HTML, y obligaría a reescribir las diecisiete mil líneas de `llore_ui`.
 
 `vertex-gateway` concentra el tráfico hacia proveedores externos en un único
 punto de egreso. Eso es una propiedad de topología, no una restricción de
-alcance: el gateway admite `openai_compatible`,
-`ollama_native`, `openclaw`, `codex_direct` y `claude_cli` seleccionables por configuración.
+alcance: el gateway admite `openai_compatible`, `ollama_native`, `codex_cli` y
+`claude_cli` seleccionables por configuración.
 Añadir otro proveedor consiste en añadir un backend; no obliga a tocar el índice,
 el grafo ni la API.
 
@@ -166,10 +168,9 @@ Claude por su CLI, suscripción de ChatGPT vía Codex, OpenAI o un servidor
 compatible con clave, servidor en la red local, Ollama), o con
 `scripts/configure-provider.py`. Para evaluar la aplicación en un equipo nuevo:
 [docs/GUIA_EVALUACION.md](docs/GUIA_EVALUACION.md). El manual de uso está dentro
-de la aplicación (F1) y es [docs/MANUAL.md](docs/MANUAL.md). Con `codex_direct` el gateway lee las
-credenciales de sesión que mantiene Codex en `~/.codex/auth.json`, extrae el
-testigo de acceso y el identificador de cuenta, y envía la petición a la API de
-respuestas de Codex.
+de la aplicación (F1) y es [docs/MANUAL.md](docs/MANUAL.md). Con `codex_cli` el
+gateway invoca la CLI oficial de Codex ya autenticada, en una carpeta temporal y
+sin sus herramientas nativas; las herramientas de Quirón las ejecuta el editor.
 
 La sesión de este equipo no usa una clave de API. La disponibilidad y los
 límites dependen del proveedor. Claude se conecta mediante su CLI oficial; no

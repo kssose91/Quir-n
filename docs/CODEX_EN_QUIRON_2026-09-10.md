@@ -23,8 +23,9 @@ adaptador utiliza las herramientas y los controles propios de Quirón.
 
 La conexión nueva `codex_cli` usa la CLI oficial autenticada y un contrato JSON de
 respuesta y solicitudes de herramientas. El editor ejecuta estas solicitudes con
-su guardia habitual y aporta los resultados al siguiente turno. Se conserva el
-adaptador histórico `codex_direct` para configuraciones anteriores.
+su guardia habitual y aporta los resultados al siguiente turno. El adaptador
+histórico `codex_direct`, que leía el archivo de sesión de Codex, se retiró
+en la revisión final.
 
 La CLI se inicia en una carpeta temporal, sin cargar la configuración de ejecución
 del usuario, sin persistir su hilo y con las herramientas nativas de archivos,
