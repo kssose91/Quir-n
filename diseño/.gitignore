@@ -1,5 +1,0 @@
-# El export de Claude Design trae adjuntos pesados: 12 MB de PNG y una copia
-# del propio crate llore_ui que ya vive en el repo. Fuera del control de
-# versiones. La maqueta y sus tokens sí se quedan: son la referencia.
-uploads/
-.thumbnail
