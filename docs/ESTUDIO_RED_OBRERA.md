@@ -6,8 +6,10 @@
 > **Nota sobre el alcance.** Este estudio recoge las alternativas que analicé
 > para el diseño inicial de la red obrera. La versión entregada de Quirón usa
 > modelos preentrenados descargables (Qwen como generador de fichas y BGE-M3
-> para los embeddings); el backbone que aquí se propone no llegó a entrenarse
-> ni a exportarse a ONNX. Las etiquetas de «verificación adversarial» describen
+> para los embeddings); el backbone que aquí se propone no llegó a la entrega
+> ni se exportó a ONNX: las redes que entrené por mi cuenta durante el año
+> rindieron muy por debajo de los modelos de código abierto, como explica la
+> memoria. Las etiquetas de «verificación adversarial» describen
 > el procedimiento que seguí en julio al contrastar las fuentes; no sustituyen
 > una reproducción experimental. El índice de código de la versión final se
 > mantiene desde los archivos y una caché local, no como reconstrucción completa
