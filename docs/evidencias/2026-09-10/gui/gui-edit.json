@@ -1,0 +1,47 @@
+{
+  "checks": {
+    "open_edit_undo_redo_save": true,
+    "saved_change_indexed": true,
+    "reopen_preserves_saved_content": true,
+    "project_identity_stable": true,
+    "monitor_survives_window_close": true
+  },
+  "project_id": "01M25PEWFNPAQFE9V7QCGAP37X",
+  "before": {
+    "project_id": "01M25PEWFNPAQFE9V7QCGAP37X",
+    "phase": "watching",
+    "files_total": 1,
+    "files_done": 1,
+    "units_written": 2,
+    "summaries_generated": 2,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  },
+  "after_save": {
+    "project_id": "01M25PEWFNPAQFE9V7QCGAP37X",
+    "phase": "watching",
+    "files_total": 1,
+    "files_done": 1,
+    "units_written": 4,
+    "summaries_generated": 3,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  },
+  "after_reopen": {
+    "project_id": "01M25PEWFNPAQFE9V7QCGAP37X",
+    "phase": "watching",
+    "files_total": 1,
+    "files_done": 1,
+    "units_written": 6,
+    "summaries_generated": 4,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  },
+  "ok": true,
+  "binary_sha256": "5c990741aa2c89b56d04b872decd4fcae47de16e95a94410d44a293ecbde4935",
+  "method": "Fixture temporal de dos líneas; navegación Down/End. Undo y redo comprobados guardando estados intermedios.",
+  "initial_attempt": "Falló al asumir Ctrl+End como fin de documento. El código del editor implementa End por línea; se corrigió el arnés, no el producto."
+}

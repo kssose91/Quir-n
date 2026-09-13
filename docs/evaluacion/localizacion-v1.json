@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "created": "2026-09-10",
+  "selection": "Diez preguntas redactadas a partir de la lectura del código durante la auditoría; muestra exploratoria, sin holdout.",
+  "metric": "Hit@5 y MRR@5 sobre un objetivo primario por pregunta; no Precision@k ni exhaustividad de todos los símbolos relevantes.",
+  "cases": [
+    {
+      "id": "vigencia",
+      "question": "¿Dónde se verifica que un archivo no cambió desde que se generó su ficha?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/index/worker.rs",
+        "symbol": "ensure_current"
+      }
+    },
+    {
+      "id": "identidad",
+      "question": "¿Dónde se comprueba que la identidad guardada en una carpeta pertenece al proyecto solicitado?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/index/worker.rs",
+        "symbol": "validate_project"
+      }
+    },
+    {
+      "id": "identificador",
+      "question": "¿Cómo se obtiene un identificador estable combinando proyecto, ruta y símbolo sin depender del contenido?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/index/unit.rs",
+        "symbol": "stable_id"
+      }
+    },
+    {
+      "id": "llamadas",
+      "question": "¿Dónde se recorre el árbol sintáctico para recoger las llamadas de una función sin contar las macros?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/index/extract.rs",
+        "symbol": "collect_calls"
+      }
+    },
+    {
+      "id": "cadena",
+      "question": "¿Qué método comprueba los enlaces y hashes de la cadena de eventos?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/ledger/writer.rs",
+        "symbol": "LedgerWriter::verify_chain"
+      }
+    },
+    {
+      "id": "eventos_proyecto",
+      "question": "¿Dónde se consultan los eventos del registro que corresponden a un proyecto concreto?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/ledger/reader.rs",
+        "symbol": "LedgerReader::by_project"
+      }
+    },
+    {
+      "id": "guardia",
+      "question": "¿Dónde se clasifica una ruta como permitida, secreta, fuera del proyecto o ruido?",
+      "expected": {
+        "path": "Quirón/llore_editor/crates/llore_ui/src/workspace_guard.rs",
+        "symbol": "classify"
+      }
+    },
+    {
+      "id": "leer_archivo",
+      "question": "¿Dónde se ejecuta la herramienta de lectura de archivos del chat y se limita el texto que devuelve?",
+      "expected": {
+        "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+        "symbol": "read_file"
+      }
+    },
+    {
+      "id": "claude",
+      "question": "¿Dónde se valida que las herramientas solicitadas en una respuesta de Claude sean de las ofrecidas?",
+      "expected": {
+        "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+        "symbol": "parse_response"
+      }
+    },
+    {
+      "id": "backend",
+      "question": "¿Dónde se interpreta la variable del proveedor para elegir el backend del gateway?",
+      "expected": {
+        "path": "Quirón/vertex-gateway/src/main.rs",
+        "symbol": "GatewayBackend::from_env"
+      }
+    }
+  ]
+}

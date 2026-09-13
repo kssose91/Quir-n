@@ -1,0 +1,147 @@
+{
+  "model": "Qwen2.5-Coder-1.5B-Instruct Q4_K_M",
+  "embeddings": "BGE-M3",
+  "checks": {
+    "requires_auth": true,
+    "requires_worker_auth": true,
+    "project_isolation": true,
+    "qdrant_retrieval": true,
+    "neo4j_projection": true,
+    "secrets_and_symlinks_excluded": true,
+    "unchanged_skips_inference": true,
+    "stale_results_rejected": true,
+    "changed_logic_replaced": true,
+    "deletion_scoped_to_project": true
+  },
+  "initial": [
+    {
+      "seconds": 4.36,
+      "progress": {
+        "project_id": "0DWET9F26C3BKCS9V6VB1KDXZB",
+        "phase": "watching",
+        "files_total": 1,
+        "files_done": 1,
+        "units_written": 2,
+        "summaries_generated": 2,
+        "structural_fallbacks": 0,
+        "current_path": "",
+        "error": null
+      },
+      "hits": [
+        {
+          "calls": [
+            ".contains",
+            ".iter",
+            ".sum",
+            "Err",
+            "Ok"
+          ],
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "ff2e029d-a60a-2b92-d6e7-a666bb0bb4f5",
+          "kind": "function",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0DWET9F26C3BKCS9V6VB1KDXZB",
+          "score": 0.6857938,
+          "signature": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str>",
+          "start_line": 1,
+          "summary": {
+            "purpose": "This function calculates the total price of a list of prices after applying a discount. It takes a slice of f64 representing the prices and a f64 representing the discount. It returns a Result containing the total price or an error message if the discount is invalid. The function uses the iter() method to iterate over the prices, the sum() method to calculate the total, and the multiplication operator to apply the discount. The function also includes a validation check to see",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "total"
+        },
+        {
+          "calls": [],
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "6ee39121-ab13-3254-4ec5-dfc0fed0bde9",
+          "kind": "file",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0DWET9F26C3BKCS9V6VB1KDXZB",
+          "score": 0.68179095,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "purpose": "This function calculates the total price of a list of prices after applying a discount. It takes a slice of f64 representing the prices and a f64 representing the discount. It returns a Result containing the total price or an error message if the discount is invalid. The function uses the iter() method to iterate over the prices and the sum() method to calculate the total. The function also checks if the discount is within the valid range (0.0 to 1.0) using the contains() and",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": ""
+        }
+      ]
+    },
+    {
+      "seconds": 3.1,
+      "progress": {
+        "project_id": "02Z2AV78AWTT5T6DFQB41T3NEZ",
+        "phase": "watching",
+        "files_total": 1,
+        "files_done": 1,
+        "units_written": 2,
+        "summaries_generated": 2,
+        "structural_fallbacks": 0,
+        "current_path": "",
+        "error": null
+      },
+      "hits": [
+        {
+          "calls": [
+            ".contains",
+            ".iter",
+            ".sum",
+            "Err",
+            "Ok"
+          ],
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "44471490-e8ac-d155-7189-654e957e1d2c",
+          "kind": "function",
+          "partial": false,
+          "path": "math.rs",
+          "project": "02Z2AV78AWTT5T6DFQB41T3NEZ",
+          "score": 0.6857938,
+          "signature": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str>",
+          "start_line": 1,
+          "summary": {
+            "purpose": "This function calculates the total price of a list of prices after applying a discount. It takes a slice of f64 representing the prices and a f64 representing the discount. It returns a Result containing the total price or an error message if the discount is invalid. The function uses the iter() method to iterate over the prices, the sum() method to calculate the total, and the multiplication operator to apply the discount. The function also includes a validation check to see",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "total"
+        },
+        {
+          "calls": [],
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "6f5f9b08-7d7e-1c88-857d-3e90e5022bb7",
+          "kind": "file",
+          "partial": false,
+          "path": "math.rs",
+          "project": "02Z2AV78AWTT5T6DFQB41T3NEZ",
+          "score": 0.6762494,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "purpose": "This function calculates the total price of a list of prices after applying a discount. It takes a slice of f64 representing the prices and a f64 representing the discount. It returns a Result containing the total price or an error message if the discount is invalid. The function uses the iter() method to iterate over the prices, the sum() method to calculate the total, and the multiplication operator to apply the discount. The function also includes a check to ensure that 0.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": ""
+        }
+      ]
+    }
+  ],
+  "ok": true
+}

@@ -1,0 +1,4 @@
+/// Double a nonnegative integer with overflow detection.
+pub fn doubled(value: u32) -> Option<u32> {
+    value.checked_mul(2)
+}

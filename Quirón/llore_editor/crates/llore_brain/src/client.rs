@@ -27,6 +27,8 @@ pub struct QuironClient {
     project_id: Option<String>,
     /// Tope de tokens de salida por turno del chat (la barra lo cambia).
     response_max_tokens: u32,
+    reasoning_effort: Option<String>,
+    chat_provider: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -62,6 +64,8 @@ impl QuironClient {
                 .filter(|t| !t.is_empty()),
             project_id: None,
             response_max_tokens: 4096,
+            reasoning_effort: None,
+            chat_provider: None,
         }
     }
 
@@ -77,6 +81,14 @@ impl QuironClient {
     /// identificador y lo instala aquí.
     pub fn set_project_id(&mut self, project_id: Option<String>) {
         self.project_id = project_id.filter(|value| !value.trim().is_empty());
+    }
+
+    pub fn set_reasoning_effort(&mut self, effort: Option<String>) {
+        self.reasoning_effort = effort;
+    }
+
+    pub fn set_chat_provider(&mut self, provider: Option<String>) {
+        self.chat_provider = provider;
     }
 
     /// Tope de tokens de salida por turno (corta / normal / larga).
@@ -311,6 +323,8 @@ impl QuironClient {
         let full_system = (!system_sections.is_empty()).then(|| system_sections.join("\n\n"));
 
         let request = ChatTurnRequest {
+            provider: self.chat_provider.clone(),
+            reasoning_effort: self.reasoning_effort.clone(),
             model: model
                 .filter(|value| !value.trim().is_empty())
                 .map(str::to_string)
@@ -909,6 +923,10 @@ pub struct LlmMessage {
 /// realimentarlos al modelo por el gateway.
 #[derive(Debug, Clone, Serialize)]
 pub struct ChatTurnRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
     pub model: String,
     pub messages: Vec<ChatTurnMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]

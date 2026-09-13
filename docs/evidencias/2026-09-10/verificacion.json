@@ -1,0 +1,64 @@
+{
+  "verified_utc": "2026-09-10T12:51:51.832563+00:00",
+  "base_commit": "9a28d0235b64f78d7bdf623c3d1805feba402e69",
+  "modified_tree": true,
+  "suites": [
+    {
+      "suite": "editor",
+      "command": "CARGO_BUILD_JOBS=1 cargo test --locked --offline --manifest-path Quirón/llore_editor/Cargo.toml --workspace --lib",
+      "passed": 321,
+      "failed": 0,
+      "ignored": 2,
+      "log_sha256": "1b86ab9a69f67992cae93bd415c6ee8fc9e47cf04ea87a979acd6e3ac4e19fff",
+      "result_lines": [
+        "test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s",
+        "test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 180 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 5.23s",
+        "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "suite": "brain",
+      "command": "CARGO_BUILD_JOBS=1 cargo test --locked --offline --manifest-path Quirón/quiron-brain/Cargo.toml --features full --lib",
+      "passed": 177,
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "19346d551e774d98fee85acde9fffb691707b548093f3854d0075ac479873834",
+      "result_lines": [
+        "test result: ok. 177 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s"
+      ]
+    },
+    {
+      "suite": "gateway",
+      "command": "CARGO_BUILD_JOBS=1 cargo test --locked --offline --manifest-path Quirón/vertex-gateway/Cargo.toml",
+      "passed": 26,
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "0faf008724d070a940074783a6391c5a065406cc93699266e5221af6c96b8dec",
+      "result_lines": [
+        "test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "suite": "delivery",
+      "command": "python3 -B -m unittest discover -s scripts/tests -p test_delivery.py -v",
+      "passed": 9,
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "1e37deb9a2b28abbc8e9aa16fdd3716434eb7c0da4acf01716d63832f55d79e8",
+      "result_lines": [
+        "Ran 9 tests in 3.237s",
+        "OK"
+      ]
+    }
+  ],
+  "passed_total": 533,
+  "ignored_total": 2,
+  "environment_notes": [
+    "El primer intento del editor falló al abrir localhost por restricciones del sandbox. Reejecutado con acceso a sockets locales; sin cambios para omitir pruebas.",
+    "Entrega usa Docker simulado; no equivale a instalación limpia real."
+  ]
+}

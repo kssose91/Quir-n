@@ -400,6 +400,14 @@ impl Quiron {
     }
 
     /// Tope de tokens de salida por turno del chat.
+    pub fn set_reasoning_effort(&mut self, effort: Option<String>) {
+        self.client.set_reasoning_effort(effort);
+    }
+
+    pub fn set_chat_provider(&mut self, provider: Option<String>) {
+        self.client.set_chat_provider(provider);
+    }
+
     pub fn set_response_max_tokens(&mut self, max_tokens: u32) {
         self.client.set_response_max_tokens(max_tokens);
     }

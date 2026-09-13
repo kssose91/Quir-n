@@ -1,0 +1,24 @@
+{
+  "chain": {
+    "valid": true,
+    "event_count": 5290,
+    "message": "V2 full-content chain and legacy snapshot verified",
+    "legacy_events": 5284,
+    "v2_events": 6,
+    "legacy_snapshot_protected": true
+  },
+  "root_index": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "watching",
+    "files_total": 193,
+    "files_done": 193,
+    "units_written": 144,
+    "summaries_generated": 29,
+    "structural_fallbacks": 1,
+    "current_path": "",
+    "error": null
+  },
+  "synthetic_index_removed": true,
+  "scope": "Solo se retiraron el archivo y el monitor del proyecto sintético de esta prueba.",
+  "ok": true
+}

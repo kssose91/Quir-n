@@ -1,0 +1,34 @@
+   Compiling vertex-gateway v1.0.0 (/home/KSSOSE/Quirón/Quirón/vertex-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.17s
+     Running unittests src/main.rs (Quirón/vertex-gateway/target/debug/deps/vertex_gateway-18f8d94d977a44ed)
+
+running 26 tests
+test claude_cli::tests::failed_or_empty_cli_result_is_not_success ... ok
+test claude_cli::tests::subscription_response_preserves_tools_usage_and_content ... ok
+test claude_cli::tests::response_is_attributed_to_requested_model_not_to_auxiliary_one ... ok
+test tests::build_codex_request_con_items_ignora_el_prompt ... ok
+test tests::build_codex_request_does_not_invent_system_instructions ... ok
+test tests::base64_decode_works ... ok
+test tests::build_codex_request_has_correct_shape ... ok
+test tests::build_openclaw_command_args_includes_expected_flags ... ok
+test tests::codex_input_traduce_la_conversacion_completa ... ok
+test tests::extract_json_object_slice_handles_wrapper_text ... ok
+test tests::codex_request_no_envia_limite_de_salida ... ok
+test tests::gateway_backend_parses_new_variants ... ok
+test tests::gateway_request_sin_input_items_sigue_siendo_valido ... ok
+test tests::gateway_request_acepta_input_items ... ok
+test tests::openclaw_usage_split_derives_missing_side_from_total ... ok
+test tests::la_url_del_chat_no_duplica_v1_y_el_contenido_nulo_se_lee ... ok
+test tests::los_items_se_vuelven_mensajes_openai_con_llamadas_agrupadas ... ok
+test tests::parse_codex_sse_extracts_deltas_and_usage ... ok
+test tests::parse_codex_sse_extracts_function_call ... ok
+test tests::parse_codex_sse_fallback_to_output_text ... ok
+test tests::parse_openclaw_envelope_reads_nested_result_payloads ... ok
+test tests::parse_openclaw_envelope_reads_payloads_model_and_tokens ... ok
+test tests::parse_route_accepts_aliases ... ok
+test tests::parse_route_rejects_invalid_value ... ok
+test tests::una_llamada_escrita_como_json_se_acepta_si_nombra_una_herramienta_ofrecida ... ok
+test claude_cli::tests::cli_receives_eof_before_gateway_waits_for_response ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

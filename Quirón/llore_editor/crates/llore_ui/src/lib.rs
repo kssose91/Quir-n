@@ -29,6 +29,7 @@
 //! - **Sin telemetría**
 
 pub mod app;
+pub mod ai_models;
 pub mod element;
 pub mod layout;
 pub mod paint;

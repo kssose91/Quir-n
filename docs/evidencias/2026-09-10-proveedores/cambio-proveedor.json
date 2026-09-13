@@ -1,0 +1,26 @@
+{
+  "before_codex_selection": {
+    "brain": "2854368",
+    "worker": "2854369"
+  },
+  "after_codex_answer": {
+    "brain": "2854368",
+    "worker": "2854369"
+  },
+  "results": {
+    "claude": {
+      "calls": 2,
+      "sources": 2
+    },
+    "codex": {
+      "calls": 2,
+      "sources": 2
+    }
+  },
+  "checks": {
+    "both_providers_answered": true,
+    "services_not_restarted_on_provider_change": true,
+    "private_configuration_unchanged": true
+  },
+  "ok": true
+}

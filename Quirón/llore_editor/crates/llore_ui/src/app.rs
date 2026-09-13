@@ -73,6 +73,7 @@ pub enum ChatPopover {
     Actions,
     /// Lista de modelos del proveedor en uso.
     Models,
+    Reasoning,
 }
 
 /// Entradas del menú «+» de la barra del chat.
@@ -86,6 +87,7 @@ pub enum ChatMenuItem {
     SwitchModel,
     ToggleTools,
     CycleLength,
+    Reasoning,
     Agents,
     Manual,
 }
@@ -404,18 +406,7 @@ pub const COLUMN_GAP: f32 = 12.0;
 pub const DEFAULT_EDITOR_SPLIT_RATIO: f32 = 0.58;
 /// Valor por defecto del split interno entre panel editor primario/secundario.
 pub const DEFAULT_EDITOR_PANE_SPLIT_RATIO: f32 = 0.5;
-/// Modelos seleccionables desde el chat usando la misma ruta de conexión.
-///
-/// Verificados contra la cuenta el 2026-07-10. `gpt-5.3` y `codex-spark` existen
-/// pero el servidor los rechaza con una cuenta de suscripción; `gpt-5.6-luna` no
-/// existe.
-pub const AI_MODEL_OPTIONS: &[&str] = &[
-    "gpt-5.6-sol",
-    "gpt-5.6-terra",
-    "gpt-5.5",
-    "gpt-5.4",
-    "gpt-5.4-mini",
-];
+pub const DEFAULT_AI_MODEL: &str = "gpt-6-astra";
 /// Caracteres de un archivo que se adjuntan al chat.
 ///
 /// Un archivo mayor se recorta, y el recorte se le declara al modelo: un
@@ -639,6 +630,9 @@ pub enum ClickTargetAction {
     ChatPopoverToggle(ChatPopover),
     ChatMenu(ChatMenuItem),
     ChatModelPick(String),
+    ChatProviderModelPick { provider: String, model: String },
+    ChatReasoningPick(String),
+    RefreshAiModels,
     ChatAttachmentRemove(usize),
     ChatFocusInput,
     /// Menú contextual del explorador: una operación sobre una ruta; cerrar.
@@ -806,7 +800,7 @@ impl ProviderKind {
     pub fn backend(self) -> &'static str {
         match self {
             ProviderKind::ClaudeCli => "claude_cli",
-            ProviderKind::CodexDirect => "codex_direct",
+            ProviderKind::CodexDirect => "codex_cli",
             ProviderKind::OpenAiCompatible | ProviderKind::LocalServer | ProviderKind::Ollama => "openai_compatible",
         }
     }
@@ -815,7 +809,7 @@ impl ProviderKind {
     pub fn script_name(self) -> &'static str {
         match self {
             ProviderKind::ClaudeCli => "claude-cli",
-            ProviderKind::CodexDirect => "codex-direct",
+            ProviderKind::CodexDirect => "codex-cli",
             ProviderKind::OpenAiCompatible | ProviderKind::LocalServer | ProviderKind::Ollama => "openai-compatible",
         }
     }
@@ -2350,6 +2344,9 @@ pub struct AppState {
     pub quiron: Arc<Mutex<Quiron>>,
     /// Modelo solicitado al gateway para el chat actual.
     selected_ai_model: String,
+    ai_models: Vec<crate::ai_models::AiModel>,
+    selected_reasoning_effort: String,
+    ai_models_task: Option<JoinHandle<Result<Vec<crate::ai_models::AiModel>, String>>>,
     ai_provider: String,
     /// URL base actual de quiron-brain usada por la UI.
     quiron_brain_url: String,
@@ -2936,7 +2933,10 @@ impl AppState {
             runtime,
             quiron: Arc::new(Mutex::new(quiron)),
             selected_ai_model: Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY")
-                .unwrap_or_else(|| AI_MODEL_OPTIONS[0].to_string()),
+                .unwrap_or_else(|| DEFAULT_AI_MODEL.to_string()),
+            ai_models: crate::ai_models::read_catalog(),
+            selected_reasoning_effort: Self::provider_setting("QUIRON_CODEX_REASONING_EFFORT").unwrap_or_default(),
+            ai_models_task: None,
             ai_provider: Self::provider_setting("QUIRON_GATEWAY_BACKEND").unwrap_or_default(),
             quiron_brain_url,
             quiron_secure_mode,
@@ -3752,7 +3752,7 @@ impl AppState {
             return;
         };
         let payload = format!(
-            "sidebar_width={:.2}\neditor_split_ratio={:.4}\neditor_pane_split_enabled={}\neditor_pane_split_ratio={:.4}\nsidebar_panel={}\nexplorer_dock={}\nchat_dock={}\nai_model={}\nui_theme={}\nui_density={}\neditor_font_scale={:.3}\neditor_horizontal_padding={:.2}\nexplorer_indent_step={:.2}\n",
+            "sidebar_width={:.2}\neditor_split_ratio={:.4}\neditor_pane_split_enabled={}\neditor_pane_split_ratio={:.4}\nsidebar_panel={}\nexplorer_dock={}\nchat_dock={}\nai_provider={}\nai_model={}\nreasoning_effort={}\nui_theme={}\nui_density={}\neditor_font_scale={:.3}\neditor_horizontal_padding={:.2}\nexplorer_indent_step={:.2}\n",
             self.sidebar_width,
             self.editor_split_ratio,
             if self.editor_pane_split_enabled { 1 } else { 0 },
@@ -3760,7 +3760,9 @@ impl AppState {
             self.sidebar_panel.config_value(),
             self.explorer_dock.config_value(),
             self.chat_dock.config_value(),
+            self.ai_provider,
             self.selected_ai_model,
+            self.selected_reasoning_effort,
             self.ui_theme.config_value(),
             self.ui_density.config_value(),
             self.editor_font_scale,
@@ -3804,6 +3806,13 @@ impl AppState {
         let mut sidebar_panel = None;
         let mut explorer_dock = None;
         let mut chat_dock = None;
+        let stored_provider=content.lines().find_map(|line|line.strip_prefix("ai_provider="));
+        if let Some(provider) = stored_provider.filter(|p|["claude_cli","codex_cli"].contains(p)) {
+            if ["claude_cli","codex_cli"].contains(&self.ai_provider.as_str()) {
+                self.ai_provider=provider.to_string();
+            }
+        }
+        let same_provider=stored_provider.is_some_and(|p|p==self.ai_provider);
         let mut ai_model = None;
         let mut ui_theme = None;
         let mut ui_density = None;
@@ -3834,9 +3843,11 @@ impl AppState {
             } else if let Some(value) = line.strip_prefix("chat_dock=") {
                 chat_dock = PanelDock::from_config_value(value.trim());
             } else if let Some(value) = line.strip_prefix("ai_model=") {
-                ai_model = self.ai_model_options()
-                    .contains(&value.trim())
-                    .then(|| value.trim().to_string());
+                let value=value.trim();
+                ai_model = ((same_provider || (stored_provider.is_none() && self.ai_model_options().contains(&value))) && !value.is_empty() && value.len()<=100 && value.chars().all(|c|c.is_ascii_alphanumeric()||"-_.:/".contains(c)))
+                    .then(|| value.to_string());
+            } else if let Some(value) = line.strip_prefix("reasoning_effort=") {
+                if same_provider && ["low","medium","high","xhigh","max"].contains(&value.trim()) {self.selected_reasoning_effort=value.trim().to_string();}
             } else if let Some(value) = line.strip_prefix("ui_theme=") {
                 ui_theme = UiTheme::from_config_value(value.trim());
             } else if let Some(value) = line.strip_prefix("ui_density=") {
@@ -4336,31 +4347,89 @@ impl AppState {
         ["claude_cli", "claude-cli", "claude"].contains(&self.ai_provider.as_str())
     }
 
-    /// OpenAI, un servidor compatible u Ollama: el modelo es el que se
-    /// configuró para ese endpoint, no hay otro.
-    fn ai_provider_is_compatible(&self) -> bool {
-        ["openai_compatible", "openai-compatible", "ollama_native", "ollama-native", "ollama"]
-            .contains(&self.ai_provider.as_str())
+    /// La selección del usuario se transporta sin sustituir el modelo.
+    pub fn chat_model(&self) -> String { self.selected_ai_model.clone() }
+
+    pub fn ai_provider_is_codex(&self) -> bool {
+        ["codex_cli", "codex-cli", "codex_direct", "codex-direct", "codex"].contains(&self.ai_provider.as_str())
     }
 
-    /// Modelo que viaja con el chat. Con Claude por su CLI lo elige el
-    /// selector; con un endpoint compatible es el configurado (un nombre ajeno
-    /// haría fallar al servidor); con Codex lo fijan las herramientas (ver
-    /// nota en TOOLS_CHAT_MODEL), elija lo que elija el selector.
-    pub fn chat_model(&self) -> String {
-        if self.ai_provider_is_claude() || self.ai_provider_is_compatible() {
-            self.selected_ai_model.clone()
+    pub fn ai_model_options(&self) -> Vec<&str> {
+        if self.ai_provider_is_claude() { vec!["sonnet", "opus", "haiku"] }
+        else if self.ai_provider_is_codex() && !self.ai_models.is_empty() {
+            self.ai_models.iter().map(|m|m.id.as_str()).collect()
+        } else { vec![self.selected_ai_model.as_str()] }
+    }
+
+    /// Las CLI disponibles comparten selector; elegir una no reinicia el cerebro.
+    pub fn chat_model_groups(&self) -> Vec<(&str, Vec<&str>)> {
+        let mut groups=vec![("claude_cli",vec!["sonnet","opus","haiku"])];
+        if !self.ai_models.is_empty() {
+            groups.push(("codex_cli",self.ai_models.iter().map(|m|m.id.as_str()).collect()));
         } else {
-            chat_tools::TOOLS_CHAT_MODEL.to_string()
+            groups.push(("codex_cli",vec![DEFAULT_AI_MODEL]));
+        }
+        if !["claude_cli","claude-cli","claude","codex_cli","codex-cli"].contains(&self.ai_provider.as_str()) {
+            groups.push((&self.ai_provider,self.ai_model_options()));
+        }
+        groups
+    }
+
+    pub fn select_chat_model(&mut self, provider: &str, model: &str) {
+        if !self.chat_model_groups().iter().any(|(p,models)|*p==provider && models.contains(&model)) {return;}
+        self.ai_provider=provider.to_string();
+        self.selected_ai_model=model.to_string();
+        self.persist_layout_snapshot();
+        self.chat_popover=ChatPopover::None;
+        self.needs_render=true;
+    }
+
+    pub fn chat_provider_override(&self) -> Option<String> {
+        match self.ai_provider.as_str() {
+            "claude_cli"|"claude-cli"|"claude" => Some("claude_cli".into()),
+            "codex_cli"|"codex-cli" => Some("codex_cli".into()),
+            _ => None,
         }
     }
 
-    pub fn ai_model_options(&self) -> &[&str] {
-        if self.ai_provider_is_claude() {
-            &["sonnet", "opus", "haiku"]
-        } else {
-            AI_MODEL_OPTIONS
-        }
+    pub fn ai_model_label(&self, id: &str) -> &str {
+        self.ai_models.iter().find(|m|m.id==id).map(|m|m.label.as_str()).unwrap_or("")
+    }
+
+    pub fn reasoning_options(&self) -> Vec<&str> {
+        if !["codex_cli","codex-cli"].contains(&self.ai_provider.as_str()) {return Vec::new();}
+        self.ai_models.iter().find(|m|m.id==self.selected_ai_model)
+            .map(|m|m.efforts.iter().map(String::as_str).collect()).unwrap_or_default()
+    }
+
+    pub fn reasoning_effort(&self) -> Option<&str> {
+        if !["codex_cli","codex-cli"].contains(&self.ai_provider.as_str()) {return None;}
+        let model=self.ai_models.iter().find(|m|m.id==self.selected_ai_model)?;
+        if model.efforts.contains(&self.selected_reasoning_effort) {Some(&self.selected_reasoning_effort)}
+        else if model.default_effort.is_empty() {None} else {Some(&model.default_effort)}
+    }
+
+    pub fn reasoning_label(&self) -> &str {
+        crate::ai_models::effort_label(self.reasoning_effort().unwrap_or(""))
+    }
+
+    pub fn refresh_ai_models(&mut self) {
+        if self.ai_models_task.is_some() {return;}
+        let binary=Self::provider_setting("QUIRON_CODEX_CLI")
+            .or_else(||Self::busca_en_path("codex").map(|p|p.to_string_lossy().into_owned()));
+        self.status_text="actualizando modelos de Codex…".into();
+        self.ai_models_task=Some(self.runtime.spawn(async move {
+            let mut command=tokio::process::Command::new(binary.unwrap_or_else(||"codex".into()));
+            command.args(["debug","models"]).kill_on_drop(true);
+            let output=tokio::time::timeout(Duration::from_secs(25),command.output()).await
+                .map_err(|_|"Codex no respondió al actualizar modelos".to_string())?
+                .map_err(|e|format!("No se pudo abrir Codex CLI: {e}"))?;
+            if !output.status.success() {return Err("No se pudo actualizar el catálogo; comprueba Codex CLI y su sesión".into());}
+            let value=serde_json::from_slice(&output.stdout).map_err(|_|"Catálogo Codex inválido")?;
+            let models=crate::ai_models::parse_catalog(&value);
+            if models.is_empty(){Err("Codex no anunció modelos visibles".into())}else{Ok(models)}
+        }));
+        self.needs_render=true;
     }
 
     pub fn selected_ai_model(&self) -> &str {
@@ -9410,9 +9479,9 @@ impl AppState {
             self.open_prompt(PromptKind::NewFile { dir: raiz }, "notas.md");
             return;
         }
-        if valor == "menu" || valor == "modelos" {
+        if valor == "menu" || valor == "modelos" || valor == "razonamiento" {
             self.set_focus(FocusTarget::ChatInput);
-            self.chat_popover = if valor == "menu" { ChatPopover::Actions } else { ChatPopover::Models };
+            self.chat_popover = match valor.as_str() {"menu"=>ChatPopover::Actions,"razonamiento"=>ChatPopover::Reasoning,_=>ChatPopover::Models};
             self.needs_render = true;
             return;
         }
@@ -9640,24 +9709,16 @@ impl AppState {
                 .map(|e| e.path().join("bin/linux-x86_64/codex"))
                 .find(|p| p.is_file())
         });
-        probe.codex_cli = Self::busca_en_path("codex").or(codex_extension);
-        probe.codex_session = fs::read_to_string(home.join(".codex/auth.json"))
-            .ok()
-            .and_then(|texto| serde_json::from_str::<serde_json::Value>(&texto).ok())
-            .map(|auth| {
-                if auth["tokens"]["access_token"].as_str().is_some() {
-                    let modo = auth["auth_mode"].as_str().unwrap_or("?");
-                    let renovada: String = auth["last_refresh"]
-                        .as_str()
-                        .unwrap_or("")
-                        .chars()
-                        .take(10)
-                        .collect();
-                    format!("sesión {modo}, renovada el {renovada}")
-                } else {
-                    "sin sesión".to_string()
-                }
-            });
+        probe.codex_cli = Self::provider_setting("QUIRON_CODEX_CLI")
+            .map(PathBuf::from).filter(|p|p.is_file())
+            .or_else(||Self::busca_en_path("codex")).or(codex_extension);
+        // La CLI conoce su almacén de autenticación; no abrir auth.json ni
+        // mostrar su salida, que puede identificar una clave de API.
+        probe.codex_session = probe.codex_cli.as_ref().and_then(|cli|
+            std::process::Command::new(cli).args(["login","status"]).output().ok()
+        ).map(|output| if output.status.success() {
+            "sesión disponible en Codex CLI".to_string()
+        } else {"sin sesión".to_string()});
         probe.compatible_endpoint = Self::provider_setting("QUIRON_LLM_ENDPOINT_PRIMARY");
         probe.compatible_model = Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY");
         probe.npm_found = Self::busca_en_path("npm").is_some();
@@ -9742,6 +9803,15 @@ impl AppState {
 
     fn poll_provider_tasks(&mut self) -> bool {
         let mut changed = false;
+        if self.ai_models_task.as_ref().is_some_and(|t|t.is_finished()) {
+            let task=self.ai_models_task.take().unwrap();
+            match self.runtime.block_on(task) {
+                Ok(Ok(models)) => {self.status_text=format!("{} modelos de Codex disponibles",models.len());self.ai_models=models;},
+                Ok(Err(error)) => self.status_text=error,
+                Err(error) => self.status_text=format!("Actualización de modelos: {error}"),
+            }
+            changed=true;
+        }
         if self.provider_probe_task.as_ref().is_some_and(|t| t.is_finished()) {
             let task = self.provider_probe_task.take().unwrap();
             if let Ok(probe) = self.runtime.block_on(task) {
@@ -9771,7 +9841,9 @@ impl AppState {
     pub fn reload_provider_settings(&mut self) {
         self.ai_provider = Self::provider_setting("QUIRON_GATEWAY_BACKEND").unwrap_or_default();
         self.selected_ai_model = Self::provider_setting("QUIRON_LLM_MODEL_PRIMARY")
-            .unwrap_or_else(|| AI_MODEL_OPTIONS[0].to_string());
+            .unwrap_or_else(|| DEFAULT_AI_MODEL.to_string());
+        self.ai_models = crate::ai_models::read_catalog();
+        self.selected_reasoning_effort=Self::provider_setting("QUIRON_CODEX_REASONING_EFFORT").unwrap_or_default();
         self.refresh_provider_probe();
     }
 
@@ -9988,7 +10060,7 @@ impl AppState {
                 kind.label(),
             ),
             ProviderKind::CodexDirect => self.spawn_configure(
-                vec!["codex-direct".to_string(), "--model".to_string(), "gpt-5.5".to_string()],
+                vec!["codex-cli".to_string(), "--model".to_string(), self.ai_models.first().map(|m|m.id.clone()).unwrap_or_else(||DEFAULT_AI_MODEL.into())],
                 None,
                 kind.label(),
             ),
@@ -10044,9 +10116,12 @@ impl AppState {
             .map(PathBuf::from)
             .or_else(|| Self::busca_en_path("claude").map(PathBuf::from))
             .is_some_and(|p| p.exists());
-        let codex = std::env::var_os("HOME")
-            .map(|h| PathBuf::from(h).join(".codex/auth.json").exists())
-            .unwrap_or(false);
+        let codex = if ["codex_cli","codex-cli"].contains(&backend.as_str()) {
+            Self::provider_setting("QUIRON_CODEX_CLI").map(PathBuf::from)
+                .or_else(||Self::busca_en_path("codex")).is_some_and(|p|p.is_file())
+        } else {
+            std::env::var_os("HOME").map(|h|PathBuf::from(h).join(".codex/auth.json").exists()).unwrap_or(false)
+        };
         Self::provider_configured_for(
             &backend,
             Self::provider_setting("QUIRON_LLM_ENDPOINT_PRIMARY").is_some(),
@@ -10059,7 +10134,7 @@ impl AppState {
     pub fn provider_configured_for(backend: &str, endpoint: bool, modelo: bool, claude_cli: bool, codex_auth: bool) -> bool {
         match backend {
             "claude_cli" | "claude-cli" | "claude" => claude_cli,
-            "codex_direct" | "codex-direct" | "codex" => codex_auth,
+            "codex_cli" | "codex-cli" | "codex_direct" | "codex-direct" | "codex" => codex_auth,
             "openai_compatible" | "openai-compatible" | "ollama_native" | "ollama-native" | "ollama" => endpoint && modelo,
             _ => false,
         }
@@ -11686,7 +11761,8 @@ impl AppState {
             ChatMenuItem::AddSelection => self.execute_command_palette_action(CommandPaletteAction::AddSelectionToChat),
             ChatMenuItem::ClearConversation => self.new_chat(),
             ChatMenuItem::Rewind => self.rewind_chat(),
-            ChatMenuItem::SwitchModel => self.chat_popover = ChatPopover::Models,
+            ChatMenuItem::SwitchModel => {self.ai_models=crate::ai_models::read_catalog();self.chat_popover = ChatPopover::Models;},
+            ChatMenuItem::Reasoning => self.chat_popover=ChatPopover::Reasoning,
             ChatMenuItem::ToggleTools => {
                 self.chat_tools_enabled = !self.chat_tools_enabled;
                 self.status_text = if self.chat_tools_enabled { "manos: sí" } else { "manos: no" }.to_string();
@@ -12213,16 +12289,29 @@ impl AppState {
             }
             ClickTargetAction::ChatStop => self.cancel_chat(),
             ClickTargetAction::ChatPopoverToggle(cual) => {
+                if cual==ChatPopover::Models {self.ai_models=crate::ai_models::read_catalog();}
                 self.chat_popover = if self.chat_popover == cual { ChatPopover::None } else { cual };
                 self.needs_render = true;
             }
             ClickTargetAction::ChatMenu(item) => self.chat_menu(item),
             ClickTargetAction::ChatModelPick(modelo) => {
+                if !self.ai_model_options().contains(&modelo.as_str()) {return;}
                 self.selected_ai_model = modelo;
                 self.persist_layout_snapshot();
                 self.chat_popover = ChatPopover::None;
                 self.needs_render = true;
             }
+            ClickTargetAction::ChatProviderModelPick { provider, model } => {
+                self.select_chat_model(&provider,&model);
+            }
+            ClickTargetAction::ChatReasoningPick(effort) => {
+                if self.reasoning_options().contains(&effort.as_str()) {
+                    self.selected_reasoning_effort=effort;
+                    self.persist_layout_snapshot();
+                }
+                self.chat_popover=ChatPopover::None;self.needs_render=true;
+            }
+            ClickTargetAction::RefreshAiModels => self.refresh_ai_models(),
             ClickTargetAction::ChatAttachmentRemove(i) => {
                 if i < self.pending_attachments.len() {
                     self.pending_attachments.remove(i);
@@ -12605,6 +12694,8 @@ impl AppState {
         // herramientas viaja con la pregunta y el modelo puede leer el
         // proyecto en vez de inventárselo.
         let model = self.chat_model();
+        let effort=self.reasoning_effort().map(str::to_string);
+        let provider=self.chat_provider_override();
 
         // Cada herramienta se cronometra aquí, en el editor: es el único sitio
         // que ve empezar y terminar la llamada. Y las métricas de delegación se
@@ -12624,6 +12715,8 @@ impl AppState {
             let mut corridas: Vec<ToolRun> = Vec::new();
             let mut q = quiron.lock().await;
             q.set_response_max_tokens(presupuesto);
+            q.set_reasoning_effort(effort);
+            q.set_chat_provider(provider);
             let catalogo = if manos { chat_tools::tool_catalog() } else { Vec::new() };
             let tools = catalogo
                 .into_iter()
@@ -13787,7 +13880,7 @@ mod tests {
         state.ai_provider = "openai_compatible".to_string();
         assert_eq!(state.chat_model(), "qwen2.5-coder:7b");
         state.ai_provider = "codex_direct".to_string();
-        assert_eq!(state.chat_model(), chat_tools::TOOLS_CHAT_MODEL);
+        assert_eq!(state.chat_model(), "qwen2.5-coder:7b");
         state.ai_provider = "claude_cli".to_string();
         state.selected_ai_model = "sonnet".to_string();
         assert_eq!(state.chat_model(), "sonnet");
@@ -14228,20 +14321,71 @@ mod tests {
         let workspace = TestWorkspace::new("layout_docks_model_restore");
         {
             let mut state = AppState::new_for_tests(workspace.root_path());
-            state.selected_ai_model = "gpt-5.5".to_string();
+            state.ai_provider = "claude_cli".into();
+            state.selected_ai_model = "sonnet".into();
             state.execute_command_palette_action(CommandPaletteAction::MoveExplorerRight);
             state.execute_command_palette_action(CommandPaletteAction::MoveChatLeft);
             state.execute_command_palette_action(CommandPaletteAction::CycleAiModel);
 
             assert_eq!(state.explorer_dock, PanelDock::Right);
             assert_eq!(state.chat_dock, PanelDock::Left);
-            assert_eq!(state.selected_ai_model(), "gpt-5.4");
+            assert_eq!(state.selected_ai_model(), "opus");
         }
 
-        let restored = AppState::new_for_tests(workspace.root_path());
+        let mut restored = AppState::new_for_tests(workspace.root_path());
+        restored.ai_provider="claude_cli".into();restored.restore_layout_snapshot();
         assert_eq!(restored.explorer_dock, PanelDock::Right);
         assert_eq!(restored.chat_dock, PanelDock::Left);
-        assert_eq!(restored.selected_ai_model(), "gpt-5.4");
+        assert_eq!(restored.selected_ai_model(), "opus");
+    }
+
+    #[test]
+    fn claude_and_codex_stay_available_when_switching_and_reopening() {
+        let workspace=TestWorkspace::new("all_chat_providers");
+        let mut state=AppState::new_for_tests(workspace.root_path());
+        state.ai_provider="codex_cli".into();
+        state.ai_models=crate::ai_models::parse_catalog(&serde_json::json!({"models":[
+            {"slug":"gpt-6-astra","visibility":"list","supported_reasoning_levels":[{"effort":"xhigh"}],"default_reasoning_level":"xhigh"}
+        ]}));
+        state.select_chat_model("claude_cli","opus");
+        assert_eq!(state.chat_provider_override().as_deref(),Some("claude_cli"));
+        assert_eq!(state.chat_model(),"opus");assert_eq!(state.reasoning_effort(),None);
+        assert!(state.chat_model_groups().iter().any(|(p,models)|*p=="codex_cli" && models.contains(&"gpt-6-astra")));
+        let mut reopened=AppState::new_for_tests(workspace.root_path());
+        reopened.ai_provider="codex_cli".into();reopened.ai_models=state.ai_models.clone();reopened.restore_layout_snapshot();
+        assert_eq!(reopened.chat_provider_override().as_deref(),Some("claude_cli"));
+        assert_eq!(reopened.chat_model(),"opus");
+        reopened.select_chat_model("codex_cli","gpt-6-astra");
+        assert_eq!(reopened.chat_provider_override().as_deref(),Some("codex_cli"));
+        assert_eq!(reopened.reasoning_effort(),Some("xhigh"));
+        assert!(reopened.chat_model_groups().iter().any(|(p,models)|*p=="claude_cli" && models==&vec!["sonnet","opus","haiku"]));
+        reopened.select_chat_model("claude_cli","gpt-6-astra");
+        assert_eq!(reopened.chat_provider_override().as_deref(),Some("codex_cli"));
+    }
+
+    #[test]
+    fn codex_model_and_reasoning_are_preserved_without_substitution() {
+        let workspace=TestWorkspace::new("codex_reasoning_restore");
+        let catalog=|| crate::ai_models::parse_catalog(&serde_json::json!({"models":[
+            {"slug":"gpt-6-astra","visibility":"list","supported_reasoning_levels":[{"effort":"medium"},{"effort":"xhigh"}],"default_reasoning_level":"medium"},
+            {"slug":"limited","visibility":"list","supported_reasoning_levels":[{"effort":"low"}],"default_reasoning_level":"low"}
+        ]}));
+        {
+            let mut state=AppState::new_for_tests(workspace.root_path());
+            state.ai_provider="codex_cli".into();state.ai_models=catalog();
+            state.selected_ai_model="gpt-6-astra".into();state.selected_reasoning_effort="xhigh".into();
+            assert_eq!(state.chat_model(),"gpt-6-astra");assert_eq!(state.reasoning_effort(),Some("xhigh"));
+            state.persist_layout_snapshot();
+        }
+        let mut restored=AppState::new_for_tests(workspace.root_path());
+        restored.ai_provider="codex_cli".into();restored.ai_models=catalog();restored.restore_layout_snapshot();
+        assert_eq!(restored.chat_model(),"gpt-6-astra");assert_eq!(restored.reasoning_effort(),Some("xhigh"));
+        restored.ai_provider="codex_direct".into();assert_eq!(restored.reasoning_effort(),None);
+        assert!(restored.reasoning_options().is_empty());restored.ai_provider="codex_cli".into();
+        restored.selected_ai_model="limited".into();assert_eq!(restored.reasoning_effort(),Some("low"));
+        restored.ai_provider="openai_compatible".into();assert_eq!(restored.reasoning_effort(),None);
+        restored.selected_ai_model="local-model".into();restored.restore_layout_snapshot();
+        assert_eq!(restored.selected_ai_model(),"local-model");
     }
 
     #[test]

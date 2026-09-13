@@ -1,0 +1,17 @@
+{
+  "verified_utc": "2026-09-10T13:03:26.901050+00:00",
+  "binary": "llore_gui",
+  "binary_sha256": "5c990741aa2c89b56d04b872decd4fcae47de16e95a94410d44a293ecbde4935",
+  "tested_base": "Debian GNU/Linux 13 (trixie), glibc 2.41",
+  "image_id": "sha256:037cf5756f0135cbfd66b739b6df7c7c4bb100f9ce11602f6f9538e17e02c74d",
+  "method": "Contenedor efímero sin red, raíz de solo lectura, sin capacidades, entrada /bin/sh y únicamente el editor montado en lectura. ldd comprueba bibliotecas; no se ejecuta la aplicación ni Neo4j.",
+  "compatible": false,
+  "missing_version": "GLIBC_2.43",
+  "symbol": "acosf",
+  "ldd_output": "/check/llore_gui: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.43' not found (required by /check/llore_gui)\n\tlinux-vdso.so.1 (0x00007f2fee88f000)\n\tlibssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3 (0x00007f2fed4f2000)\n\tlibcrypto.so.3 => /lib/x86_64-linux-gnu/libcrypto.so.3 (0x00007f2feceb8000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f2fee858000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f2fecdc8000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f2fecbd4000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f2fee891000)\n\tlibz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007f2fee836000)\n\tlibzstd.so.1 => /lib/x86_64-linux-gnu/libzstd.so.1 (0x00007f2fecb0a000)\n",
+  "limits": [
+    "No es una instalación limpia completa.",
+    "La ausencia del símbolo basta para impedir el arranque en esta base.",
+    "No se extrapola compatibilidad a otras distribuciones."
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "binary_sha256": "25c67311bb4125acb15a96e577288333050a8340fee9a7aa537f2572d2b01557",
+  "cases": [],
+  "limits": [
+    "Tres regresiones conocidas y cinco ejemplos sintéticos nuevos; sin evaluación independiente.",
+    "Citas existentes no prueban cada afirmación semántica."
+  ],
+  "health": {
+    "status": "ok",
+    "service": "quiron-brain",
+    "event_count": 0,
+    "node_count": 0,
+    "invariant_count": 5
+  },
+  "collection_cleanup_errors": [
+    "<urlopen error [Errno 111] Connection refused>",
+    "<urlopen error [Errno 111] Connection refused>"
+  ]
+}

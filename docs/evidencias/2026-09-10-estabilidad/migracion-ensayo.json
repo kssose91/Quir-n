@@ -1,0 +1,26 @@
+{
+  "backup_path": "/home/KSSOSE/Quirón/data/backups/stability-20260910T142310Z",
+  "trial_exit": 0,
+  "trial": {
+    "after": {
+      "event_count": 5285,
+      "legacy_events": 5284,
+      "legacy_snapshot_protected": true,
+      "message": "V2 full-content chain and legacy snapshot verified",
+      "v2_events": 1,
+      "valid": true
+    },
+    "before": {
+      "event_count": 5284,
+      "legacy_events": 5284,
+      "legacy_snapshot_protected": false,
+      "message": "Legacy chain verified with limited field coverage; next append creates a full-content anchor",
+      "v2_events": 0,
+      "valid": true
+    },
+    "legacy_bytes_preserved": true,
+    "migration_event": "01M25V6Z23FV5HMXCVV784KPE8",
+    "note": "The anchor protects legacy content observed at transition; it does not prove originality before transition."
+  },
+  "error": ""
+}

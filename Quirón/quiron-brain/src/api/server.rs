@@ -896,13 +896,16 @@ struct ChainVerifyResponse {
     valid: bool,
     event_count: u64,
     message: String,
+    legacy_events: u64,
+    v2_events: u64,
+    legacy_snapshot_protected: bool,
 }
 
 async fn verify_chain(State(state): State<Arc<AppState>>) -> Json<ChainVerifyResponse> {
     let event_count = state.reader.count().unwrap_or(0);
 
     // Full verification with lock
-    let result = state.writer.lock().await.verify_chain();
+    let result = state.writer.lock().await.verify_chain_detailed();
 
     // Update cache
     let now = std::time::SystemTime::now()
@@ -911,23 +914,26 @@ async fn verify_chain(State(state): State<Arc<AppState>>) -> Json<ChainVerifyRes
         .as_secs();
 
     match result {
-        Ok(valid) => {
+        Ok(report) => {
+            let valid = report.valid;
             state.chain_valid_cache.store(valid, Ordering::Relaxed);
             state.last_chain_verify.store(now, Ordering::Relaxed);
             Json(ChainVerifyResponse {
                 valid,
-                event_count,
-                message: if valid {
-                    "Hash chain integrity verified".to_string()
-                } else {
-                    "ALERT: Hash chain integrity violation detected!".to_string()
-                },
+                event_count: report.event_count,
+                message: report.message,
+                legacy_events: report.legacy_events,
+                v2_events: report.v2_events,
+                legacy_snapshot_protected: report.legacy_snapshot_protected,
             })
         }
         Err(e) => Json(ChainVerifyResponse {
             valid: false,
             event_count,
             message: format!("Verification error: {}", e),
+            legacy_events: 0,
+            v2_events: 0,
+            legacy_snapshot_protected: false,
         }),
     }
 }
@@ -2080,6 +2086,10 @@ async fn enrich_historical(
 /// Request para el proxy de mensajes (compatible con Anthropic API)
 #[derive(Deserialize)]
 struct MessagesProxyRequest {
+    #[serde(default)]
+    provider: Option<String>,
+    #[serde(default)]
+    reasoning_effort: Option<String>,
     model: String,
     #[serde(default)]
     project_id: Option<String>,
@@ -2801,6 +2811,8 @@ async fn process_messages_request(
     };
 
     let llm_request = MessagesRequest {
+        provider: req.provider.clone(),
+        reasoning_effort: req.reasoning_effort.clone(),
         model: req.model.clone(),
         messages: llm_messages,
         system: Some(system_prompt),
@@ -4541,6 +4553,8 @@ mod tests {
         let state = test_state(storage);
 
         let req = MessagesProxyRequest {
+            provider: None,
+            reasoning_effort: None,
             model: "gemini-test".to_string(),
             project_id: None,
             messages: vec![ProxyMessage {
@@ -4569,6 +4583,8 @@ mod tests {
         let state = test_state(storage);
 
         let req = MessagesProxyRequest {
+            provider: None,
+            reasoning_effort: None,
             model: "gemini-test".to_string(),
             project_id: None,
             messages: vec![ProxyMessage {

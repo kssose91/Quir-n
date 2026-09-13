@@ -1,0 +1,25 @@
+{
+  "editor": {
+    "passed": 324,
+    "failed": 0,
+    "ignored": 2
+  },
+  "brain": {
+    "passed": 184,
+    "failed": 0,
+    "ignored": 0
+  },
+  "gateway": {
+    "passed": 29,
+    "failed": 0,
+    "ignored": 0
+  },
+  "delivery": {
+    "passed": 9,
+    "failed": 0,
+    "ignored": 0,
+    "source": "../2026-09-10-codex/delivery-tests.log"
+  },
+  "total_passed": 546,
+  "ok": true
+}

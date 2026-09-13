@@ -159,7 +159,9 @@ def respuesta_guardada(question, desde_epoch):
     for hilo in hilos:
         mensajes=hilo.get('messages') or []
         if hilo.get('created_secs',0) >= desde_epoch and any(m.get('is_user') and m.get('content')==question for m in mensajes):
-            return not mensajes[-1].get('is_user')
+            if not mensajes[-1].get('is_user'):
+                assert mensajes[-1].get('meta') != 'model-error', mensajes[-1].get('content')
+                return True
     return False
 def ask_round(question):
     # La pregunta ya salió al abrir el proyecto; solo hay que esperar a que el
@@ -171,8 +173,16 @@ def ask_round(question):
         if respuesta_guardada(question, inicio_epoch):
             time.sleep(0.5); key('Shift_L'); time.sleep(1); step_shot('3-respuesta')
             since=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(arranque_epoch))
-            lines=[l for l in subprocess.run(['journalctl','--user','-u','quiron-brain','--since',since,'-o','cat'],capture_output=True,text=True).stdout.splitlines() if '[gateway]' in l and 'tool_calls=' in l]
-            return {'seconds':round(time.monotonic()-t0,1),'llamadas':len(lines),'gateway_log':lines}
+            journal=subprocess.run(['journalctl','--user','-u','quiron-brain','--since',since,'-o','cat'],capture_output=True,text=True).stdout.splitlines()
+            lines=[l for l in journal if '[gateway]' in l and 'tool_calls=' in l]
+            assert lines and 'tool_calls=0' in lines[-1], 'No hay cierre del gateway para la respuesta'
+            hilos=json.loads((args.project/'.quiron/state/chats.json').read_text())
+            hilos=hilos if isinstance(hilos,list) else hilos.get('threads') or []
+            propio=next(h for h in reversed(hilos) if h.get('created_secs',0)>=inicio_epoch and any(m.get('is_user') and m.get('content')==question for m in h['messages']))
+            return {'seconds':round(time.monotonic()-t0,1),'llamadas':len(lines),'gateway_log':lines,
+                    'provider_log':[l for l in journal if '[codex_cli] model=' in l or '[claude_cli] model=' in l],
+                    'answer':propio['messages'][-1],
+                    'activity':[m for m in propio['messages'][:-1] if not m.get('is_user')]}
         time.sleep(1)
     raise AssertionError('sin respuesta del modelo en 300 s')
 def chat_round(question):
@@ -229,10 +239,18 @@ try:
         project=(args.project/'.quiron/project.id').read_text().strip()
         before=indexed(project,lambda s:s['files_total']==1)
         open_math()
-        key('End','CTRL')
+        # El editor implementa End por línea. La fixture tiene dos líneas;
+        # movernos explícitamente evita asumir un atajo Ctrl+End no implementado.
+        key('Down');key('End')
         for char in 'edited': key(char)
-        key('z','CTRL');key('z','CTRL SHIFT')
         key('s','CTRL');time.sleep(.5)
+        assert source.read_text()=='pub fn answer() -> u32 { 42 }\n// edited', repr(source.read_text())
+        # Comprobar estados intermedios: undo/redo como no-op no debe pasar.
+        key('x');key('z','CTRL');key('s','CTRL');time.sleep(.5)
+        assert source.read_text()=='pub fn answer() -> u32 { 42 }\n// edited', repr(source.read_text())
+        key('z','CTRL SHIFT');key('s','CTRL');time.sleep(.5)
+        assert source.read_text()=='pub fn answer() -> u32 { 42 }\n// editedx', repr(source.read_text())
+        key('z','CTRL');key('s','CTRL');time.sleep(.5)
         assert source.read_text()=='pub fn answer() -> u32 { 42 }\n// edited', repr(source.read_text())
         after=indexed(project,lambda s:s['summaries_generated']>before['summaries_generated'])
         evidence['checks'].update(open_edit_undo_redo_save=True, saved_change_indexed=True)
@@ -270,7 +288,7 @@ try:
     if args.edit_smoke:
         assert api('/index/project/'+project)['phase']=='watching'
         p=subprocess.Popen([str(args.binary.resolve()),str(args.project)],env=env,stdout=log,stderr=log)
-        window=own_window();open_math();key('End','CTRL')
+        window=own_window();open_math();key('Down');key('End')
         for char in 'again': key(char)
         key('s','CTRL');time.sleep(.5)
         assert source.read_text()=='pub fn answer() -> u32 { 42 }\n// editedagain', repr(source.read_text())
@@ -284,7 +302,7 @@ finally:
     if p.poll() is None:
         p.terminate(); p.wait(timeout=5)
     log.close(); x.XCloseDisplay(d)
-    if project:
+    if project and source is not None:
         try:
             source.unlink(missing_ok=True)
             indexed(project,lambda s:s['files_total']==0)

@@ -1,0 +1,24 @@
+{
+  "editor": {
+    "passed": 323,
+    "failed": 0,
+    "ignored": 2
+  },
+  "brain": {
+    "passed": 184,
+    "failed": 0,
+    "ignored": 0
+  },
+  "gateway": {
+    "passed": 28,
+    "failed": 0,
+    "ignored": 0
+  },
+  "delivery": {
+    "passed": 9,
+    "failed": 0,
+    "ignored": 0
+  },
+  "total_passed": 544,
+  "ok": true
+}

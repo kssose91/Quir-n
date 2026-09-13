@@ -1,0 +1,32 @@
+{
+  "cli_version": "codex-cli 0.153.0",
+  "gateway_sha256": "6d44044aa3dd23f48b1e984a92b343fd7ca3b01bde3a32a744813dd8c0a77cc6",
+  "checks": {
+    "selected_model_reaches_cli": true,
+    "effort_reaches_cli": true,
+    "explicit_provider_overrides_default": true,
+    "no_native_project_tools": true,
+    "quiron_tool_contract_roundtrip": true,
+    "brain_credential_removed": true
+  },
+  "response": {
+    "ok": true,
+    "tool_calls": [
+      {
+        "call_id": "read-1",
+        "name": "read_file",
+        "arguments": "{\"path\":\"math.rs\"}"
+      }
+    ],
+    "input_tokens": 10,
+    "output_tokens": 10,
+    "model": "gpt-6-astra"
+  },
+  "advertised_native_tools": [
+    "request_user_input"
+  ],
+  "configured_provider": "claude_cli",
+  "requested_provider": "codex_cli",
+  "scope": "Real gateway and Codex CLI; simulated Responses server on localhost. No model quality measurement.",
+  "ok": true
+}

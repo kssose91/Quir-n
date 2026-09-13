@@ -1,0 +1,11 @@
+{
+  "projects": [
+    "00QB7M9RXHYYHZ2ACBJ7WVXPWS",
+    "0GQK0VVHTSCP57H0RPQQHKGK9D"
+  ],
+  "removed_collections": [
+    "quiron_probe_worker_a16b99e8967d",
+    "quiron_probe_events_a16b99e8967d"
+  ],
+  "only_failed_test_scopes_removed": true
+}

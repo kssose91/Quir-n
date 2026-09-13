@@ -1,0 +1,41 @@
+{
+  "gui_sha256": "947ad2c3bb703bf503aa4523462bd7080a3f367d0418799643e8c276a1511715",
+  "checks": {
+    "six_visible_models": true,
+    "five_supported_efforts": true,
+    "astra_and_extra_high_selected": true,
+    "clean_exit_both_windows": true
+  },
+  "captures": {
+    "gui-modelos/gui-1280.png": {
+      "size": [
+        1280,
+        720
+      ],
+      "sha256": "dd3913557842d43e345eb778d00f55c293d5b2b0ff3a865beb34ab1082f21d5e"
+    },
+    "gui-modelos/gui-900.png": {
+      "size": [
+        900,
+        600
+      ],
+      "sha256": "48439802bc324867e70483eb7cf87a65b77a54bad9efb1987b51ebc28dafbdf4"
+    },
+    "gui-razonamiento/gui-1280.png": {
+      "size": [
+        1280,
+        720
+      ],
+      "sha256": "155420e360ccbedfbe658e7c20bb6f7af00f63486c7a1f805fa5a1258b615791"
+    },
+    "gui-razonamiento/gui-900.png": {
+      "size": [
+        900,
+        600
+      ],
+      "sha256": "a098c5fa198706a0296d21e115a066b50f2d69dab2711abb37f36f6481f9452a"
+    }
+  },
+  "scope": "Inspección visual de los selectores; no es una prueba de inferencia de los seis modelos.",
+  "ok": true
+}

@@ -140,7 +140,7 @@ def main():
                 esperar(lambda: not puerto_libre(11434), 10, 'el Ollama simulado')
                 config = ['openai-compatible', '--endpoint', 'http://127.0.0.1:11434', '--model', 'mock-coder:7b']
             elif nombre == 'codex':
-                config = ['codex-direct', '--model', 'gpt-5.5']
+                config = ['codex-cli', '--model', 'gpt-6-astra', '--reasoning-effort', 'xhigh']
             else:
                 config = ['claude-cli', '--model', 'sonnet']
             registro['configuracion'] = config + (['--api-key-from-stdin'] if clave else []) + ['--apply']

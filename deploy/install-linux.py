@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Instalación por usuario. --destdir permite comprobarla sin activar servicios."""
 import argparse
+import ctypes
 import hashlib
 import os
 import platform
@@ -10,6 +11,24 @@ import shlex
 import shutil
 import subprocess
 import sys
+
+
+def require_gui_libraries():
+    # winit opens these at runtime; ldd alone does not report their absence.
+    libraries = ["libxkbcommon.so.0"]
+    if os.environ.get("WAYLAND_DISPLAY"):
+        libraries += ["libwayland-client.so.0"]
+    else:
+        libraries += ["libX11.so.6", "libXcursor.so.1", "libX11-xcb.so.1", "libXi.so.6"]
+    missing = []
+    for library in libraries:
+        try:
+            ctypes.CDLL(library)
+        except OSError:
+            missing.append(library)
+    if missing:
+        raise SystemExit("Faltan bibliotecas del escritorio: " + ", ".join(missing) +
+                         ". Consulte las dependencias de X11/Wayland en README.md.")
 
 
 def main():
@@ -42,7 +61,7 @@ def main():
             raise SystemExit("Ruta de paquete inválida: " + name)
         if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
             raise SystemExit("Checksum incorrecto: " + name)
-    for binary in ("llore_gui", "quiron-brain", "vertex-gateway", "index_repo"):
+    for binary in ("llore_gui", "quiron-brain", "vertex-gateway", "index_repo", "ledger_admin"):
         if not (package / "bin" / binary).is_file():
             raise SystemExit("Falta binario: " + binary)
     if dest(config).exists() or dest(unit).exists() or dest(home / ".config/systemd/user/quiron-worker.service").exists():
@@ -59,6 +78,7 @@ def main():
             if check.returncode or "not found" in check.stdout + check.stderr:
                 raise SystemExit("Bibliotecas incompatibles para " + binary.name + ":\n" +
                                  check.stdout + check.stderr)
+        require_gui_libraries()
         subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL, check=True)
 
     dest(root).mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,206 @@
+{
+  "model": "Qwen2.5-Coder-1.5B-Instruct Q4_K_M",
+  "embeddings": "BGE-M3",
+  "checks": {
+    "requires_auth": true,
+    "requires_worker_auth": true,
+    "project_isolation": true,
+    "qdrant_retrieval": true,
+    "neo4j_projection": true,
+    "secrets_and_symlinks_excluded": true,
+    "graph_neighbor_project_filter": true,
+    "graph_neighbor_model_filter": true,
+    "graph_preserves_partial_and_summary_metadata": true,
+    "unchanged_skips_inference": true,
+    "stale_results_rejected": true,
+    "changed_logic_replaced": true,
+    "deletion_scoped_to_project": true
+  },
+  "initial": [
+    {
+      "seconds": 5.76,
+      "progress": {
+        "project_id": "0EAJA7J83R7C255MGXZ6EX1CF3",
+        "phase": "watching",
+        "files_total": 1,
+        "files_done": 1,
+        "units_written": 2,
+        "summaries_generated": 2,
+        "structural_fallbacks": 0,
+        "current_path": "",
+        "error": null
+      },
+      "hits": [
+        {
+          "calls": [],
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "163490fb-7988-b6ae-0791-8043468a0585",
+          "kind": "file",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0EAJA7J83R7C255MGXZ6EX1CF3",
+          "score": 0.71719086,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "evidence": [
+              {
+                "line": 1,
+                "text": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str> {"
+              },
+              {
+                "line": 2,
+                "text": "    if !(0.0..=1.0).contains(&discount) { return Err(\"invalid discount\"); }"
+              },
+              {
+                "line": 3,
+                "text": "    Ok(prices.iter().sum::<f64>() * (1.0 - discount))"
+              }
+            ],
+            "purpose": "Calculates the total price after applying a discount.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+          "summary_origin": "model",
+          "symbol": ""
+        },
+        {
+          "calls": [
+            ".contains",
+            ".iter",
+            ".sum",
+            "Err",
+            "Ok"
+          ],
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "5a5e9727-9e93-9cfa-1be9-3c85c0be57e5",
+          "kind": "function",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0EAJA7J83R7C255MGXZ6EX1CF3",
+          "score": 0.6979917,
+          "signature": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str>",
+          "start_line": 1,
+          "summary": {
+            "evidence": [
+              {
+                "line": 1,
+                "text": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str> {"
+              },
+              {
+                "line": 2,
+                "text": "    if !(0.0..=1.0).contains(&discount) { return Err(\"invalid discount\"); }"
+              },
+              {
+                "line": 3,
+                "text": "    Ok(prices.iter().sum::<f64>() * (1.0 - discount))"
+              }
+            ],
+            "purpose": "Calculates the total price after applying a discount.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+          "summary_origin": "model",
+          "symbol": "total"
+        }
+      ]
+    },
+    {
+      "seconds": 2.13,
+      "progress": {
+        "project_id": "0QAH493Q7BXGP9SK1HQPNSDPS3",
+        "phase": "watching",
+        "files_total": 1,
+        "files_done": 1,
+        "units_written": 2,
+        "summaries_generated": 2,
+        "structural_fallbacks": 0,
+        "current_path": "",
+        "error": null
+      },
+      "hits": [
+        {
+          "calls": [],
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "acf9cfe4-3112-d672-8132-8e8bec0720a5",
+          "kind": "file",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0QAH493Q7BXGP9SK1HQPNSDPS3",
+          "score": 0.71719086,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "evidence": [
+              {
+                "line": 1,
+                "text": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str> {"
+              },
+              {
+                "line": 2,
+                "text": "    if !(0.0..=1.0).contains(&discount) { return Err(\"invalid discount\"); }"
+              },
+              {
+                "line": 3,
+                "text": "    Ok(prices.iter().sum::<f64>() * (1.0 - discount))"
+              }
+            ],
+            "purpose": "Calculates the total price after applying a discount.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+          "summary_origin": "model",
+          "symbol": ""
+        },
+        {
+          "calls": [
+            ".contains",
+            ".iter",
+            ".sum",
+            "Err",
+            "Ok"
+          ],
+          "content_hash": "e56703a0e3fd399604af9524248b83ce4640695b28f54a578aa2fceddd44f7c4",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 4,
+          "id": "482bcad8-59cf-3c7e-574e-1c1434eb6c94",
+          "kind": "function",
+          "partial": false,
+          "path": "math.rs",
+          "project": "0QAH493Q7BXGP9SK1HQPNSDPS3",
+          "score": 0.6979917,
+          "signature": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str>",
+          "start_line": 1,
+          "summary": {
+            "evidence": [
+              {
+                "line": 1,
+                "text": "pub fn total(prices: &[f64], discount: f64) -> Result<f64, &'static str> {"
+              },
+              {
+                "line": 2,
+                "text": "    if !(0.0..=1.0).contains(&discount) { return Err(\"invalid discount\"); }"
+              },
+              {
+                "line": 3,
+                "text": "    Ok(prices.iter().sum::<f64>() * (1.0 - discount))"
+              }
+            ],
+            "purpose": "Calculates the total price after applying a discount.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+          "summary_origin": "model",
+          "symbol": "total"
+        }
+      ]
+    }
+  ],
+  "ok": true
+}

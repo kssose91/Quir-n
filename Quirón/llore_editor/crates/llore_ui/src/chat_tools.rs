@@ -17,14 +17,6 @@ use serde_json::{json, Value};
 
 use crate::workspace_guard::{self, Access};
 
-/// Modelo que ejecuta el chat con herramientas.
-///
-/// Verificado contra la cuenta el 2026-07-10: `gpt-5.5` acepta y usa
-/// herramientas; `gpt-5.6-sol` responde 400 («requires a newer version of
-/// Codex») en cuanto la petición las incluye. Mientras eso no cambie, el chat
-/// con manos va siempre por `gpt-5.5`, elija lo que elija el selector.
-pub const TOOLS_CHAT_MODEL: &str = "gpt-5.5";
-
 /// Caracteres de un archivo que devuelve `read_file`. Un archivo mayor se
 /// recorta y el recorte se declara.
 const READ_FILE_MAX_CHARS: usize = 24_000;

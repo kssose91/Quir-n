@@ -1,0 +1,44 @@
+{
+  "gui_sha256": "da05221d3c75b9de91d338ad57470caeb17fd5c44af436ba0d50a6b7d35a77a4",
+  "checks": {
+    "claude_sonnet_opus_haiku_visible": true,
+    "six_codex_models_visible": true,
+    "claude_sonnet_selected": true,
+    "clean_exit": true,
+    "anthropic_remains_visible_with_codex_selected": true
+  },
+  "captures": {
+    "gui-1280.png": {
+      "actual_size": [
+        950,
+        1032
+      ],
+      "sha256": "26bd0773853fc9dd90e18fd613eb45dd592bfe12d2e01501ce845836bbf61466"
+    },
+    "gui-900.png": {
+      "actual_size": [
+        1910,
+        1032
+      ],
+      "sha256": "1b0b14e93e5553d2e5499ef271424425eb4ea33aa03de272e4d09b8f153ebbed"
+    },
+    "codex-selected/gui-1280.png": {
+      "actual_size": [
+        1910,
+        1032
+      ],
+      "sha256": "31471acdd5f1932b383838338f04700a628e15a3e56c766b2385ba96469cc50c"
+    },
+    "codex-selected/gui-900.png": {
+      "actual_size": [
+        1910,
+        1032
+      ],
+      "sha256": "48f2039a55bde7a8cb3ae3cc593422e187d27f49870bcd3eeaf306a30c5d4921"
+    }
+  },
+  "ok": true,
+  "limits": [
+    "Los nombres de captura indican tamaños solicitados; el compositor mantuvo los tamaños reales registrados."
+  ]
+}

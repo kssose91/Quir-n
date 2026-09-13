@@ -1,0 +1,3042 @@
+{
+  "started_utc": "2026-09-10T12:40:17.192218+00:00",
+  "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+  "commit": "9a28d0235b64f78d7bdf623c3d1805feba402e69",
+  "dataset_sha256": "00a1e29843dc92c2d4ea81d6013b0c0d36d93408d9cbef5008691b82116e0939",
+  "protocol": {
+    "version": 1,
+    "created": "2026-09-10",
+    "selection": "Diez preguntas redactadas a partir de la lectura del código durante la auditoría; muestra exploratoria, sin holdout.",
+    "metric": "Hit@5 y MRR@5 sobre un objetivo primario por pregunta; no Precision@k ni exhaustividad de todos los símbolos relevantes.",
+    "cases": [
+      {
+        "id": "vigencia",
+        "question": "¿Dónde se verifica que un archivo no cambió desde que se generó su ficha?",
+        "expected": {
+          "path": "Quirón/quiron-brain/src/index/worker.rs",
+          "symbol": "ensure_current"
+        }
+      },
+      {
+        "id": "identidad",
+        "question": "¿Dónde se comprueba que la identidad guardada en una carpeta pertenece al proyecto solicitado?",
+        "expected": {
+          "path": "Quirón/quiron-brain/src/index/worker.rs",
+          "symbol": "validate_project"
+        }
+      },
+      {
+        "id": "identificador",
+        "question": "¿Cómo se obtiene un identificador estable combinando proyecto, ruta y símbolo sin depender del contenido?",
+        "expected": {
+          "path": "Quirón/quiron-brain/src/index/unit.rs",
+          "symbol": "stable_id"
+        }
+      },
+      {
+        "id": "llamadas",
+        "question": "¿Dónde se recorre el árbol sintáctico para recoger las llamadas de una función sin contar las macros?",
+        "expected": {
+          "path": "Quirón/quiron-brain/src/index/extract.rs",
+          "symbol": "collect_calls"
+        }
+      },
+      {
+        "id": "cadena",
+        "question": "¿Qué método comprueba los enlaces y hashes de la cadena de eventos?",
+        "expected": {
+          "path": "Quirón/quiron-brain/src/ledger/writer.rs",
+          "symbol": "LedgerWriter::verify_chain"
+        }
+      },
+      {
+        "id": "eventos_proyecto",
+        "question": "¿Dónde se consultan los eventos del registro que corresponden a un proyecto concreto?",
+        "expected": {
+          "path": "Quirón/quiron-brain/src/ledger/reader.rs",
+          "symbol": "LedgerReader::by_project"
+        }
+      },
+      {
+        "id": "guardia",
+        "question": "¿Dónde se clasifica una ruta como permitida, secreta, fuera del proyecto o ruido?",
+        "expected": {
+          "path": "Quirón/llore_editor/crates/llore_ui/src/workspace_guard.rs",
+          "symbol": "classify"
+        }
+      },
+      {
+        "id": "leer_archivo",
+        "question": "¿Dónde se ejecuta la herramienta de lectura de archivos del chat y se limita el texto que devuelve?",
+        "expected": {
+          "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+          "symbol": "read_file"
+        }
+      },
+      {
+        "id": "claude",
+        "question": "¿Dónde se valida que las herramientas solicitadas en una respuesta de Claude sean de las ofrecidas?",
+        "expected": {
+          "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+          "symbol": "parse_response"
+        }
+      },
+      {
+        "id": "backend",
+        "question": "¿Dónde se interpreta la variable del proveedor para elegir el backend del gateway?",
+        "expected": {
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "symbol": "GatewayBackend::from_env"
+        }
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "vigencia",
+      "question": "¿Dónde se verifica que un archivo no cambió desde que se generó su ficha?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/index/worker.rs",
+        "symbol": "ensure_current"
+      },
+      "seconds": 0.2435190290270839,
+      "primary_rank_at_5": 3,
+      "hit_with_expansion": true,
+      "hint_tokens": 2455,
+      "hits": [
+        {
+          "calls": [
+            ".len",
+            "Some"
+          ],
+          "content_hash": "860aa6bb9cef9e8977bc30ba36e1c9c66b511616a9393b47d1b39d09f2659e69",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 81,
+          "id": "cd67048b-833b-eebe-03c5-22b67afea9c7",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_buffer/src/history.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.52133036,
+          "signature": "pub fn is_modified(&self) -> bool",
+          "start_line": 79,
+          "summary": {
+            "purpose": "The method `is_modified` checks if the history of changes in the buffer has been modified. It returns `true` if the saved index is different from the length of the undo stack, indicating that changes have been made since the last save. The method is used to determine if the buffer needs to be saved before making further changes.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "History::is_modified"
+        },
+        {
+          "calls": [
+            ".is_modified"
+          ],
+          "content_hash": "e2550ee07e1d3f451628196a7b9d734f3e861e485a5501bbbff74d1b871980d1",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 211,
+          "id": "885c2d39-6862-0708-d683-ed5efa06edee",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_buffer/src/buffer.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.51082206,
+          "signature": "pub fn is_modified(&self) -> bool",
+          "start_line": 209,
+          "summary": {
+            "purpose": "The method `Buffer::is_modified` checks if the buffer has been modified by comparing its history with the current state. It returns `true` if the buffer has been modified, otherwise `false`. The method uses the `is_modified` method of the `History` struct to determine this. The method is part of the `Buffer` struct and is used to check if the buffer has been modified by the user or by other means. The method is called on an instance of the `Buffer` struct and returns a `bool`",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "Buffer::is_modified"
+        },
+        {
+          "calls": [
+            ".any",
+            ".as_os_str",
+            ".canonicalize",
+            ".components",
+            ".file_type",
+            ".is_absolute",
+            ".is_symlink",
+            ".push",
+            ".starts_with",
+            ".to_path_buf",
+            ".to_string_lossy",
+            "Ok",
+            "Path::new",
+            "content_hash",
+            "is_secret",
+            "read",
+            "symlink_metadata"
+          ],
+          "content_hash": "fd4199e7f1236487577086ee96822a1c1cdf2fd281f3bce2fcca2c85d5cc1ca0",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 700,
+          "id": "d5c46950-53d7-bdaa-6c30-83fd9cbbf5c7",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/index/worker.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.50741327,
+          "signature": "fn ensure_current(root: &Path, path: &str, hash: &str) -> Result<()>",
+          "start_line": 674,
+          "summary": {
+            "purpose": "This function ensures that the given path is valid, not a secret, and not a symlink to a different directory. It also checks if the path is within the project directory and if the file content hash matches the expected hash. If any of these checks fail, it returns an error. The function takes three arguments: the root directory, the path to be checked, and the expected hash of the file. The function returns a Result<(), Error> indicating whether the path is valid or not. The ",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "ensure_current"
+        },
+        {
+          "calls": [
+            ".is_modified"
+          ],
+          "content_hash": "5c748eef2d3f42306ba3a88ed573d95000dccf4d3d7b806079415b2677becb59",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 126,
+          "id": "77e990ac-032f-72c0-ccaf-fd05cd8b6c8a",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_editor/src/editor.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5005306,
+          "signature": "pub fn is_modified(&self) -> bool",
+          "start_line": 124,
+          "summary": {
+            "purpose": "The function `is_modified` checks if the buffer of the editor is modified. It returns `true` if the buffer is modified, otherwise `false`. The buffer is assumed to have a method `is_modified` that returns a boolean value indicating whether the buffer is modified or not. The function is used to determine if the editor has made any changes to the content of the buffer. The function does not compute or define any visible validation or error paths. The unknowns are missing the `L",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "Editor::is_modified"
+        },
+        {
+          "calls": [
+            ".contains"
+          ],
+          "content_hash": "9f85a80955656c183f4a8e096e127e3bb4342d3639403a329e956ce54b8cb49f",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 492,
+          "id": "d75f5784-ce5a-6b86-c945-a97807bbaba5",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_brain/src/gates.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.49520317,
+          "signature": "pub fn was_file_read(&self, path: &str) -> bool",
+          "start_line": 490,
+          "summary": {
+            "purpose": "This method checks if a file has been read by the application based on the provided file path. It returns true if the file has been read, otherwise false. The method uses a HashSet named `files_read` to store the paths of files that have been read. The method takes a string parameter `path` which represents the file path to check. The method returns a boolean value indicating whether the file has been read or not. The method is used to validate the file paths that have been读.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "GateValidator::was_file_read"
+        },
+        {
+          "content_hash": "fd4199e7f1236487577086ee96822a1c1cdf2fd281f3bce2fcca2c85d5cc1ca0",
+          "end_line": 598,
+          "id": "5286ea4b-c097-074a-d65d-4782a59816c4",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/index/worker.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub async fn search(\n        &self,\n        state: &Arc<AppState>,\n        project: &str,\n        query: &str,\n        limit: usize,\n    ) -> Result<Vec<Value>>",
+          "start_line": 485,
+          "summary": "This method searches for code records based on a query and project, returning a list of values. It first retrieves the root of the project from the storage, then validates the project. It uses the semantic model to embed the query and sends a request to the store to search for points. If the feature is enabled, it expands the search by calling the code units that call the found points. The method returns the list of values, including scores and partial information. It also re\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "ProjectWorker::search",
+          "via": "ensure_current"
+        },
+        {
+          "content_hash": "9f85a80955656c183f4a8e096e127e3bb4342d3639403a329e956ce54b8cb49f",
+          "end_line": 578,
+          "id": "bf0042a1-4c72-36f7-2341-7f71be12b0fe",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_brain/src/gates.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub fn validate_local(&self, action: &str, target: Option<&str>) -> ValidationResult",
+          "start_line": 517,
+          "summary": "This method validates the local actions based on the given action and target path. It checks for no-ghost-editing, scope-lock, and age constraints. If any of these constraints are violated, it returns a ValidationResult with the appropriate details. The method is part of the Quirón/llore_editor/llore_brain crate and is used to ensure that the actions are performed within the allowed scope and that the files are not stale.\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "GateValidator::validate_local",
+          "via": "GateValidator::was_file_read"
+        }
+      ],
+      "checks": [
+        {
+          "id": "cd67048b-833b-eebe-03c5-22b67afea9c7",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "885c2d39-6862-0708-d683-ed5efa06edee",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "d5c46950-53d7-bdaa-6c30-83fd9cbbf5c7",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "77e990ac-032f-72c0-ccaf-fd05cd8b6c8a",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "d75f5784-ce5a-6b86-c945-a97807bbaba5",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "5286ea4b-c097-074a-d65d-4782a59816c4",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "bf0042a1-4c72-36f7-2341-7f71be12b0fe",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    },
+    {
+      "id": "identidad",
+      "question": "¿Dónde se comprueba que la identidad guardada en una carpeta pertenece al proyecto solicitado?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/index/worker.rs",
+        "symbol": "validate_project"
+      },
+      "seconds": 0.12343893400975503,
+      "primary_rank_at_5": 2,
+      "hit_with_expansion": true,
+      "hint_tokens": 2768,
+      "hits": [
+        {
+          "calls": [],
+          "content_hash": "b9b9d8fe21970123cc6cc767fa2558f111fb51f44997ad3c450df2b999ba454e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 52,
+          "id": "57d8e637-5b6c-325d-f2d3-ee325a37053b",
+          "kind": "struct",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/retrieval.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.57507473,
+          "signature": "pub struct Identity",
+          "start_line": 47,
+          "summary": {
+            "purpose": "The provided source code defines a struct named `Identity` with fields for `name`, `version`, `user`, and `project`. The `project` field is an optional string. The struct is used to represent information about an identity, such as a user's name, version, and project. The `Identity` struct is not used in the provided code, but it is defined in the file. The `Identity` struct is not used in the provided code, but it is defined in the file. The `Identity` struct is not used in 3",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "Identity"
+        },
+        {
+          "calls": [
+            ".as_os_str",
+            ".canonicalize",
+            ".components",
+            ".context",
+            ".exists",
+            ".file_type",
+            ".is_absolute",
+            ".is_dir",
+            ".is_none",
+            ".is_symlink",
+            ".join",
+            ".parent",
+            ".parse",
+            ".to_string_lossy",
+            ".trim",
+            "Ok",
+            "is_secret",
+            "read_to_string",
+            "symlink_metadata"
+          ],
+          "content_hash": "fd4199e7f1236487577086ee96822a1c1cdf2fd281f3bce2fcca2c85d5cc1ca0",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 203,
+          "id": "dd074240-338c-1f47-c84f-29cf969f974e",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/index/worker.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.562829,
+          "signature": "pub fn validate_project(root: &Path, project: &str) -> Result<PathBuf>",
+          "start_line": 168,
+          "summary": {
+            "purpose": "This function validates a project directory by checking its structure, identity, and permissions. It ensures the project directory is absolute, contains a valid project ID, and does not contain any secret directories. The function returns the validated project directory path or an error if the validation fails. The unknowns are the context and the specific details of the project ID parsing and validation. The function uses the `ulid` crate for parsing the project ID and the `",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "validate_project"
+        },
+        {
+          "calls": [
+            ".and_then",
+            ".file_name",
+            ".map",
+            ".ok",
+            ".to_string",
+            ".to_string_lossy",
+            ".unwrap_or_else",
+            "current_dir",
+            "var"
+          ],
+          "content_hash": "b9b9d8fe21970123cc6cc767fa2558f111fb51f44997ad3c450df2b999ba454e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 270,
+          "id": "b09536ce-5c40-ac59-d682-bcbb036603c4",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/retrieval.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.56131953,
+          "signature": "fn build_identity(&self) -> Identity",
+          "start_line": 258,
+          "summary": {
+            "purpose": "The function `build_identity` constructs an `Identity` struct with various details such as the project name, version, user, and current working directory. It uses the `std::env` module to retrieve these details. The function returns an `Identity` struct with the specified details. The `Identity` struct is used to represent the identity of the application. The function is part of a larger system that manages the retrieval of information about the application. The function is a",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "ContextBuilder<'a>::build_identity"
+        },
+        {
+          "calls": [
+            ".contains"
+          ],
+          "content_hash": "9f85a80955656c183f4a8e096e127e3bb4342d3639403a329e956ce54b8cb49f",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 492,
+          "id": "d75f5784-ce5a-6b86-c945-a97807bbaba5",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_brain/src/gates.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.54047763,
+          "signature": "pub fn was_file_read(&self, path: &str) -> bool",
+          "start_line": 490,
+          "summary": {
+            "purpose": "This method checks if a file has been read by the application based on the provided file path. It returns true if the file has been read, otherwise false. The method uses a HashSet named `files_read` to store the paths of files that have been read. The method takes a string parameter `path` which represents the file path to check. The method returns a boolean value indicating whether the file has been read or not. The method is used to validate the file paths that have been读.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "GateValidator::was_file_read"
+        },
+        {
+          "calls": [],
+          "content_hash": "6f87bc2d4bdb46c4d0867193ea7b062747219de0698bff7016b4dc6e8db91a3c",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 92,
+          "id": "69082fa2-32e3-3c37-e7aa-abcb94a8c8a5",
+          "kind": "struct",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/claims/mod.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5370418,
+          "signature": "pub struct VerifiedClaim",
+          "start_line": 66,
+          "summary": {
+            "purpose": "The source code defines a struct named `VerifiedClaim` in Rust, which represents a verified claim in a system. It includes fields for the claim's ID, text, evidence, confidence level, verification methods, creation and verification timestamps, and origin information. The confidence level is a float between 0.0 and 1.0, and the verification methods are a vector of strings. The struct is immutable and has several invariant properties, such as the confidence level being between ",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "VerifiedClaim"
+        },
+        {
+          "content_hash": "fd4199e7f1236487577086ee96822a1c1cdf2fd281f3bce2fcca2c85d5cc1ca0",
+          "end_line": 483,
+          "id": "c766ae6a-9055-5846-9948-310baa2e259c",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/index/worker.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "async fn scan(&self, state: &Arc<AppState>, job: &Job, project: &str,\n        last_reconciled: &mut Option<Instant>) -> Result<()>",
+          "start_line": 278,
+          "summary": "The code defines a method `scan` that takes an `AppState`, a `Job`, a project name, and a mutable reference to a `last_reconciled` timestamp. It performs several checks and operations to ensure the project is valid, retrieve semantic embeddings, and scan files for code units. The method handles file scanning, unit extraction, and embedding, and updates the project's manifest and progress. It also handles error recovery and stops the scan if the job is stopped. The method uses\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "ProjectWorker::scan",
+          "via": "validate_project"
+        },
+        {
+          "content_hash": "b9b9d8fe21970123cc6cc767fa2558f111fb51f44997ad3c450df2b999ba454e",
+          "end_line": 236,
+          "id": "17fa1d00-b4e0-64c1-3bdb-9ce8a1a96a93",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/retrieval.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub async fn build(&self) -> crate::error::Result<ContextPacket>",
+          "start_line": 185,
+          "summary": "The function `build` constructs a `ContextPacket` object by gathering various pieces of information about the user's identity, brain status, active gates, recent events, auto-recall results, instructions, and token count. It uses asynchronous operations to fetch these pieces of information and combines them into a single packet. The function returns a `Result` containing the constructed `ContextPacket` or an error if any of the operations fail.\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "ContextBuilder<'a>::build",
+          "via": "ContextBuilder<'a>::build_identity"
+        },
+        {
+          "content_hash": "9f85a80955656c183f4a8e096e127e3bb4342d3639403a329e956ce54b8cb49f",
+          "end_line": 578,
+          "id": "bf0042a1-4c72-36f7-2341-7f71be12b0fe",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_brain/src/gates.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub fn validate_local(&self, action: &str, target: Option<&str>) -> ValidationResult",
+          "start_line": 517,
+          "summary": "This method validates the local actions based on the given action and target path. It checks for no-ghost-editing, scope-lock, and age constraints. If any of these constraints are violated, it returns a ValidationResult with the appropriate details. The method is part of the Quirón/llore_editor/llore_brain crate and is used to ensure that the actions are performed within the allowed scope and that the files are not stale.\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "GateValidator::validate_local",
+          "via": "GateValidator::was_file_read"
+        }
+      ],
+      "checks": [
+        {
+          "id": "57d8e637-5b6c-325d-f2d3-ee325a37053b",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "dd074240-338c-1f47-c84f-29cf969f974e",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "b09536ce-5c40-ac59-d682-bcbb036603c4",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "d75f5784-ce5a-6b86-c945-a97807bbaba5",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "69082fa2-32e3-3c37-e7aa-abcb94a8c8a5",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "c766ae6a-9055-5846-9948-310baa2e259c",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "17fa1d00-b4e0-64c1-3bdb-9ce8a1a96a93",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "bf0042a1-4c72-36f7-2341-7f71be12b0fe",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    },
+    {
+      "id": "identificador",
+      "question": "¿Cómo se obtiene un identificador estable combinando proyecto, ruta y símbolo sin depender del contenido?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/index/unit.rs",
+        "symbol": "stable_id"
+      },
+      "seconds": 0.11179490300128236,
+      "primary_rank_at_5": 1,
+      "hit_with_expansion": true,
+      "hint_tokens": 2085,
+      "hits": [
+        {
+          "calls": [
+            ".as_bytes",
+            ".extend_from_slice",
+            ".len",
+            ".push",
+            "NodeId::from_content",
+            "Vec::with_capacity"
+          ],
+          "content_hash": "8204422f69f066a5732dd41d66b1a451bce76f3758d4f329334837fb8b6e49fb",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 34,
+          "id": "5d540ed9-afa4-154e-e4f0-d020e47ecccb",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/index/unit.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5861583,
+          "signature": "pub fn stable_id(project_id: &str, path: &str, symbol: &str) -> NodeId",
+          "start_line": 26,
+          "summary": {
+            "purpose": "This function takes three string arguments: project_id, path, and symbol. It creates a vector key by concatenating the bytes of these arguments, followed by two zeros. The resulting vector is then used to create a NodeId using the from_content method. The function returns the resulting NodeId.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "stable_id"
+        },
+        {
+          "calls": [
+            ".to_string",
+            "stable_id"
+          ],
+          "content_hash": "8204422f69f066a5732dd41d66b1a451bce76f3758d4f329334837fb8b6e49fb",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 240,
+          "id": "460b84c2-2284-64e7-9d61-9447bebb8bf3",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/index/unit.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5708194,
+          "signature": "pub fn new(\n        project_id: &str,\n        target: &str,\n        prev_hash: Option<String>,\n        new_hash: String,\n        reason: ChangeReason,\n    ) -> Self",
+          "start_line": 222,
+          "summary": {
+            "purpose": "The function `ChangeUnit::new` creates a new instance of `ChangeUnit` with the provided parameters. It computes the unique identifier `id` using the `stable_id` function, which combines the project ID, target, and new hash. The function then initializes the `ChangeUnit` with the provided parameters and returns it. The `stable_id` function is assumed to be a valid function that computes a unique identifier based on the provided parameters. The function does not compute or defi",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "ChangeUnit::new"
+        },
+        {
+          "calls": [],
+          "content_hash": "592daadbec7192e848b926c69ec12c459ccd9d7fbaef7c19fee8e0e7f25f163f",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 21,
+          "id": "1f3041b2-48bf-5bed-f818-edd68161e3d6",
+          "kind": "struct",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/types/ids.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5434629,
+          "signature": "pub struct InvariantId",
+          "start_line": 21,
+          "summary": {
+            "purpose": "The code defines a struct named `InvariantId` that takes an `Ulid` as a parameter and wraps it in a new struct. The `Ulid` is a unique identifier used in the Quirón project. The `InvariantId` struct is used to represent a unique identifier that is invariant across different instances of the Quirón project. The `Ulid` is a 128-bit identifier that is generated by the Quirón project's unique identifier generator. The `InvariantId` struct is used to ensure that the unique id is a",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "InvariantId"
+        },
+        {
+          "calls": [],
+          "content_hash": "b9b9d8fe21970123cc6cc767fa2558f111fb51f44997ad3c450df2b999ba454e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 52,
+          "id": "57d8e637-5b6c-325d-f2d3-ee325a37053b",
+          "kind": "struct",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/retrieval.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.54324436,
+          "signature": "pub struct Identity",
+          "start_line": 47,
+          "summary": {
+            "purpose": "The provided source code defines a struct named `Identity` with fields for `name`, `version`, `user`, and `project`. The `project` field is an optional string. The struct is used to represent information about an identity, such as a user's name, version, and project. The `Identity` struct is not used in the provided code, but it is defined in the file. The `Identity` struct is not used in the provided code, but it is defined in the file. The `Identity` struct is not used in 3",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "Identity"
+        },
+        {
+          "calls": [],
+          "content_hash": "439e866c54c6fe4a1eda0ea4d4c20bd8d48fd0575f28eb1f2135a6c4163ecac7",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 36,
+          "id": "e997131a-349c-1548-007b-d40bc476160e",
+          "kind": "trait",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/element.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.54210645,
+          "signature": "pub trait Element: 'static",
+          "start_line": 15,
+          "summary": {
+            "purpose": "The `Element` trait defines the behavior of UI elements in a system. It includes methods for layout, painting, event handling, and ID tracking. The trait is implemented for any type that implements the `'static` trait, ensuring that the element can be used across different parts of the system without requiring dynamic memory allocation.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "Element"
+        },
+        {
+          "content_hash": "50b13619affc74cdd84d5472934c769175d7d342327a8682a89c5aa12d014df5",
+          "end_line": 135,
+          "id": "83cd8e61-d2a2-56fb-d709-5b42cf3823b4",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/index/extract.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "fn collect_item(\n    project_id: &str,\n    path: &str,\n    source: &str,\n    node: TsNode,\n    impl_type: Option<&str>,\n    file_symbols: &mut Vec<String>,\n    out: &mut Vec<LogicUnit>,\n)",
+          "start_line": 50,
+          "summary": "This function collects information about a logic unit based on the given node and its children. It handles different types of nodes such as function items, struct items, enum items, trait items, and impl items. The function collects the symbol, kind, signature, body text, calls, and other relevant information for each logic unit. The function also handles the case where the impl type is not provided and collects the file symbols accordingly. The function uses stable IDs to un\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "collect_item",
+          "via": "stable_id"
+        }
+      ],
+      "checks": [
+        {
+          "id": "5d540ed9-afa4-154e-e4f0-d020e47ecccb",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "460b84c2-2284-64e7-9d61-9447bebb8bf3",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "1f3041b2-48bf-5bed-f818-edd68161e3d6",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "57d8e637-5b6c-325d-f2d3-ee325a37053b",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "e997131a-349c-1548-007b-d40bc476160e",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "83cd8e61-d2a2-56fb-d709-5b42cf3823b4",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    },
+    {
+      "id": "llamadas",
+      "question": "¿Dónde se recorre el árbol sintáctico para recoger las llamadas de una función sin contar las macros?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/index/extract.rs",
+        "symbol": "collect_calls"
+      },
+      "seconds": 0.13540831100544892,
+      "primary_rank_at_5": 1,
+      "hit_with_expansion": true,
+      "hint_tokens": 3215,
+      "hits": [
+        {
+          "calls": [
+            ".and_then",
+            ".child_by_field_name",
+            ".children",
+            ".dedup",
+            ".kind",
+            ".pop",
+            ".push",
+            ".sort",
+            ".walk",
+            "Vec::new",
+            "callee_name"
+          ],
+          "content_hash": "50b13619affc74cdd84d5472934c769175d7d342327a8682a89c5aa12d014df5",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 159,
+          "id": "d3028122-b6dc-450a-d874-98b181ebc260",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/index/extract.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5695688,
+          "signature": "fn collect_calls(body: TsNode, source: &str) -> Vec<String>",
+          "start_line": 139,
+          "summary": {
+            "purpose": "This function collects the names of function calls in a given TypeScript AST (Abstract Syntax Tree). It uses a depth-first search (DFS) approach to traverse the AST and collect the names of function calls. The function takes two parameters: `body`, which is the root node of the AST, and `source`, which is the source code of the TypeScript file. The function returns a vector of strings containing the names of the function calls found in the AST. The function uses a stack to do",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "collect_calls"
+        },
+        {
+          "calls": [
+            ".cmp",
+            ".parse",
+            ".root_node",
+            ".sort_by",
+            ".then_with",
+            "Vec::new",
+            "collect_tree_sitter_node_segments"
+          ],
+          "content_hash": "45f2e9d1736f667e5a8f9d69742495c73e488961ce2be8719b9a40a57e019c57",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 247,
+          "id": "307322ba-9f24-fdce-b470-651a28d8ca50",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/syntax_highlight.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5438874,
+          "signature": "fn collect_tree_sitter_segments(\n    parser: &mut Parser,\n    language: &str,\n    line: &str,\n) -> Vec<SyntaxSegment>",
+          "start_line": 230,
+          "summary": {
+            "purpose": "This function takes a parser, a language, and a line of code as input and returns a vector of SyntaxSegment objects. The SyntaxSegment objects represent the syntax elements in the code, such as keywords, identifiers, and comments. The function uses the Tree-sitter library to parse the code and extract the syntax elements. The function then sorts the SyntaxSegment objects by their start and end columns, and returns the sorted vector. The function assumes that the input parser,",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "collect_tree_sitter_segments"
+        },
+        {
+          "calls": [],
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 366,
+          "id": "13fa1160-75bc-a25b-9211-49e77c803c0e",
+          "kind": "struct",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5278574,
+          "signature": "struct ToolCall",
+          "start_line": 361,
+          "summary": {
+            "purpose": "The source code defines a struct named `ToolCall` with four fields: `call_id`, `name`, `arguments`, and `unknowns` (empty array). The `arguments` field is a string that represents the arguments passed to the tool call in JSON format. The `unknowns` field is an empty array, indicating that there are no unknowns or missing context in the code. The `ToolCall` struct is used to represent a tool call in the vertex gateway application. The `call_id` field is a unique identifier for",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "ToolCall"
+        },
+        {
+          "calls": [
+            ".is_empty",
+            ".len",
+            "collect_tree_sitter_segments",
+            "with_tree_sitter_parser"
+          ],
+          "content_hash": "45f2e9d1736f667e5a8f9d69742495c73e488961ce2be8719b9a40a57e019c57",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 202,
+          "id": "4a9801f5-9820-8b9a-a0af-d72fd01d69fc",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/syntax_highlight.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5207422,
+          "signature": "fn tree_sitter_overlays(language: &str, line: &str) -> Option<Vec<SyntaxSegment>>",
+          "start_line": 188,
+          "summary": {
+            "purpose": "This function takes a programming language and a line of code as input and returns a vector of syntax segments. It uses the Tree Sitter parser to analyze the code and identify syntax elements. The function checks if the line is empty or exceeds 800 characters, in which case it returns None. If the language is ",
+            "unknowns": [
+              "rust",
+              "python"
+            ]
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "tree_sitter_overlays"
+        },
+        {
+          "calls": [
+            ".end_byte",
+            ".end_position",
+            ".is_named",
+            ".kind",
+            ".start_byte",
+            ".start_position",
+            ".to_string"
+          ],
+          "content_hash": "d4f0a185cab98e8e6a07e019bcc7315263d216717fa094b9756b1b849a83e2ca",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 82,
+          "id": "0d693029-5094-39d1-55a9-fb233f69b5f4",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_language/src/syntax.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.51502454,
+          "signature": "fn from_tree_sitter(node: tree_sitter::Node) -> Self",
+          "start_line": 69,
+          "summary": {
+            "purpose": "This method converts a `tree_sitter::Node` into a `SyntaxNode` struct. It extracts the node's kind, start and end positions, and row and column information. The method returns a new `SyntaxNode` instance with these details. The `tree_sitter::Node` is assumed to be a valid node from a tree-sitter parser, and the `SyntaxNode` struct is expected to have appropriate fields to store these details. The method does not perform any validation or error checking, and it assumes that `n",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "SyntaxNode::from_tree_sitter"
+        },
+        {
+          "content_hash": "50b13619affc74cdd84d5472934c769175d7d342327a8682a89c5aa12d014df5",
+          "end_line": 135,
+          "id": "83cd8e61-d2a2-56fb-d709-5b42cf3823b4",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/index/extract.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "fn collect_item(\n    project_id: &str,\n    path: &str,\n    source: &str,\n    node: TsNode,\n    impl_type: Option<&str>,\n    file_symbols: &mut Vec<String>,\n    out: &mut Vec<LogicUnit>,\n)",
+          "start_line": 50,
+          "summary": "This function collects information about a logic unit based on the given node and its children. It handles different types of nodes such as function items, struct items, enum items, trait items, and impl items. The function collects the symbol, kind, signature, body text, calls, and other relevant information for each logic unit. The function also handles the case where the impl type is not provided and collects the file symbols accordingly. The function uses stable IDs to un\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "collect_item",
+          "via": "collect_calls"
+        },
+        {
+          "content_hash": "45f2e9d1736f667e5a8f9d69742495c73e488961ce2be8719b9a40a57e019c57",
+          "end_line": 273,
+          "id": "07a1fccc-d3eb-ff5e-53c4-db852c7eb0cc",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/syntax_highlight.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "calls",
+          "signature": "fn collect_tree_sitter_node_segments(\n    language: &str,\n    line: &str,\n    node: Node<'_>,\n    parent_kind: Option<&str>,\n    out: &mut Vec<SyntaxSegment>,\n)",
+          "start_line": 249,
+          "summary": "This function collects segments of syntax highlighting for a given tree-sitter node in a specified language. It iterates through the node's children, classifies each child node, and adds the resulting segments to the output vector. The function handles both leaf nodes and nested nodes, ensuring that all segments are correctly identified and added to the output. The function also takes into account the parent kind of the current node to classify the child nodes appropriately.\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "collect_tree_sitter_node_segments",
+          "via": "collect_tree_sitter_segments"
+        },
+        {
+          "content_hash": "45f2e9d1736f667e5a8f9d69742495c73e488961ce2be8719b9a40a57e019c57",
+          "end_line": 139,
+          "id": "3933aaa9-16a0-534b-5766-21c08c6a897d",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/syntax_highlight.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub fn highlight_line(language_name: Option<&str>, line: &str) -> Vec<SyntaxSegment>",
+          "start_line": 40,
+          "summary": "This function takes a language name and a line of text as input and returns a vector of SyntaxSegment objects representing the syntax highlighting of the line. The function first converts the line into a vector of characters. If the line is empty, it returns an empty vector. It then determines the language name and converts it to lowercase. It initializes a vector of SyntaxClass objects to represent the syntax highlighting of the line. It then finds the comment marker for the\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "highlight_line",
+          "via": "tree_sitter_overlays"
+        },
+        {
+          "content_hash": "d4f0a185cab98e8e6a07e019bcc7315263d216717fa094b9756b1b849a83e2ca",
+          "end_line": 27,
+          "id": "75f9fdc4-ff24-2f1c-819a-5556de573fdc",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_language/src/syntax.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub fn root_node(&self) -> SyntaxNode",
+          "start_line": 25,
+          "summary": "The function `root_node` returns a `SyntaxNode` from the root node of the tree in the `Quirón/llore_editor/crates/llore_language/src/syntax.rs` file. The `SyntaxNode` is created by calling the `from_tree_sitter` method on the root node of the tree. The `SyntaxNode` represents the root of the syntax tree and can be used to traverse and manipulate the syntax tree. The function does not compute or define any visible validation or error paths. The unknowns field is empty because,\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "Syntax::root_node",
+          "via": "SyntaxNode::from_tree_sitter"
+        }
+      ],
+      "checks": [
+        {
+          "id": "d3028122-b6dc-450a-d874-98b181ebc260",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "307322ba-9f24-fdce-b470-651a28d8ca50",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "13fa1160-75bc-a25b-9211-49e77c803c0e",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "4a9801f5-9820-8b9a-a0af-d72fd01d69fc",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "0d693029-5094-39d1-55a9-fb233f69b5f4",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "83cd8e61-d2a2-56fb-d709-5b42cf3823b4",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "07a1fccc-d3eb-ff5e-53c4-db852c7eb0cc",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "3933aaa9-16a0-534b-5766-21c08c6a897d",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "75f9fdc4-ff24-2f1c-819a-5556de573fdc",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    },
+    {
+      "id": "cadena",
+      "question": "¿Qué método comprueba los enlaces y hashes de la cadena de eventos?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/ledger/writer.rs",
+        "symbol": "LedgerWriter::verify_chain"
+      },
+      "seconds": 0.11906601701048203,
+      "primary_rank_at_5": 3,
+      "hit_with_expansion": true,
+      "hint_tokens": 3460,
+      "hits": [
+        {
+          "calls": [
+            ".as_bytes",
+            ".as_slice",
+            ".finalize",
+            ".timestamp_millis",
+            ".to_be_bytes",
+            ".to_bytes",
+            ".update",
+            "Hasher::new"
+          ],
+          "content_hash": "810481d3b75614a554ab227dc9ef2693206a18555dcac61c9e426e06314bc0d3",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 77,
+          "id": "844042cd-93ca-ffee-0ba8-af1b202abca5",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/writer.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.6110295,
+          "signature": "fn hash_event(&self, event: &Event, prev_hash: Option<[u8; 32]>) -> [u8; 32]",
+          "start_line": 41,
+          "summary": {
+            "purpose": "This method computes a hash for an event using the Blake3 hashing algorithm. It includes the previous hash for chain integrity, the event content, kind, project, inputs, outputs, and tags. The resulting hash is returned as a 32-byte array.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "LedgerWriter::hash_event"
+        },
+        {
+          "calls": [
+            ".clone",
+            ".copied",
+            ".get",
+            ".insert",
+            ".is_empty",
+            ".iter_tree",
+            ".len",
+            ".ok_or_else",
+            ".push",
+            "BrainError::Internal",
+            "Err",
+            "HashMap::new",
+            "Ok",
+            "Some",
+            "Vec::new",
+            "Vec::with_capacity",
+            "deserialize_event"
+          ],
+          "content_hash": "5b69068c32714af80094d8799552fb0e425b69699d6cca3dcbe91b55b856c64f",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 262,
+          "id": "616fca22-8f72-7ab8-166b-d40dbf178a25",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/reader.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.58470905,
+          "signature": "pub(crate) fn ordered_chain_events(&self) -> Result<Vec<Event>>",
+          "start_line": 188,
+          "summary": {
+            "purpose": "This method returns a vector of events ordered by their hash. It iterates through the storage, deserializes each event, and uses a hash map to keep track of the events by their hash and the events that come after them. It then reconstructs the order of the events by following the hash chain. If the reconstructed order is different from the original order, it returns an error. The method returns an error if any event is missing its this_hash or if the hash chain is broken. The",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "LedgerReader::ordered_chain_events"
+        },
+        {
+          "calls": [
+            ".clone",
+            ".get_chain_head",
+            ".hash_event",
+            ".ordered_chain_events",
+            "LedgerReader::new",
+            "Ok",
+            "Some"
+          ],
+          "content_hash": "810481d3b75614a554ab227dc9ef2693206a18555dcac61c9e426e06314bc0d3",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 250,
+          "id": "4886133b-73b1-041d-7100-8122bd0ad323",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/writer.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5667341,
+          "signature": "pub fn verify_chain(&self) -> Result<bool>",
+          "start_line": 200,
+          "summary": {
+            "purpose": "The method `verify_chain` in the `LedgerWriter` struct checks the integrity of the hash chain stored in the ledger. It reconstructs the hash chain order from the storage, verifies each event's `prev_hash` matches the expected value, and ensures the `this_hash` of each event matches the computed hash. It also checks the head of the chain against the expected value. If any of these checks fail, it returns `Ok(false)`, otherwise it returns `Ok(true)`.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "LedgerWriter::verify_chain"
+        },
+        {
+          "calls": [
+            ".get",
+            ".ok",
+            ".to_bytes",
+            "EventId::from_bytes",
+            "Some",
+            "Ulid::from_string"
+          ],
+          "content_hash": "bee6aee92ba0f94408858c03b38b08dd420b3223e91a65fd5994262927b92387",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 676,
+          "id": "7c5c3bd3-217e-f8e8-5615-84a6bccc43f4",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/vct.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.56030893,
+          "signature": "fn lookup_event(&self, event_id: &str) -> Option<Event>",
+          "start_line": 665,
+          "summary": {
+            "purpose": "This method looks up an event by its ID in the virtual context tools. It first parses the event ID from a string, then converts it to a byte array. It then attempts to retrieve the event from the reader using the byte array. If the event is found, it is returned; otherwise, it returns None. If an error occurs during the retrieval process, it logs a warning and returns None. The method is used to recall filter events based on their IDs.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "VirtualContextTools<'a>::lookup_event"
+        },
+        {
+          "calls": [
+            ".get",
+            ".iter_tree",
+            ".push",
+            "Ok",
+            "Vec::new",
+            "deserialize_event"
+          ],
+          "content_hash": "5b69068c32714af80094d8799552fb0e425b69699d6cca3dcbe91b55b856c64f",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 177,
+          "id": "6f82db91-8439-e7ee-1c6e-e31fd94818cf",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/reader.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5509896,
+          "signature": "pub fn all(&self) -> Result<Vec<Event>>",
+          "start_line": 159,
+          "summary": {
+            "purpose": "This method retrieves all events from the ledger storage in chronological order using the time index. It iterates over the storage tree, retrieves each event by key, and deserializes it into an `Event` struct. If deserialization fails, it logs a warning and skips the event. The method returns a `Result<Vec<Event>>` containing all events. The unknowns are the storage tree and the event deserialization logic. The validation path is the storage tree and the event deserialization",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "LedgerReader::all"
+        },
+        {
+          "content_hash": "810481d3b75614a554ab227dc9ef2693206a18555dcac61c9e426e06314bc0d3",
+          "end_line": 136,
+          "id": "bc0fe3ce-cd2c-d9c8-56e7-b8606c7080e9",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/writer.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub fn append(&self, mut event: Event) -> Result<Event>",
+          "start_line": 85,
+          "summary": "The method `append` in the `LedgerWriter` struct takes an `Event` object, calculates its hash, serializes it, and stores it in the ledger storage. It also updates the chain head and persists memory envelopes for the event. The method returns the serialized event.\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "LedgerWriter::append",
+          "via": "LedgerWriter::hash_event"
+        },
+        {
+          "content_hash": "5b69068c32714af80094d8799552fb0e425b69699d6cca3dcbe91b55b856c64f",
+          "end_line": 276,
+          "id": "b0f665f1-780c-49ba-6902-059df62d0cb7",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/reader.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub fn events_after(&self, last_id: &EventId) -> Result<Vec<Event>>",
+          "start_line": 267,
+          "summary": "This method returns a vector of events that occurred after a specified event ID. It first retrieves the ordered chain events from the ledger, then finds the position of the specified event ID in the ordered list. If the event ID is not found, it logs a warning and returns an empty vector. Otherwise, it returns a vector of events starting from the position immediately after the specified event ID. The method is part of the LedgerReader struct and is used to retrieve events in \nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "LedgerReader::events_after",
+          "via": "LedgerReader::ordered_chain_events"
+        },
+        {
+          "content_hash": "810481d3b75614a554ab227dc9ef2693206a18555dcac61c9e426e06314bc0d3",
+          "end_line": 33,
+          "id": "7f53c217-9291-2d2c-b2ea-ee58f4f35e01",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/writer.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "calls",
+          "signature": "fn get_chain_head(&self) -> Result<Option<[u8; 32]>>",
+          "start_line": 24,
+          "summary": "The function `get_chain_head` retrieves the hash of the current chain head from the storage. It returns an `Option<[u8; 32]>` where `Some(hash)` indicates the hash of the chain head, and `None` indicates that the chain head is not available or the storage operation failed. The function uses the `CF_CHAIN` constant to specify the key in the storage for the chain head, and the `CHAIN_HEAD_KEY` constant to specify the key for the chain head hash. The function handles the case of\nNo resuelto: the storage; the CF_CHAIN; the CHAIN_HEAD_KEY",
+          "summary_origin": "model",
+          "symbol": "LedgerWriter::get_chain_head",
+          "via": "LedgerWriter::verify_chain"
+        },
+        {
+          "content_hash": "bee6aee92ba0f94408858c03b38b08dd420b3223e91a65fd5994262927b92387",
+          "end_line": 663,
+          "id": "628883a2-bdb1-8a61-058e-65eca91b39ab",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/vct.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "fn recall_match_satisfies_filters(&self, item: &RecallMatch, filters: &RecallFilters) -> bool",
+          "start_line": 580,
+          "summary": "This method checks if a recall match satisfies all the specified filters. It compares the recall match's attributes with the filters' criteria. If any attribute does not match, the method returns false. If all attributes match, it returns true. The method uses the `lookup_event` method to retrieve the event associated with the recall match's event ID. The method also uses the `file_refs` and `symbol_refs` attributes to check if the recall match's file references and symbol re\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "VirtualContextTools<'a>::recall_match_satisfies_filters",
+          "via": "VirtualContextTools<'a>::lookup_event"
+        },
+        {
+          "content_hash": "5b69068c32714af80094d8799552fb0e425b69699d6cca3dcbe91b55b856c64f",
+          "end_line": 182,
+          "id": "b56b2fc2-43d7-80a2-b830-3ed08b815ee9",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/reader.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub fn all_events(&self) -> Result<Vec<Event>>",
+          "start_line": 180,
+          "summary": "The `LedgerReader::all_events` method returns a result containing a vector of events. It calls the `all` method of the same object to retrieve all events. The method is defined in the `ledger/reader.rs` file of the `Quirón/quiron-brain` repository. The unknowns are that the `all` method is not defined in the provided code snippet and that the `Event` type is not defined in the provided code snippet. The method does not compute or define any visible validation or error paths. \nNo resuelto: all; Event",
+          "summary_origin": "model",
+          "symbol": "LedgerReader::all_events",
+          "via": "LedgerReader::all"
+        }
+      ],
+      "checks": [
+        {
+          "id": "844042cd-93ca-ffee-0ba8-af1b202abca5",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "616fca22-8f72-7ab8-166b-d40dbf178a25",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "4886133b-73b1-041d-7100-8122bd0ad323",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "7c5c3bd3-217e-f8e8-5615-84a6bccc43f4",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "6f82db91-8439-e7ee-1c6e-e31fd94818cf",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "bc0fe3ce-cd2c-d9c8-56e7-b8606c7080e9",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "b0f665f1-780c-49ba-6902-059df62d0cb7",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "7f53c217-9291-2d2c-b2ea-ee58f4f35e01",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "628883a2-bdb1-8a61-058e-65eca91b39ab",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "b56b2fc2-43d7-80a2-b830-3ed08b815ee9",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    },
+    {
+      "id": "eventos_proyecto",
+      "question": "¿Dónde se consultan los eventos del registro que corresponden a un proyecto concreto?",
+      "expected": {
+        "path": "Quirón/quiron-brain/src/ledger/reader.rs",
+        "symbol": "LedgerReader::by_project"
+      },
+      "seconds": 0.10913695400813594,
+      "primary_rank_at_5": 1,
+      "hit_with_expansion": true,
+      "hint_tokens": 2528,
+      "hits": [
+        {
+          "calls": [
+            ".as_bytes",
+            ".cmp",
+            ".get",
+            ".prefix_iter",
+            ".push",
+            ".sort_by",
+            ".to_vec",
+            ".truncate",
+            "Ok",
+            "Vec::new",
+            "deserialize_event"
+          ],
+          "content_hash": "5b69068c32714af80094d8799552fb0e425b69699d6cca3dcbe91b55b856c64f",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 120,
+          "id": "b1f25ab9-9983-bb6f-684f-4da417f9ab5f",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/reader.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.58620536,
+          "signature": "pub fn by_project(&self, project: &str, limit: usize) -> Result<Vec<Event>>",
+          "start_line": 94,
+          "summary": {
+            "purpose": "This method retrieves a list of events for a specific project from a ledger storage. It first constructs a prefix using the project's bytes and a separator. It then iterates over the storage to find all event keys that match this prefix. For each event key, it retrieves the corresponding event bytes and deserializes them into an event object. The events are then sorted by timestamp in descending order and truncated to the specified limit. The method returns a result with the ",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "LedgerReader::by_project"
+        },
+        {
+          "calls": [
+            ".clone",
+            ".contains",
+            ".param",
+            ".run",
+            ".to_lowercase",
+            ".to_rfc3339",
+            ".to_string",
+            "Query::new"
+          ],
+          "content_hash": "9a68840e0d57679491d86da58eed7c8e3163e8d352296b1c6071789721db9b29",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 290,
+          "id": "ced8e53d-a061-8191-cbeb-dab6245e2ba6",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/neo4j/projector.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5794814,
+          "signature": "async fn project_verification(&self, event: &Event) -> Result<()>",
+          "start_line": 239,
+          "summary": {
+            "purpose": "The method `project_verification` takes an event as input and creates a verification record in the Neo4j database. It checks if the event description contains the words 'passed', 'success', 'ok', or '✓' to determine if the event was successful. If the event description contains the words 'failed', 'error', or '✗', it determines if the event was unsuccessful. The method then creates a verification record in the database with the event ID, passed status, timestamp, and event描述.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "Projector::project_verification"
+        },
+        {
+          "calls": [],
+          "content_hash": "da00eac208defdb708b504d147ff0cd85db6d178e7894ce74b0658afb24b6ec8",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 35,
+          "id": "bd06bd28-5b89-c172-051e-a3fe7ad8ef1f",
+          "kind": "struct",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/claims/audit.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.57915807,
+          "signature": "pub struct AuditEvent",
+          "start_line": 20,
+          "summary": {
+            "purpose": "The provided source code defines a struct named `AuditEvent` in Rust. This struct represents an event that occurred in the system, including details such as the timestamp, type of event, claim ID (if applicable), details in JSON format, and the actor who caused the event. The `AuditEvent` struct is used to log events in the system, which can be useful for auditing, debugging, and monitoring purposes. The `details` field is a `serde_json::Value` which allows for flexible and n",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "AuditEvent"
+        },
+        {
+          "calls": [],
+          "content_hash": "eeecce00ae29459d29094fe7abe7f4af172f789164c94fffca865ab606d894db",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 816,
+          "id": "2a28af9c-eda3-0fa9-599f-d43174fa5678",
+          "kind": "struct",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_brain/src/client.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.57363284,
+          "signature": "struct EventsBatchRequest",
+          "start_line": 814,
+          "summary": {
+            "purpose": "The provided source code defines a struct named `EventsBatchRequest` with a single field `ids` of type `Vec<String>`. This struct is used to represent a batch of events that need to be processed. The `ids` field is expected to contain a list of event identifiers, which could be used to identify and retrieve specific events from a database or other data source. The `EventsBatchRequest` struct is likely used in a larger system for managing and processing events, such as in a e-",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "EventsBatchRequest"
+        },
+        {
+          "calls": [
+            ".clone",
+            ".get_or_default",
+            ".project_claim",
+            ".project_context_links",
+            ".project_event_node",
+            ".project_file_read",
+            ".project_patch_applied",
+            ".project_patch_proposed",
+            ".project_patch_reverted",
+            ".project_scope",
+            ".project_snapshot",
+            ".project_verification",
+            ".projects_to_neo4j",
+            ".save_checkpoint",
+            "MemoryEnvelopeStore::new",
+            "Ok"
+          ],
+          "content_hash": "9a68840e0d57679491d86da58eed7c8e3163e8d352296b1c6071789721db9b29",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 67,
+          "id": "7a098353-de7c-a01f-fc55-3f5cbc517b33",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/neo4j/projector.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.57136047,
+          "signature": "pub async fn project_event(&self, event: &Event) -> Result<()>",
+          "start_line": 28,
+          "summary": {
+            "purpose": "The method `project_event` in the `Projector` struct processes an event and projects it into the Neo4j graph. It checks if the event should be projected to Neo4j based on memory promotion policies. If not, it saves a checkpoint and logs a debug message. If the event should be projected, it creates or updates the Event node, projects based on the event kind, links the context, and updates the checkpoint. The method handles various event kinds and promotes memories to the graph",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "Projector::project_event"
+        },
+        {
+          "content_hash": "5b69068c32714af80094d8799552fb0e425b69699d6cca3dcbe91b55b856c64f",
+          "end_line": 34,
+          "id": "ace483ae-1fa2-1893-3205-5ab3a9ca208c",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/ledger/reader.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "calls",
+          "signature": "pub fn get(&self, id: &EventId) -> Result<Option<Event>>",
+          "start_line": 22,
+          "summary": "The `get` method retrieves an event from the ledger storage based on the provided event ID. It first encodes the event ID into a key using the `encode_event_key` function. Then, it attempts to retrieve the bytes associated with this key from the storage using the `get` method of the `storage` field. If the bytes are found, it deserializes them using the `deserialize_event` function from the `crate::types::event` module. If the deserialization is successful, it returns the des\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "LedgerReader::get",
+          "via": "LedgerReader::by_project"
+        },
+        {
+          "content_hash": "9a68840e0d57679491d86da58eed7c8e3163e8d352296b1c6071789721db9b29",
+          "end_line": 144,
+          "id": "ca0d408b-37ef-53b0-b031-d8ac690e37a8",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/neo4j/projector.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "calls",
+          "signature": "async fn project_file_read(&self, event: &Event) -> Result<()>",
+          "start_line": 128,
+          "summary": "The method `project_file_read` in the `Projector` struct processes an event to create a relationship between an event and a file in a Neo4j database. It takes an event as input and checks if the event has an input path. If it does, it constructs a Cypher query to merge a file node with the event node and create a read relationship between them. The method returns a result indicating success or failure. The method uses the `neo4j` client to execute the Cypher query. The method\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "Projector::project_file_read",
+          "via": "Projector::project_event"
+        }
+      ],
+      "checks": [
+        {
+          "id": "b1f25ab9-9983-bb6f-684f-4da417f9ab5f",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "ced8e53d-a061-8191-cbeb-dab6245e2ba6",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "bd06bd28-5b89-c172-051e-a3fe7ad8ef1f",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "2a28af9c-eda3-0fa9-599f-d43174fa5678",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "7a098353-de7c-a01f-fc55-3f5cbc517b33",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "ace483ae-1fa2-1893-3205-5ab3a9ca208c",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "ca0d408b-37ef-53b0-b031-d8ac690e37a8",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    },
+    {
+      "id": "guardia",
+      "question": "¿Dónde se clasifica una ruta como permitida, secreta, fuera del proyecto o ruido?",
+      "expected": {
+        "path": "Quirón/llore_editor/crates/llore_ui/src/workspace_guard.rs",
+        "symbol": "classify"
+      },
+      "seconds": 0.10395436699036509,
+      "primary_rank_at_5": 1,
+      "hit_with_expansion": true,
+      "hint_tokens": 1955,
+      "hits": [
+        {
+          "calls": [
+            ".as_ref",
+            ".components",
+            ".contains",
+            ".starts_with",
+            ".strip_prefix",
+            ".to_string_lossy",
+            "is_noise_name",
+            "is_secret_name",
+            "resolve"
+          ],
+          "content_hash": "a5dcd19780642e3ff5a2ca8693db3e359184aa9dbc973b4a9281d7c515414cd1",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 228,
+          "id": "3cc4f78d-8b9b-ecee-8013-b59c85ad2bde",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/workspace_guard.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5713859,
+          "signature": "pub fn classify(root: &Path, path: &Path) -> Access",
+          "start_line": 184,
+          "summary": {
+            "purpose": "This function classifies a file path based on its components and the root path. It checks for sensitive names, secret directories, and noise names to determine the access level of the file. The function returns the access level as either Allowed, Secret, or Noise.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "classify"
+        },
+        {
+          "calls": [
+            ".is_empty",
+            ".starts_with",
+            ".strip_prefix",
+            ".unwrap_or"
+          ],
+          "content_hash": "b856a910ff8cdae4eb8ba9437c36c2c6ad16b906fb4c9fd4b7d1d48e48d57696",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 324,
+          "id": "00628479-078b-b3e0-e59f-a259075e47dc",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/supervisor/project_map.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5667196,
+          "signature": "pub fn is_in_scope(&self, path: &Path, scope: &ProjectScope) -> bool",
+          "start_line": 298,
+          "summary": {
+            "purpose": "This method checks if a given path is within the scope of a project. It takes a path and a project scope as input and returns a boolean indicating whether the path is within the scope. The method first strips the root directory from the path and then checks for exclusions, allowed files, and allowed directories. If no explicit allows are defined, the method denies the path. The unknowns field is empty as there are no missing context in this code snippet.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "ProjectMap::is_in_scope"
+        },
+        {
+          "calls": [],
+          "content_hash": "a5dcd19780642e3ff5a2ca8693db3e359184aa9dbc973b4a9281d7c515414cd1",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 29,
+          "id": "7d245302-dd35-b2da-f70b-8fb0421ad00e",
+          "kind": "enum",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/workspace_guard.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5615754,
+          "signature": "pub enum Access",
+          "start_line": 20,
+          "summary": {
+            "purpose": "The code defines an enum named `Access` with four variants: `Allowed`, `Outside`, `Secret`, and `Noise`. The `Allowed` variant indicates that the access is within the project and without restrictions. The `Outside` variant indicates that the access is outside the root of the project. The `Secret` variant indicates that the access is sensitive material that should not be read. The `Noise` variant indicates that the access is an artifact generated, binary, or log that should be",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "Access"
+        },
+        {
+          "calls": [],
+          "content_hash": "b856a910ff8cdae4eb8ba9437c36c2c6ad16b906fb4c9fd4b7d1d48e48d57696",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 90,
+          "id": "e4148d09-0ebb-62c3-a7eb-de2463ccc74a",
+          "kind": "struct",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/supervisor/project_map.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.55745053,
+          "signature": "pub struct ProjectScope",
+          "start_line": 81,
+          "summary": {
+            "purpose": "The `ProjectScope` struct represents a set of rules for modifying files and directories in a project. It includes vectors of paths for allowed and excluded files, directories, and specific symbols. The struct is used to define the scope of modifications that can be made to the project. The `excluded_files` vector is used to specify files that should not be modified, while the other vectors are used to specify files and directories that can be modified. The `allowed_symbols` 0",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "ProjectScope"
+        },
+        {
+          "calls": [],
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 600,
+          "id": "6915b905-950a-19c0-e524-6fcf1a8a1721",
+          "kind": "enum",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5320729,
+          "signature": "enum Route",
+          "start_line": 597,
+          "summary": {
+            "purpose": "The source code defines an enum named Route with two variants: Primary and Worker. It does not compute or define any visible validation or error paths. The unknowns field is empty because there is no missing context provided in the source code.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "Route"
+        },
+        {
+          "content_hash": "a01838c1987e9f3ed916b212f8eadd574b191452fbc3558e8d2a49b71ebca864",
+          "end_line": 267,
+          "id": "02b2d288-a381-77ca-5127-dfff3527e23f",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "fn recolectar(ctx: &ToolContext, dir: &Path, prefix: &str, out: &mut Vec<String>)",
+          "start_line": 231,
+          "summary": "This function recursively searches for files in a directory and its subdirectories, collecting file paths that match certain criteria. It uses the `workspace_guard` crate to determine access permissions for each file. The function stops collecting paths if the list of collected paths exceeds a predefined maximum length. The function also skips files that are not visible based on access permissions. The function returns a vector of file paths that match the criteria. The input\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "recolectar",
+          "via": "classify"
+        }
+      ],
+      "checks": [
+        {
+          "id": "3cc4f78d-8b9b-ecee-8013-b59c85ad2bde",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "00628479-078b-b3e0-e59f-a259075e47dc",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "7d245302-dd35-b2da-f70b-8fb0421ad00e",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "e4148d09-0ebb-62c3-a7eb-de2463ccc74a",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "6915b905-950a-19c0-e524-6fcf1a8a1721",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "02b2d288-a381-77ca-5127-dfff3527e23f",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    },
+    {
+      "id": "leer_archivo",
+      "question": "¿Dónde se ejecuta la herramienta de lectura de archivos del chat y se limita el texto que devuelve?",
+      "expected": {
+        "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+        "symbol": "read_file"
+      },
+      "seconds": 0.10961787501582876,
+      "primary_rank_at_5": 1,
+      "hit_with_expansion": true,
+      "hint_tokens": 2859,
+      "hits": [
+        {
+          "calls": [
+            ".and_then",
+            ".as_str",
+            ".char_indices",
+            ".get",
+            ".last",
+            ".len",
+            ".len_utf8",
+            ".map",
+            ".take",
+            ".unwrap_or",
+            "ToolOutcome::error",
+            "ToolOutcome::ok",
+            "read_to_string",
+            "resolve_and_classify"
+          ],
+          "content_hash": "a01838c1987e9f3ed916b212f8eadd574b191452fbc3558e8d2a49b71ebca864",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 204,
+          "id": "96ccca28-ad27-bca8-687a-4f906d969923",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.64895964,
+          "signature": "fn read_file(ctx: &ToolContext, input: &Value) -> ToolOutcome",
+          "start_line": 158,
+          "summary": {
+            "purpose": "This function reads a file from the specified path and returns its content. It checks the access level of the file and handles different types of access (allowed, secret, outside, noise). If the file is too large, it truncates the content to a maximum of 1000 characters. The function returns an error if the file cannot be read or if the access level is denied. The function also returns an error if the file is outside the project. The function returns an error if the file is a",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "read_file"
+        },
+        {
+          "calls": [],
+          "content_hash": "a01838c1987e9f3ed916b212f8eadd574b191452fbc3558e8d2a49b71ebca864",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 472,
+          "id": "81883398-9f95-a8f0-d94a-591a1ddfa069",
+          "kind": "file",
+          "partial": true,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.63246214,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "purpose": "The source code defines a chat tools module for a project management tool. It provides a catalog of tools that can be invoked by the model, including reading files, listing files, and searching text. The tools are executed by the model through the `execute` function, which checks if a project is open and then calls the appropriate tool function. The tool functions read files, list files, and search text, respectively. The tool outcomes are returned as strings and boolean to a",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": ""
+        },
+        {
+          "calls": [
+            ".and_then",
+            ".as_str",
+            ".chars",
+            ".collect",
+            ".contains",
+            ".count",
+            ".enumerate",
+            ".get",
+            ".is_empty",
+            ".join",
+            ".len",
+            ".lines",
+            ".push",
+            ".push_str",
+            ".sort",
+            ".take",
+            ".to_string",
+            ".trim",
+            "String::new",
+            "ToolOutcome::error",
+            "ToolOutcome::ok",
+            "Vec::new",
+            "read_to_string",
+            "recolectar"
+          ],
+          "content_hash": "a01838c1987e9f3ed916b212f8eadd574b191452fbc3558e8d2a49b71ebca864",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 332,
+          "id": "b0f7f7d7-1cd2-6ad4-7243-c102ebc08fab",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.58481586,
+          "signature": "fn search_text(ctx: &ToolContext, input: &Value) -> ToolOutcome",
+          "start_line": 269,
+          "summary": {
+            "purpose": "This function searches for text within files in a workspace and returns a list of matching lines. It takes a `ToolContext` and a `Value` as input, where the `Value` contains a `query` field. The function first checks if the query is present and not empty. It then collects all files in the workspace, sorts them, and searches for the query in each file. If a hit is found, it is added to the `hits` vector. If the `hits` vector reaches the maximum number of hits, the search stops",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "search_text"
+        },
+        {
+          "calls": [],
+          "content_hash": "a01838c1987e9f3ed916b212f8eadd574b191452fbc3558e8d2a49b71ebca864",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 100,
+          "id": "013d523c-05e0-adb6-6918-3aade241e461",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5743895,
+          "signature": "pub fn tool_catalog() -> Vec<ToolSpec>",
+          "start_line": 50,
+          "summary": {
+            "purpose": "This function returns a vector of ToolSpec structs, each representing a tool available in the chat interface. The tools include reading files, listing files, searching text, and are designed to operate within the project directory. Each tool has a name, description, and input schema that defines the expected data format for the tool's input. The function is intended to be used in a chat application to provide users with a list of available tools for interacting with the code.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "tool_catalog"
+        },
+        {
+          "calls": [
+            ".and_then",
+            ".as_bytes",
+            ".as_deref",
+            ".extension",
+            ".len",
+            ".map",
+            ".modified",
+            ".strip_prefix",
+            ".to_path_buf",
+            ".to_str",
+            ".unwrap_or",
+            ".unwrap_or_else",
+            "DateTime::from",
+            "Ok",
+            "ProjectMap::extract_rust_symbols",
+            "Some",
+            "Utc::now",
+            "Vec::new",
+            "hash",
+            "metadata",
+            "read"
+          ],
+          "content_hash": "b856a910ff8cdae4eb8ba9437c36c2c6ad16b906fb4c9fd4b7d1d48e48d57696",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 197,
+          "id": "0753b2d6-444f-7ba0-8200-c4fdb81e5144",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/supervisor/project_map.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5677445,
+          "signature": "fn scan_file(root: &Path, path: &Path) -> std::io::Result<FileInfo>",
+          "start_line": 151,
+          "summary": {
+            "purpose": "The function `scan_file` reads the content of a file at the specified path, calculates its hash, determines the language from the file extension, and extracts symbols from Rust files. It returns a `FileInfo` struct containing information about the file, such as its path, size, hash, modification time, language, and symbols. The function uses the `blake3` crate to compute the hash of the file content. The function also uses the `std::fs` crate to read the file content and the`",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "ProjectMap::scan_file"
+        },
+        {
+          "content_hash": "a01838c1987e9f3ed916b212f8eadd574b191452fbc3558e8d2a49b71ebca864",
+          "end_line": 149,
+          "id": "be4cc42d-5f28-d4b3-5ffc-858418542eb7",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "pub fn execute(ctx: &ToolContext, name: &str, input: &Value) -> ToolOutcome",
+          "start_line": 139,
+          "summary": "This function takes a context, a name, and an input value, and returns a tool outcome based on the name. It checks if the workspace root is empty and returns an error if it is. If the name is 'read_file', it calls the read_file function with the context and input. If the name is 'list_files', it calls the list_files function with the context and input. If the name is 'search_text', it calls the search_text function with the context and input. If the name is not recognized, it\nNo resuelto: name",
+          "summary_origin": "model",
+          "symbol": "execute",
+          "via": "read_file"
+        },
+        {
+          "content_hash": "a01838c1987e9f3ed916b212f8eadd574b191452fbc3558e8d2a49b71ebca864",
+          "end_line": 122,
+          "id": "15049000-b393-037c-5e95-34bff69d10c0",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "calls",
+          "signature": "fn error(content: impl Into<String>) -> Self",
+          "start_line": 117,
+          "summary": "Unidad method: ToolOutcome::error. Firma extraída del código: fn error(content: impl Into<String>) -> Self\nNo resuelto: El resumen del modelo no superó la validación; comprobar el comportamiento leyendo el código.",
+          "summary_origin": "parser",
+          "symbol": "ToolOutcome::error",
+          "via": "search_text"
+        },
+        {
+          "content_hash": "b856a910ff8cdae4eb8ba9437c36c2c6ad16b906fb4c9fd4b7d1d48e48d57696",
+          "end_line": 149,
+          "id": "082376e8-8300-d7c2-7cee-83fa191c045e",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/quiron-brain/src/supervisor/project_map.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "fn scan_dir(\n        root: &Path,\n        dir: &Path,\n        files: &mut HashMap<PathBuf, FileInfo>,\n        total_size: &mut u64,\n        hasher: &mut blake3::Hasher,\n    ) -> std::io::Result<()>",
+          "start_line": 114,
+          "summary": "This method scans a directory and its subdirectories recursively, updating a hash and total size for each file encountered. It skips hidden directories and certain common ignore patterns. The method returns an error if the directory is unreadable.\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "ProjectMap::scan_dir",
+          "via": "ProjectMap::scan_file"
+        }
+      ],
+      "checks": [
+        {
+          "id": "96ccca28-ad27-bca8-687a-4f906d969923",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "81883398-9f95-a8f0-d94a-591a1ddfa069",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "b0f7f7d7-1cd2-6ad4-7243-c102ebc08fab",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "013d523c-05e0-adb6-6918-3aade241e461",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "0753b2d6-444f-7ba0-8200-c4fdb81e5144",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "be4cc42d-5f28-d4b3-5ffc-858418542eb7",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "15049000-b393-037c-5e95-34bff69d10c0",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "082376e8-8300-d7c2-7cee-83fa191c045e",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    },
+    {
+      "id": "claude",
+      "question": "¿Dónde se valida que las herramientas solicitadas en una respuesta de Claude sean de las ofrecidas?",
+      "expected": {
+        "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+        "symbol": "parse_response"
+      },
+      "seconds": 0.09997809000196867,
+      "primary_rank_at_5": 1,
+      "hit_with_expansion": true,
+      "hint_tokens": 2409,
+      "hits": [
+        {
+          "calls": [
+            ".and_then",
+            ".any",
+            ".as_array",
+            ".as_object",
+            ".as_str",
+            ".as_u64",
+            ".cloned",
+            ".contains",
+            ".filter",
+            ".filter_map",
+            ".find",
+            ".fold",
+            ".insert",
+            ".into",
+            ".is_empty",
+            ".is_object",
+            ".is_some_and",
+            ".iter",
+            ".keys",
+            ".len",
+            ".map",
+            ".map_err",
+            ".max_by_key",
+            ".min",
+            ".ok_or",
+            ".or_else",
+            ".push",
+            ".then",
+            ".then_some",
+            ".to_string",
+            ".unwrap_or",
+            ".unwrap_or_default",
+            "Err",
+            "HashSet::new",
+            "Ok",
+            "Vec::new",
+            "from_str"
+          ],
+          "content_hash": "fc8c18371c8df0a8ac989b88711b620f04a938a1f95ad266f3855a4fe0a07a33",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 109,
+          "id": "5191a3e1-021b-948b-ff51-06989fcc36dd",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.58064604,
+          "signature": "fn parse_response(value: &Value, tools: &[ToolDef], requested_model: &str) -> Result<GatewayResponse, String>",
+          "start_line": 27,
+          "summary": {
+            "purpose": "This function parses a JSON response from Claude, validates its structure, and extracts relevant information such as content, tool calls, and usage statistics. It handles errors and returns a `GatewayResponse` object with the parsed data or an error message if the response is invalid or incomplete.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "parse_response"
+        },
+        {
+          "calls": [
+            ".collect",
+            ".is_empty",
+            ".iter",
+            ".map"
+          ],
+          "content_hash": "fc8c18371c8df0a8ac989b88711b620f04a938a1f95ad266f3855a4fe0a07a33",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 25,
+          "id": "db2776d9-cad4-5e9a-938a-8c44b856fa1a",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.55003595,
+          "signature": "fn output_schema(tools: &[ToolDef]) -> Value",
+          "start_line": 5,
+          "summary": {
+            "purpose": "This function takes a slice of ToolDef objects and returns a JSON object representing the output schema for a Claude CLI tool. The schema defines the structure of the output, including the content and the tool calls. The function checks if the input slice is empty and returns an empty array if it is. Otherwise, it creates a list of choices for each tool, which are then used to create the final schema. The function returns a JSON object with the content and tool calls as its ",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "output_schema"
+        },
+        {
+          "calls": [],
+          "content_hash": "fc8c18371c8df0a8ac989b88711b620f04a938a1f95ad266f3855a4fe0a07a33",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 326,
+          "id": "0b4b161f-3054-b550-9e17-b6f0be320e83",
+          "kind": "file",
+          "partial": true,
+          "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5289529,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "purpose": "The code defines a function `process_request_claude_cli` that takes a `GatewayRequest`, a `Route`, and a `GatewayConfig` as input and returns a `GatewayResponse`. The function processes the request by invoking the Claude model and handling the response. The function also includes error handling for cases where the request is invalid or the Claude model is not available. The function also includes a history of the conversation and the available Quirón tools. The function also ",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": ""
+        },
+        {
+          "calls": [
+            "Default::default",
+            "Some",
+            "invoke"
+          ],
+          "content_hash": "fc8c18371c8df0a8ac989b88711b620f04a938a1f95ad266f3855a4fe0a07a33",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 123,
+          "id": "7696818d-b0fc-2976-903f-197df0ae6566",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5089003,
+          "signature": "pub(super) async fn process_request_claude_cli(\n    req: GatewayRequest,\n    route: Route,\n    config: &GatewayConfig,\n) -> GatewayResponse",
+          "start_line": 111,
+          "summary": {
+            "purpose": "This function processes a request using the Claude CLI and returns a GatewayResponse. It takes a GatewayRequest, a Route, and a GatewayConfig as input. It invokes the Claude CLI with the request and route, and returns the response or an error if the invocation fails. The function is marked as public and super.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "process_request_claude_cli"
+        },
+        {
+          "calls": [],
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 2668,
+          "id": "6f17fc46-d455-1fed-cd76-88b980012ee1",
+          "kind": "file",
+          "partial": true,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.49115154,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "purpose": "The source code defines a binary that connects Quiron-brain to providers LLM, supporting backends: openai_compatible, openclaw, codex_direct, claude_cli. It also includes configuration for the primary and worker backends, as well as the primary and worker endpoints, models, API keys, timeouts, and temperature. The code uses the serde library for serialization and deserialization, and the tokio library for asynchronous operations. The code also includes a module for the Claude",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": ""
+        },
+        {
+          "content_hash": "fc8c18371c8df0a8ac989b88711b620f04a938a1f95ad266f3855a4fe0a07a33",
+          "end_line": 262,
+          "id": "954e527f-8a56-88f3-b3e4-e28900af67aa",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/claude_cli.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "async fn invoke(\n    req: &GatewayRequest,\n    route: Route,\n    config: &GatewayConfig,\n) -> Result<GatewayResponse, String>",
+          "start_line": 125,
+          "summary": "The function `invoke` takes a `GatewayRequest`, a `Route`, and a `GatewayConfig` as input and returns a `GatewayResponse` or a `String` error. It processes the request, configures the model, and sends the prompt to Claude CLI. The function handles historical data, error paths, and timeouts. The output is validated and stored in a directory. The function uses environment variables and command execution to interact with Claude CLI. The function returns an error if the ClaudeCLI\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "invoke",
+          "via": "parse_response"
+        },
+        {
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "end_line": 887,
+          "id": "88c80bd4-bbc1-dcc9-0175-e46525506d00",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "async fn process_request(req: GatewayRequest, config: &GatewayConfig) -> GatewayResponse",
+          "start_line": 834,
+          "summary": "This function processes a gateway request by parsing the route, selecting the appropriate backend, and then calling the corresponding processing function based on the backend type. It logs the backend type, model, success status, tool calls, content length, and any errors encountered. The function returns the processed response.\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "process_request",
+          "via": "process_request_claude_cli"
+        }
+      ],
+      "checks": [
+        {
+          "id": "5191a3e1-021b-948b-ff51-06989fcc36dd",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "db2776d9-cad4-5e9a-938a-8c44b856fa1a",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "0b4b161f-3054-b550-9e17-b6f0be320e83",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "7696818d-b0fc-2976-903f-197df0ae6566",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "6f17fc46-d455-1fed-cd76-88b980012ee1",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "954e527f-8a56-88f3-b3e4-e28900af67aa",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "88c80bd4-bbc1-dcc9-0175-e46525506d00",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    },
+    {
+      "id": "backend",
+      "question": "¿Dónde se interpreta la variable del proveedor para elegir el backend del gateway?",
+      "expected": {
+        "path": "Quirón/vertex-gateway/src/main.rs",
+        "symbol": "GatewayBackend::from_env"
+      },
+      "seconds": 0.09348076599417254,
+      "primary_rank_at_5": 3,
+      "hit_with_expansion": true,
+      "hint_tokens": 2268,
+      "hits": [
+        {
+          "calls": [],
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 89,
+          "id": "892c45d8-824a-c89c-36ed-d5be27109ce9",
+          "kind": "struct",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.58669096,
+          "signature": "struct GatewayConfig",
+          "start_line": 66,
+          "summary": {
+            "purpose": "This struct defines a configuration for a gateway, including details about backend servers, endpoints, models, API keys, timeouts, and temperature settings. It also includes configuration for OpenCLaw, a language model, and a command-line interface. The struct is used to configure the gateway for different environments, such as primary and worker, and to specify the language model to be used. The struct is not used to compute or define any visible validation or error paths.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "GatewayConfig"
+        },
+        {
+          "calls": [
+            ".clone",
+            ".into",
+            ".join",
+            ".map",
+            ".ok",
+            ".or",
+            ".to_string",
+            ".unwrap_or",
+            ".unwrap_or_else",
+            "GatewayBackend::from_env",
+            "Ok",
+            "PathBuf::from",
+            "env_bool",
+            "home_dir",
+            "load_secret",
+            "normalized",
+            "normalized_or",
+            "parse_optional_json_scalar",
+            "parse_optional_u32",
+            "parse_temperature",
+            "parse_timeout_secs",
+            "var"
+          ],
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 181,
+          "id": "de5aea7e-261c-c82b-2f70-f5ad2f153a95",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.58064127,
+          "signature": "fn from_env() -> Result<Self, String>",
+          "start_line": 92,
+          "summary": {
+            "purpose": "This method constructs a `GatewayConfig` struct from environment variables. It retrieves various configuration settings such as backend addresses, endpoints, models, API keys, timeouts, and more. The method handles optional environment variables and provides default values if they are not set. The resulting `GatewayConfig` struct is used to configure a gateway system.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "GatewayConfig::from_env"
+        },
+        {
+          "calls": [
+            ".as_deref",
+            ".map",
+            "Err",
+            "Ok"
+          ],
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 61,
+          "id": "6d67964b-b39e-0cd6-0e9a-519ebc024ead",
+          "kind": "method",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.571103,
+          "signature": "fn from_env(value: Option<String>) -> Result<Self, String>",
+          "start_line": 34,
+          "summary": {
+            "purpose": "This function takes an optional string value and returns a result indicating the gateway backend based on the value. It uses various string manipulation techniques to convert the input string to lowercase and trim any leading or trailing whitespace. The function supports several backend names such as OpenAI, Ollama, Claude, OpenClaw, and Codex Direct. If the input string does not match any of these names, it returns an error with a descriptive message. The function is used to",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "GatewayBackend::from_env"
+        },
+        {
+          "calls": [
+            ".as_deref",
+            "Some",
+            "parse_route",
+            "process_request_claude_cli",
+            "process_request_codex_direct",
+            "process_request_ollama_native",
+            "process_request_openai_compatible",
+            "process_request_openclaw"
+          ],
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 887,
+          "id": "88c80bd4-bbc1-dcc9-0175-e46525506d00",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.57018363,
+          "signature": "async fn process_request(req: GatewayRequest, config: &GatewayConfig) -> GatewayResponse",
+          "start_line": 834,
+          "summary": {
+            "purpose": "This function processes a gateway request by parsing the route, selecting the appropriate backend, and then calling the corresponding processing function based on the backend type. It logs the backend type, model, success status, tool calls, content length, and any errors encountered. The function returns the processed response.",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": "process_request"
+        },
+        {
+          "calls": [],
+          "content_hash": "83b3a2855a6280169f359d9326d3ab7458645afaa6008e0e7b763a627126cf25",
+          "embedding_model": "BAAI/bge-m3",
+          "end_line": 919,
+          "id": "825c33a8-81fa-7c17-1b30-46d654d928fe",
+          "kind": "file",
+          "partial": true,
+          "path": "Quirón/quiron-brain/src/llm_client.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "score": 0.5507965,
+          "signature": "",
+          "start_line": 1,
+          "summary": {
+            "purpose": "The source code defines a client for calling LLM models via the binary immutable vertex-gateway. It uses stdin/stdout for communication, a centralized configuration, and a binary auditable code of ~317 lines. The client has a timeout mechanism and a model + route preference. The model real is decided by vertex-gateway according to its configuration. The client has a timeout mechanism and a model + route preference. The model real is decided by vertex-gateway according to its ",
+            "unknowns": []
+          },
+          "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+          "summary_origin": "model",
+          "symbol": ""
+        },
+        {
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "end_line": 773,
+          "id": "2d816e03-4fd2-c856-639f-8a16c804f252",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "called_by",
+          "signature": "async fn main()",
+          "start_line": 618,
+          "summary": "The function `main` initializes the vertex-gateway by reading configuration from the environment, printing setup details, and then processes incoming requests from the standard input. It handles errors and prints responses to the standard output. The function is asynchronous and uses the `async` and `await` keywords for handling asynchronous operations. The unknowns are the specific details of the `GatewayConfig` and `GatewayRequest` types, as well as the `io` module for I/O.\nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "main",
+          "via": "GatewayConfig::from_env"
+        },
+        {
+          "content_hash": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e",
+          "end_line": 611,
+          "id": "69b1dd41-afcd-2e71-adbc-014bbd631164",
+          "kind": "function",
+          "partial": false,
+          "path": "Quirón/vertex-gateway/src/main.rs",
+          "project": "01KX61WD5MPKNFGF4849N79CXE",
+          "relation": "calls",
+          "signature": "fn parse_route(route: Option<&str>) -> Result<Route, String>",
+          "start_line": 602,
+          "summary": "This function takes an optional string representing a route and returns a Result containing a Route enum or an error message. It first trims the input string, filters out empty strings, and then checks if the remaining string is \nNo resuelto: ",
+          "summary_origin": "model",
+          "symbol": "parse_route",
+          "via": "process_request"
+        }
+      ],
+      "checks": [
+        {
+          "id": "892c45d8-824a-c89c-36ed-d5be27109ce9",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "de5aea7e-261c-c82b-2f70-f5ad2f153a95",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "6d67964b-b39e-0cd6-0e9a-519ebc024ead",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "88c80bd4-bbc1-dcc9-0175-e46525506d00",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "825c33a8-81fa-7c17-1b30-46d654d928fe",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "2d816e03-4fd2-c856-639f-8a16c804f252",
+          "project_matches": true,
+          "hash_matches": true
+        },
+        {
+          "id": "69b1dd41-afcd-2e71-adbc-014bbd631164",
+          "project_matches": true,
+          "hash_matches": true
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Muestra de desarrollo sin holdout: diez objetivos primarios, no todos los símbolos pertinentes.",
+    "Hit@5/MRR@5 de localización, no precisión de resúmenes ni éxito de tareas completas.",
+    "Volcado de fuentes Rust como referencia de volumen, no como agente competidor.",
+    "Tokens del worker local, no facturación ni tokenizador de Claude/Codex.",
+    "No incluye historial, prompt del asistente, herramientas, respuesta o lecturas posteriores."
+  ],
+  "health": {
+    "status": "ok",
+    "service": "quiron-brain",
+    "event_count": 5265,
+    "node_count": 1175,
+    "invariant_count": 5
+  },
+  "index_before": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "watching",
+    "files_total": 183,
+    "files_done": 183,
+    "units_written": 3,
+    "summaries_generated": 3,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  },
+  "corpus": {
+    "Quirón/llore_editor/crates/llore_brain/src/client.rs": {
+      "bytes": 38252,
+      "blake3": "eeecce00ae29459d29094fe7abe7f4af172f789164c94fffca865ab606d894db"
+    },
+    "Quirón/llore_editor/crates/llore_brain/src/gates.rs": {
+      "bytes": 33291,
+      "blake3": "9f85a80955656c183f4a8e096e127e3bb4342d3639403a329e956ce54b8cb49f"
+    },
+    "Quirón/llore_editor/crates/llore_brain/src/integration_tests.rs": {
+      "bytes": 7909,
+      "blake3": "06311d87954409e7e595205d2b2ec8557c4c14d183f5456fd57543c06d52eee3"
+    },
+    "Quirón/llore_editor/crates/llore_brain/src/ledger.rs": {
+      "bytes": 3063,
+      "blake3": "e1035161a2d8911d94d06cd8837d3f29dec132b776e44c844be7cbe8949369dc"
+    },
+    "Quirón/llore_editor/crates/llore_brain/src/lib.rs": {
+      "bytes": 28317,
+      "blake3": "7697efdbe6c0522e3a767823b81106666612d3426d507fff7c734e9589b50b52"
+    },
+    "Quirón/llore_editor/crates/llore_brain/src/orchestrator.rs": {
+      "bytes": 129489,
+      "blake3": "87108f8d17143d76b7a9ad5625df50da2a6ff265dbbe9515ee6cbc1d17124402"
+    },
+    "Quirón/llore_editor/crates/llore_brain/src/protocol.rs": {
+      "bytes": 6578,
+      "blake3": "8b8b1cb3d5da4bb809676e8e37935b1054475dfb92f8ddf2b206cb21dc8039dd"
+    },
+    "Quirón/llore_editor/crates/llore_brain/src/recall.rs": {
+      "bytes": 2980,
+      "blake3": "d7f5af13996b2d330915d21a9640f8f10606180a59572f4543428381689f5eb7"
+    },
+    "Quirón/llore_editor/crates/llore_buffer/src/buffer.rs": {
+      "bytes": 8138,
+      "blake3": "e2550ee07e1d3f451628196a7b9d734f3e861e485a5501bbbff74d1b871980d1"
+    },
+    "Quirón/llore_editor/crates/llore_buffer/src/edit.rs": {
+      "bytes": 3008,
+      "blake3": "e75109512b705db276fd49944029bc05b242d2d936db9888ef653fdc96cdfb37"
+    },
+    "Quirón/llore_editor/crates/llore_buffer/src/history.rs": {
+      "bytes": 3878,
+      "blake3": "860aa6bb9cef9e8977bc30ba36e1c9c66b511616a9393b47d1b39d09f2659e69"
+    },
+    "Quirón/llore_editor/crates/llore_buffer/src/lib.rs": {
+      "bytes": 644,
+      "blake3": "dd1b3d5bdaf4a3f1f558021c46dee964440b07dd2e7b7c2709d2716c437968d5"
+    },
+    "Quirón/llore_editor/crates/llore_core/src/clock.rs": {
+      "bytes": 4405,
+      "blake3": "cd4bca3ad4a8f6567910cecd2e86037d4ed612cf3911fde58ed1f1c0b4c8c2c8"
+    },
+    "Quirón/llore_editor/crates/llore_core/src/lib.rs": {
+      "bytes": 578,
+      "blake3": "a5ea8bcf336d909670705f7757cff2ae7b8ab0ce803f8ddea4e66b0bbf0c23ab"
+    },
+    "Quirón/llore_editor/crates/llore_core/src/rope.rs": {
+      "bytes": 5517,
+      "blake3": "a7c5f7cf5d22dcc331c5a15eddad6c5ec42ec443c0052335841ec0b745d16067"
+    },
+    "Quirón/llore_editor/crates/llore_editor/src/cursor.rs": {
+      "bytes": 7461,
+      "blake3": "cd0c95be9b763b2a52f1de8f3fe7047fa54f77c46ce7dd6a76e0dd090a2cd8bd"
+    },
+    "Quirón/llore_editor/crates/llore_editor/src/display.rs": {
+      "bytes": 6284,
+      "blake3": "e52b3c8a5665ad1a99284e14a67afd821930adf067ffacdd2968a241f98848d7"
+    },
+    "Quirón/llore_editor/crates/llore_editor/src/editor.rs": {
+      "bytes": 26872,
+      "blake3": "5c748eef2d3f42306ba3a88ed573d95000dccf4d3d7b806079415b2677becb59"
+    },
+    "Quirón/llore_editor/crates/llore_editor/src/lib.rs": {
+      "bytes": 660,
+      "blake3": "cfa3cb0c3d618bacd7596aeb50f89afbf569d71f79f2405e170850220565ee81"
+    },
+    "Quirón/llore_editor/crates/llore_editor/src/selection.rs": {
+      "bytes": 4274,
+      "blake3": "b142e808190dd5aed361fc4317b1de27fd9e7e0575e3003dbce0281dce854dfb"
+    },
+    "Quirón/llore_editor/crates/llore_language/src/language.rs": {
+      "bytes": 7108,
+      "blake3": "34f58be4883b9acfd3a1085a8940a28dd027cd4c9de533da1f6862d0d6acf6ba"
+    },
+    "Quirón/llore_editor/crates/llore_language/src/lib.rs": {
+      "bytes": 664,
+      "blake3": "882a19ed707e64b69cdc80c4d7e6b8d443916d6f566f7aeffce24145c9aace16"
+    },
+    "Quirón/llore_editor/crates/llore_language/src/registry.rs": {
+      "bytes": 5282,
+      "blake3": "990c6fe3d0969a4620426d768ec58c29870c785de650b9687f31704301a6909a"
+    },
+    "Quirón/llore_editor/crates/llore_language/src/syntax.rs": {
+      "bytes": 4715,
+      "blake3": "d4f0a185cab98e8e6a07e019bcc7315263d216717fa094b9756b1b849a83e2ca"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/bin/llore_gui.rs": {
+      "bytes": 208522,
+      "blake3": "4b893c2c33a04500e42aa633d2f0cd98783e339080886755bfbecb4ba7655b2c"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/chat_panel.rs": {
+      "bytes": 6288,
+      "blake3": "93e32a12b25a91b690aaef30b68f89779b95ac2739ca5296517729a0676b7b64"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs": {
+      "bytes": 16328,
+      "blake3": "a01838c1987e9f3ed916b212f8eadd574b191452fbc3558e8d2a49b71ebca864"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/design.rs": {
+      "bytes": 6403,
+      "blake3": "17254c3f83b3b6a576ba9da8c844a9e895c75ed1438f8cf1d083f3f6a558ec56"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/element.rs": {
+      "bytes": 5287,
+      "blake3": "439e866c54c6fe4a1eda0ea4d4c20bd8d48fd0575f28eb1f2135a6c4163ecac7"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/elements/container.rs": {
+      "bytes": 7439,
+      "blake3": "33404a8370b54b72f5be0ba4747a9b6e2408e1dd13e4ae8b90e296467b65efc6"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/elements/div.rs": {
+      "bytes": 8646,
+      "blake3": "0f2ed917e5735001db3da6a13a0ef6ca10b07ce2cc61a48a33254f6302ac9a5c"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/elements/mod.rs": {
+      "bytes": 153,
+      "blake3": "668535c5b04f91b241b2b122bba6c41618ddcf237fad62d579b135a28b392af6"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/elements/text.rs": {
+      "bytes": 1870,
+      "blake3": "543e5cf0d119e2b130ca99849f1322907087eef5f3cbb83497fc45c20c195c67"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/icons.rs": {
+      "bytes": 1851,
+      "blake3": "26bead81184ea00b2fdf8cdf6a1cb67aa94bca0064e95c4dd0d805a5077e623a"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/layout.rs": {
+      "bytes": 4928,
+      "blake3": "091cb7c67c18f2b6b6f77d779bbad3c266cc51465671a81af36570f5c9226386"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/lib.rs": {
+      "bytes": 2380,
+      "blake3": "02961427c320220f990a7522d7adc3789fed51def3d28d9e2e226c8e59dc058d"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/paint.rs": {
+      "bytes": 25326,
+      "blake3": "e9dbea4b3a1b4a54bfdcaac02bc691da9e28459a564d4a65c0ea43dd7a589396"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/project_id.rs": {
+      "bytes": 9619,
+      "blake3": "d27b59ac9f14a61818096c748bd8bb002de7fef5c4e89c7ce66e0caae74d5a20"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/recents.rs": {
+      "bytes": 4697,
+      "blake3": "7f3eb21aa9a776cfd0f358a7d66cec4d1cba04650b0a3fb2fbc9895a8d487d6f"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/style.rs": {
+      "bytes": 6231,
+      "blake3": "0d0613c15e1b6b3bbc41416e2aaf88160d2c45a64e0a7b146e83b3d43909724d"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/syntax_highlight.rs": {
+      "bytes": 19250,
+      "blake3": "45f2e9d1736f667e5a8f9d69742495c73e488961ce2be8719b9a40a57e019c57"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/text.rs": {
+      "bytes": 22916,
+      "blake3": "361fc5a286a49dbfbc6aa44e0fbe617490196c09ba7ff623a5f4d51214175182"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/theme.rs": {
+      "bytes": 7073,
+      "blake3": "5b0e1eae1d83b58af07263ca03b531bd127a390d8ea571be5d76db646a528724"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/view.rs": {
+      "bytes": 1941,
+      "blake3": "7baa26340917cb9491f433ec39e8e1d2606547bfcc8d11711d6b234ae896158f"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/window.rs": {
+      "bytes": 4456,
+      "blake3": "1a4da47fefee647b240a6670e9e2f33f4f9cf0b428921bff5a87dafc0a8a33ca"
+    },
+    "Quirón/llore_editor/crates/llore_ui/src/workspace_guard.rs": {
+      "bytes": 11470,
+      "blake3": "a5dcd19780642e3ff5a2ca8693db3e359184aa9dbc973b4a9281d7c515414cd1"
+    },
+    "Quirón/llore_editor/crates/llore_util/src/lib.rs": {
+      "bytes": 374,
+      "blake3": "40a2d3c9847f2445112429749e049a58f6c66916d1ae2b8b2833d35e8d37e02d"
+    },
+    "Quirón/llore_editor/crates/llore_util/src/paths.rs": {
+      "bytes": 4020,
+      "blake3": "2adeaffb2ed3f0237d798f1345aaab47284e6e2e0204f0c9c90047df848da807"
+    },
+    "Quirón/llore_editor/crates/llore_util/src/result_ext.rs": {
+      "bytes": 2259,
+      "blake3": "d398c060af4798c64ad3f9a0f0737d1e9a1634e13042ac7f62ec6d41df182b58"
+    },
+    "Quirón/llore_editor/crates/llore_util/src/string_ext.rs": {
+      "bytes": 3465,
+      "blake3": "7daa23d5bae016f795dbe6c935028368498031ea955607160c75be7bb38f785b"
+    },
+    "Quirón/llore_editor/src/main.rs": {
+      "bytes": 3563,
+      "blake3": "e2e32931b2d82a05b5abaa56bd72d67a87622c80a9ff7e5a8bce5d59c0434551"
+    },
+    "Quirón/quiron-brain/src/api/mod.rs": {
+      "bytes": 91,
+      "blake3": "dd68b8e3e3fb24f51567c3ed7befc9c77951b80e6d5188088b25087628f16ad8"
+    },
+    "Quirón/quiron-brain/src/api/server.rs": {
+      "bytes": 163007,
+      "blake3": "94f116871977edd7b104aebf37bb0c6d43f34bd05f0b693875224a8db27185e9"
+    },
+    "Quirón/quiron-brain/src/bin/audit_codex_chat_projects.rs": {
+      "bytes": 5150,
+      "blake3": "a86fb33eb721f8e750fe1230f1663bd4df9374d8bb69d14c584dc8539f93aac4"
+    },
+    "Quirón/quiron-brain/src/bin/cleanup_invariants.rs": {
+      "bytes": 2936,
+      "blake3": "c23c236343359af935455a344b8cf8135137b10b71af837d0f8681591aab3e1b"
+    },
+    "Quirón/quiron-brain/src/bin/index_repo.rs": {
+      "bytes": 4472,
+      "blake3": "45ba0e0255d3c866f5fd7c89862685f21f67bf4271061e71b07d4afc82c93185"
+    },
+    "Quirón/quiron-brain/src/bin/rebuild_neo4j.rs": {
+      "bytes": 1298,
+      "blake3": "8ec86dca3c6d1cb199e3c5b11c00ebccafdf53a04c5aef4bfa3fb488c5476d29"
+    },
+    "Quirón/quiron-brain/src/bin/replay_memory.rs": {
+      "bytes": 3759,
+      "blake3": "74197b58595ad765f3c59e3fa02e7cc7ff7b79e5e0341c12937054cf594d8542"
+    },
+    "Quirón/quiron-brain/src/bin/sync_codex_chat_to_quiron.rs": {
+      "bytes": 24056,
+      "blake3": "35e66c2549e8a3890eb0e6eee1c2a96b49903bcec050a2166acf1d64f8d175ed"
+    },
+    "Quirón/quiron-brain/src/claims/annotator.rs": {
+      "bytes": 13447,
+      "blake3": "f5cf97a635cd7e1b40b4adafcd276c605bac15f4d35466a4f2961bab2a75268d"
+    },
+    "Quirón/quiron-brain/src/claims/audit.rs": {
+      "bytes": 5847,
+      "blake3": "da00eac208defdb708b504d147ff0cd85db6d178e7894ce74b0658afb24b6ec8"
+    },
+    "Quirón/quiron-brain/src/claims/backlink.rs": {
+      "bytes": 7560,
+      "blake3": "38efc09ec5a5940366dcd7c1c0c14f7e118c344540d308887317fbe4403f3b7e"
+    },
+    "Quirón/quiron-brain/src/claims/evidence.rs": {
+      "bytes": 16391,
+      "blake3": "aa78ee0d07140883f0885308a7fe16779d5a11953c4b14d74e2eb8a74fef8ff6"
+    },
+    "Quirón/quiron-brain/src/claims/ledger_integration.rs": {
+      "bytes": 10240,
+      "blake3": "338eea08aefe168d04e6892df2b025357888fada8b9fd065c1ae62eefafb1b52"
+    },
+    "Quirón/quiron-brain/src/claims/mod.rs": {
+      "bytes": 9792,
+      "blake3": "6f87bc2d4bdb46c4d0867193ea7b062747219de0698bff7016b4dc6e8db91a3c"
+    },
+    "Quirón/quiron-brain/src/claims/policy.rs": {
+      "bytes": 10483,
+      "blake3": "3bf9c454884e6dd72013abb13cafcfc13f2fad16d5bd5795f5406c38c074f12a"
+    },
+    "Quirón/quiron-brain/src/claims/verifier.rs": {
+      "bytes": 11944,
+      "blake3": "fe01d973d6319865451f7680994c33473f7000abb49074bc0981d14d9d62e764"
+    },
+    "Quirón/quiron-brain/src/distillation.rs": {
+      "bytes": 19827,
+      "blake3": "613383778b6ce3871280b8d41906ca2b450044d8b8b4d152891ff1284d613664"
+    },
+    "Quirón/quiron-brain/src/distillation_worker.rs": {
+      "bytes": 3931,
+      "blake3": "f1ee801391af318f0170ef0f49bfb4e1785650d2687e924a2524158a88f05b90"
+    },
+    "Quirón/quiron-brain/src/enrichment_worker.rs": {
+      "bytes": 6890,
+      "blake3": "b01482f9c86ffc401999d51e750fa7b041418f7e0ceed98df5ed99438da15357"
+    },
+    "Quirón/quiron-brain/src/error.rs": {
+      "bytes": 988,
+      "blake3": "90fe7860b4cf41135e23bdf66b540db4d31bb4369af9cb6a1220cfe985879c42"
+    },
+    "Quirón/quiron-brain/src/evaluator/blame.rs": {
+      "bytes": 7037,
+      "blake3": "f12dc4eaaba49cc95de9aac055f348d71a0926fd9c2799f74dbd46481f2f65be"
+    },
+    "Quirón/quiron-brain/src/evaluator/credit.rs": {
+      "bytes": 5476,
+      "blake3": "2a5196839c0ce12220c9f458e9a0ddaa3e6c82b08309c12d9b405071eb3ee106"
+    },
+    "Quirón/quiron-brain/src/evaluator/mod.rs": {
+      "bytes": 478,
+      "blake3": "b25bf6c34394884000c519cf1357594fc55798203225d13a78d81dfb3a1cf603"
+    },
+    "Quirón/quiron-brain/src/evaluator/runs.rs": {
+      "bytes": 6571,
+      "blake3": "1ecf2964e31b0fa11e2dd4b6ed5aafc9bba4f80d519b7653a183f2a2fb82a018"
+    },
+    "Quirón/quiron-brain/src/graph/builder.rs": {
+      "bytes": 13464,
+      "blake3": "b3813eca2276107581dcc39444a45b7296d1b201af629c1ff9dd6c67870b0a02"
+    },
+    "Quirón/quiron-brain/src/graph/mod.rs": {
+      "bytes": 110,
+      "blake3": "ed72cbf3e68cb78da7fd661b5317e8864b5087f011848009421a9b7c09d51735"
+    },
+    "Quirón/quiron-brain/src/graph/plasticity.rs": {
+      "bytes": 7257,
+      "blake3": "4ce3ec0f2f52db369179110da406431312e35d06c534027491d168d5b3d04ff2"
+    },
+    "Quirón/quiron-brain/src/index/extract.rs": {
+      "bytes": 11572,
+      "blake3": "50b13619affc74cdd84d5472934c769175d7d342327a8682a89c5aa12d014df5"
+    },
+    "Quirón/quiron-brain/src/index/mod.rs": {
+      "bytes": 4489,
+      "blake3": "44d13a7e77c029b11950b99a6c995ec25954539cee3ba6e411907687bec66ae3"
+    },
+    "Quirón/quiron-brain/src/index/unit.rs": {
+      "bytes": 10828,
+      "blake3": "8204422f69f066a5732dd41d66b1a451bce76f3758d4f329334837fb8b6e49fb"
+    },
+    "Quirón/quiron-brain/src/index/vectorize.rs": {
+      "bytes": 5461,
+      "blake3": "412ffbdb9c197154d0a6f9ffa006faf616586bea5cba483c23214ee250800717"
+    },
+    "Quirón/quiron-brain/src/index/walk.rs": {
+      "bytes": 8860,
+      "blake3": "ae3482c2b5a2540024305c1e92656d444ea27836a5d1a9afc9139a976bf4a3fd"
+    },
+    "Quirón/quiron-brain/src/index/worker.rs": {
+      "bytes": 42607,
+      "blake3": "fd4199e7f1236487577086ee96822a1c1cdf2fd281f3bce2fcca2c85d5cc1ca0"
+    },
+    "Quirón/quiron-brain/src/invariants/engine.rs": {
+      "bytes": 33153,
+      "blake3": "28135b34374717b80c2129273340e9692a5ae17c4451092b2eb8aa9359ca0f9f"
+    },
+    "Quirón/quiron-brain/src/invariants/mod.rs": {
+      "bytes": 114,
+      "blake3": "cd329c92601afbaeaad4c120d2c6aaa62176afdf444df3af2ebf1ec8e50b5317"
+    },
+    "Quirón/quiron-brain/src/keyword_search.rs": {
+      "bytes": 7733,
+      "blake3": "80229f4bd9e1a57a3dd4376a501248e0129bdc06b6f92c3b2503132d7117344b"
+    },
+    "Quirón/quiron-brain/src/ledger/mod.rs": {
+      "bytes": 131,
+      "blake3": "d99c144b0b670dc19bd35fad6b84274f5666aa24f72c994fc1a11cc4a8cc47e4"
+    },
+    "Quirón/quiron-brain/src/ledger/reader.rs": {
+      "bytes": 14133,
+      "blake3": "5b69068c32714af80094d8799552fb0e425b69699d6cca3dcbe91b55b856c64f"
+    },
+    "Quirón/quiron-brain/src/ledger/writer.rs": {
+      "bytes": 12027,
+      "blake3": "810481d3b75614a554ab227dc9ef2693206a18555dcac61c9e426e06314bc0d3"
+    },
+    "Quirón/quiron-brain/src/lib.rs": {
+      "bytes": 933,
+      "blake3": "42a53342e7ba20a45fc74ec3a873ee4a028affe9b9f24a18691cb9317564dda9"
+    },
+    "Quirón/quiron-brain/src/llm_client.rs": {
+      "bytes": 32292,
+      "blake3": "83b3a2855a6280169f359d9326d3ab7458645afaa6008e0e7b763a627126cf25"
+    },
+    "Quirón/quiron-brain/src/llm_distiller.rs": {
+      "bytes": 4662,
+      "blake3": "b2e858e31f74228bf1daf75833969af37b3a0af5b0497dfde2b2574335817862"
+    },
+    "Quirón/quiron-brain/src/llm_enricher.rs": {
+      "bytes": 8729,
+      "blake3": "aec12bfffd5d0fba3a937caafc51bdb94c78d5acf5bc35334aa77b14c3bda105"
+    },
+    "Quirón/quiron-brain/src/main.rs": {
+      "bytes": 14749,
+      "blake3": "7350f28b792cc69eadfa8083dd7661922a3470bfaed9fa33d3b3527501572b37"
+    },
+    "Quirón/quiron-brain/src/memory/associative.rs": {
+      "bytes": 10947,
+      "blake3": "3cf2d80cfbf7f9c0dce41b009b557509a13351640a8766942d1cd92c599e9691"
+    },
+    "Quirón/quiron-brain/src/memory/envelope.rs": {
+      "bytes": 30282,
+      "blake3": "c5e83181b09f28c1470e9643d7a2a8555224f91c01520d1ad64bda1b3cdee4b3"
+    },
+    "Quirón/quiron-brain/src/memory/mod.rs": {
+      "bytes": 1078,
+      "blake3": "07f08affc07b7d472feda2f7790ba78faecb9a7ed22060b0ae496a6b9c1f6d55"
+    },
+    "Quirón/quiron-brain/src/memory/node.rs": {
+      "bytes": 6739,
+      "blake3": "a078c1e4e2b2165038bd3476c0de589035ada944625abecce4414121f46288eb"
+    },
+    "Quirón/quiron-brain/src/neo4j/connector.rs": {
+      "bytes": 3240,
+      "blake3": "c68f1fcb1d675c987d83a719fd4c0f1caf5822b6bfbc97d392b9d6aa7ff938bc"
+    },
+    "Quirón/quiron-brain/src/neo4j/mod.rs": {
+      "bytes": 802,
+      "blake3": "5edffa4c27c018b7997dc2e1b0a1dc8a48921e7a341f64d8c7f9ea6e8e2782a4"
+    },
+    "Quirón/quiron-brain/src/neo4j/projector.rs": {
+      "bytes": 19279,
+      "blake3": "9a68840e0d57679491d86da58eed7c8e3163e8d352296b1c6071789721db9b29"
+    },
+    "Quirón/quiron-brain/src/neo4j/queries.rs": {
+      "bytes": 4598,
+      "blake3": "dd1fd9e0aaa711897f9f14f3cd7256be2cdc3b1be5784517711e4e423f76e177"
+    },
+    "Quirón/quiron-brain/src/neo4j/schema.rs": {
+      "bytes": 4200,
+      "blake3": "e5278bdb68ee75f4b6707c38d12fed80a27ce8b04b8e288091bc6a863f99398f"
+    },
+    "Quirón/quiron-brain/src/neo4j/sync.rs": {
+      "bytes": 4959,
+      "blake3": "4fd903cdae49e63bbd0f21880d3328119a5c40f0c03eaae4fd060a04ba8b747c"
+    },
+    "Quirón/quiron-brain/src/replay.rs": {
+      "bytes": 9519,
+      "blake3": "3d33f5ffba378ed6f877cff4d57840f59f7a81c20cd5480c767ee3b260e7712f"
+    },
+    "Quirón/quiron-brain/src/representations.rs": {
+      "bytes": 22239,
+      "blake3": "851220ec83fac8a49db25d5e2b67ac188e0cd7795ba75c54b3f144957b9464ef"
+    },
+    "Quirón/quiron-brain/src/retrieval.rs": {
+      "bytes": 16130,
+      "blake3": "b9b9d8fe21970123cc6cc767fa2558f111fb51f44997ad3c450df2b999ba454e"
+    },
+    "Quirón/quiron-brain/src/semantic/client.rs": {
+      "bytes": 21540,
+      "blake3": "e0c8be675b842d8983af02dc181e66ee727611447a1a7c8c570ddc23fcd1de6a"
+    },
+    "Quirón/quiron-brain/src/semantic/consolidation.rs": {
+      "bytes": 6428,
+      "blake3": "1072828f2ee301d021895e5f145aa6b017ce5f97d45572c2feaf4c22b5042292"
+    },
+    "Quirón/quiron-brain/src/semantic/embed.rs": {
+      "bytes": 3378,
+      "blake3": "b63bc87e2074ef4833351b42b04b918c05b11fd2d4c91209071bec22599bd9d4"
+    },
+    "Quirón/quiron-brain/src/semantic/mod.rs": {
+      "bytes": 7705,
+      "blake3": "37d5e13f3b09ca3bb5631720f2cb5c88bb4219f6a812d796f21b6a3d8edb7c86"
+    },
+    "Quirón/quiron-brain/src/semantic/remote.rs": {
+      "bytes": 5935,
+      "blake3": "86c2b98bcc85d622c6875d52146a4e5c167ac75071946f0ef42910eff4873f9f"
+    },
+    "Quirón/quiron-brain/src/semantic/search.rs": {
+      "bytes": 2920,
+      "blake3": "f0df28560a431a5795cd19c50afd4d42f4ef85f4f523366378fd9cbe4caf21c7"
+    },
+    "Quirón/quiron-brain/src/semantic/sync.rs": {
+      "bytes": 7500,
+      "blake3": "64f475d58bb4998c3a2287136af81b8f184dce09404870b7f27356d5f8d31233"
+    },
+    "Quirón/quiron-brain/src/storage/cf.rs": {
+      "bytes": 2293,
+      "blake3": "335dab57422abffc23ef01cd2f844aa52f2f7b712b0c42836223c11b46aec6d5"
+    },
+    "Quirón/quiron-brain/src/storage/keys.rs": {
+      "bytes": 3414,
+      "blake3": "61e2ecea34060076f5e0dac633610a5d9f6c95b761552311db526553987f2e99"
+    },
+    "Quirón/quiron-brain/src/storage/mod.rs": {
+      "bytes": 99,
+      "blake3": "f3ade9eb603650aa6c2ee33aa33d741e948589e717359bdf74c72ad8ee3f0982"
+    },
+    "Quirón/quiron-brain/src/storage/rocks.rs": {
+      "bytes": 7100,
+      "blake3": "a90dbda5e3a260cfe87ff7a8fdc47e7dc46ad430d4ac1b23f5471828ad8ba0d6"
+    },
+    "Quirón/quiron-brain/src/supervisor/mod.rs": {
+      "bytes": 325,
+      "blake3": "ca29048cdfa7bc82154c7b8ac4ccab722804aeae393aa32721edec5829ee8e11"
+    },
+    "Quirón/quiron-brain/src/supervisor/project_map.rs": {
+      "bytes": 13178,
+      "blake3": "b856a910ff8cdae4eb8ba9437c36c2c6ad16b906fb4c9fd4b7d1d48e48d57696"
+    },
+    "Quirón/quiron-brain/src/supervisor/response.rs": {
+      "bytes": 11741,
+      "blake3": "48bbf4b41b0c8d5001cd5e3bd28836737e5a89c7248fb4c8ffb84e1cbbfeb1d9"
+    },
+    "Quirón/quiron-brain/src/types/artifact.rs": {
+      "bytes": 5319,
+      "blake3": "f036abcd1fd2851f59e6521ea72faccb085fc2fe8e84764a34be202e6b002537"
+    },
+    "Quirón/quiron-brain/src/types/concept.rs": {
+      "bytes": 3058,
+      "blake3": "75efc35c1202d638e59123f9dcf674ea9f30479e0d6f93a62210f1a79789c032"
+    },
+    "Quirón/quiron-brain/src/types/edge.rs": {
+      "bytes": 5280,
+      "blake3": "447171a2f5f716f79cfbd6060a27e87ee989ef724ba4e469175bea9834569dc9"
+    },
+    "Quirón/quiron-brain/src/types/event.rs": {
+      "bytes": 14939,
+      "blake3": "794b45600c345497eb66054783e2fb17cf0a8933e5682f94401ffe345a40ed13"
+    },
+    "Quirón/quiron-brain/src/types/evidence.rs": {
+      "bytes": 8403,
+      "blake3": "e36969513e701642bf8645a5d5f4c276e9815af3a12bb8cd968d2ba3022bf263"
+    },
+    "Quirón/quiron-brain/src/types/ids.rs": {
+      "bytes": 4072,
+      "blake3": "592daadbec7192e848b926c69ec12c459ccd9d7fbaef7c19fee8e0e7f25f163f"
+    },
+    "Quirón/quiron-brain/src/types/invariant.rs": {
+      "bytes": 6451,
+      "blake3": "d6cf9b8dfef41a53c0f784e80dbaaaf6ae3ad8558ca3290e1676728e233b9d57"
+    },
+    "Quirón/quiron-brain/src/types/mod.rs": {
+      "bytes": 321,
+      "blake3": "54b80933a4d920c5f634d363f5cd18fde08505c715bb99bfa736c84e01d14da2"
+    },
+    "Quirón/quiron-brain/src/types/node.rs": {
+      "bytes": 4513,
+      "blake3": "9879e70dabcd2c82298cde9b258406d06fbbefd6c1e9bb55b853061966ee3ff8"
+    },
+    "Quirón/quiron-brain/src/vct.rs": {
+      "bytes": 63567,
+      "blake3": "bee6aee92ba0f94408858c03b38b08dd420b3223e91a65fd5994262927b92387"
+    },
+    "Quirón/semantic-ia-local/src/api.rs": {
+      "bytes": 3962,
+      "blake3": "e612f70d26671152c44c6764c86736e4218bfc0aba2989829608af3e14421bd7"
+    },
+    "Quirón/semantic-ia-local/src/config.rs": {
+      "bytes": 10179,
+      "blake3": "fe704454441eb8fd075c48ca97f244546bf7938f39ec62ecfc10413a7f9954b3"
+    },
+    "Quirón/semantic-ia-local/src/engine.rs": {
+      "bytes": 11318,
+      "blake3": "8c35a536c6fb2f8617cb7c64ac7c9017765dab7bcf0c1b9c60acdc5696f7d499"
+    },
+    "Quirón/semantic-ia-local/src/error.rs": {
+      "bytes": 1883,
+      "blake3": "3f4edccb8aad966b3db6b3b23a60a6227d1e76e7445536f3b755f98ca222c3c4"
+    },
+    "Quirón/semantic-ia-local/src/lib.rs": {
+      "bytes": 390,
+      "blake3": "be2384a40d1606fe6f7e1cbe46987bfb0cfe4301b6efd960f857730827e3a931"
+    },
+    "Quirón/semantic-ia-local/src/main.rs": {
+      "bytes": 155,
+      "blake3": "954fe531ebff03132f7ae458d0d882e0825c896648cf5049907b8bb72844adaf"
+    },
+    "Quirón/vertex-gateway/src/claude_cli.rs": {
+      "bytes": 15019,
+      "blake3": "fc8c18371c8df0a8ac989b88711b620f04a938a1f95ad266f3855a4fe0a07a33"
+    },
+    "Quirón/vertex-gateway/src/main.rs": {
+      "bytes": 91660,
+      "blake3": "10e0dba25ed56af6f817f1285e69812c0228897e06bc32197d4bcdba1fd92e5e"
+    }
+  },
+  "tokenizer": {
+    "endpoint": "/tokenize",
+    "add_special": false,
+    "model_file": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+    "model_alias": "quiron-worker"
+  },
+  "full_source_tokens": 420881,
+  "source_files": 140,
+  "corpus_changed_during_evaluation": [],
+  "metrics": {
+    "questions": 10,
+    "hit_at_5": 1.0,
+    "mrr_at_5": 0.75,
+    "hit_with_expansion": 1.0,
+    "median_search_seconds": 0.11070638900855556,
+    "median_hint_tokens": 2491.5,
+    "median_hint_fraction_of_full_source": 0.0059197255281183995,
+    "all_returned_sources_valid": true
+  },
+  "ok": true,
+  "finished_utc": "2026-09-10T12:40:25.347765+00:00"
+}

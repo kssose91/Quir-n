@@ -1,0 +1,45 @@
+{
+  "os": "PRETTY_NAME=\"Ubuntu 24.04.4 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.4 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+  "libc": "glibc 2.39",
+  "binaries": {
+    "index_repo": {
+      "sha256": "2ead5ec050765ed82fb18dd3bddbb11d5d250bb57037b62df4d15668dbbffd1d",
+      "ldd": "\tlinux-vdso.so.1 (0x00007ff8221cb000)\n\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007ff81fd82000)\n\tlibssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3 (0x00007ff81fcd8000)\n\tlibcrypto.so.3 => /lib/x86_64-linux-gnu/libcrypto.so.3 (0x00007ff81f7c4000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007ff822191000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007ff81f6db000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ff81f4c8000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007ff8221cd000)\n",
+      "exit_code": 0
+    },
+    "ledger_admin": {
+      "sha256": "c113e9bf1df7f6025d32de51bd03a917785dc553fefc8789af80b511db9ad210",
+      "ldd": "\tlinux-vdso.so.1 (0x00007f7c745f2000)\n\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007f7c72d82000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f7c745b8000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f7c72c99000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f7c72a86000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f7c745f4000)\n",
+      "exit_code": 0
+    },
+    "llore_gui": {
+      "sha256": "947ad2c3bb703bf503aa4523462bd7080a3f367d0418799643e8c276a1511715",
+      "ldd": "\tlinux-vdso.so.1 (0x00007f9d1863d000)\n\tlibssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3 (0x00007f9d18587000)\n\tlibcrypto.so.3 => /lib/x86_64-linux-gnu/libcrypto.so.3 (0x00007f9d16cec000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f9d18559000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f9d18470000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f9d16ad9000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f9d1863f000)\n",
+      "exit_code": 0
+    },
+    "quiron-brain": {
+      "sha256": "2b543de964a0c127a3555fd04ecb2929b7d9f88d1458c72d8953135f02e58a3d",
+      "ldd": "\tlinux-vdso.so.1 (0x00007fd88656d000)\n\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007fd883782000)\n\tlibssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3 (0x00007fd8864b7000)\n\tlibcrypto.so.3 => /lib/x86_64-linux-gnu/libcrypto.so.3 (0x00007fd88326e000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007fd886489000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007fd8863a0000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fd88305b000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007fd88656f000)\n",
+      "exit_code": 0
+    },
+    "vertex-gateway": {
+      "sha256": "995c196a8a0d6f7ce1ebf444092b0cf5606d5449789d3454d7ad78e0fa0fd0ca",
+      "ldd": "\tlinux-vdso.so.1 (0x00007f2ff8086000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f2ff804c000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f2ff7f63000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f2ff79ed000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f2ff8088000)\n",
+      "exit_code": 0
+    }
+  },
+  "checks": {
+    "all_five_binaries_resolve": true,
+    "ledger_admin_executes": true,
+    "dynamic_gui_dependencies": true,
+    "installer_staging": true,
+    "private_configuration": true,
+    "reinstall_preserves_configuration": true,
+    "gui_window_rendered": true,
+    "gui_clean_exit": true
+  },
+  "limits": [
+    "Staging and an Xvfb window; no clean-VM Docker/systemd service lifecycle or model download tested here."
+  ],
+  "ok": true
+}

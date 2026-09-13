@@ -13,8 +13,9 @@ from urllib.parse import urlparse
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('provider', choices=['claude-cli', 'codex-direct', 'openai-compatible', 'ollama-native', 'worker-model'])
+    parser.add_argument('provider', choices=['claude-cli', 'codex-cli', 'codex-direct', 'openai-compatible', 'ollama-native', 'worker-model'])
     parser.add_argument('--model')
+    parser.add_argument('--reasoning-effort', choices=['low','medium','high','xhigh','max'])
     parser.add_argument('--endpoint', help='endpoint del proveedor compatible; no incluye claves')
     parser.add_argument('--config', type=Path, default=Path.home()/'.config/quiron/quiron-brain.env')
     parser.add_argument('--apply', action='store_true', help='guardar y reiniciar el cerebro')
@@ -30,6 +31,16 @@ def main():
             raise SystemExit('Inicia sesión de suscripción con: claude auth login')
         changes.update(QUIRON_CLAUDE_CLI=cli, QUIRON_LLM_MODEL_PRIMARY=args.model or 'sonnet')
         print('Claude: sesión de claude.ai disponible. La CLI gestiona la autenticación.')
+    elif args.provider == 'codex-cli':
+        cli = shutil.which('codex')
+        if not cli:
+            candidates = sorted((Path.home()/'.vscode/extensions').glob('openai.chatgpt-*/bin/linux-x86_64/codex'), reverse=True)
+            cli = str(candidates[0]) if candidates else None
+        if not cli:
+            raise SystemExit('Falta Codex CLI. Instala la CLI oficial y ejecuta codex login.')
+        changes.update(QUIRON_CODEX_CLI=cli, QUIRON_LLM_MODEL_PRIMARY=args.model or 'gpt-6-astra',
+                       QUIRON_CODEX_REASONING_EFFORT=args.reasoning_effort or 'medium')
+        print('Codex CLI: sesión oficial; Quirón conserva la ejecución de sus herramientas de lectura.')
     elif args.provider == 'codex-direct':
         changes['QUIRON_LLM_MODEL_PRIMARY'] = args.model or 'gpt-5.6-sol'
         print('Codex: adaptador existente. Renueva la sesión mediante codex login si devuelve 401.')

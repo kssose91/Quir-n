@@ -1,7 +1,7 @@
 //! # LLM Gateway — Quirón
 //!
 //! Binario que conecta quiron-brain a providers LLM.
-//! Soporta backends: openai_compatible, openclaw, codex_direct.
+//! Soporta proveedores compatibles, Ollama y las CLI oficiales de Claude y Codex.
 //!
 //! ## Uso:
 //! ```bash
@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::process::Command;
 mod claude_cli;
+mod codex_cli;
 use claude_cli::process_request_claude_cli;
 
 // ============================================================================
@@ -27,6 +28,7 @@ enum GatewayBackend {
     OllamaNative,
     OpenClaw,
     CodexDirect,
+    CodexCli,
     ClaudeCli,
 }
 
@@ -49,12 +51,13 @@ impl GatewayBackend {
                 Ok(GatewayBackend::OllamaNative)
             }
             Some("claude_cli") | Some("claude-cli") | Some("claude") => Ok(GatewayBackend::ClaudeCli),
+            Some("codex_cli") | Some("codex-cli") => Ok(GatewayBackend::CodexCli),
             Some("openclaw") => Ok(GatewayBackend::OpenClaw),
             Some("codex_direct") | Some("codex-direct") | Some("codex") => {
                 Ok(GatewayBackend::CodexDirect)
             }
             Some(other) => Err(format!(
-                "invalid QUIRON_GATEWAY_BACKEND='{}' (use openai_compatible|ollama_native|openclaw|codex_direct|claude_cli)",
+                "invalid QUIRON_GATEWAY_BACKEND='{}' (use openai_compatible|ollama_native|openclaw|codex_cli|codex_direct|claude_cli)",
                 other
             )),
         }
@@ -295,6 +298,9 @@ fn read_secret_file(path: &str) -> Result<String, String> {
 /// Request desde quiron-brain
 #[derive(Debug, Deserialize)]
 struct GatewayRequest {
+    /// Selección de CLI por conversación; nunca modifica la ruta del worker.
+    #[serde(default)]
+    provider: Option<String>,
     prompt: String,
     #[serde(default)]
     system: Option<String>,
@@ -302,6 +308,8 @@ struct GatewayRequest {
     max_tokens: u32,
     #[serde(default)]
     model: Option<String>,
+    #[serde(default)]
+    reasoning_effort: Option<String>,
     #[serde(default)]
     route: Option<String>,
     /// Herramientas ofrecidas al modelo. Solo las transporta el camino de Codex.
@@ -627,6 +635,7 @@ async fn main() {
 
     // Print Primary Setup
     match config.primary_backend {
+        GatewayBackend::CodexCli => eprintln!("   [Primary] Codex CLI: sesión oficial"),
         GatewayBackend::ClaudeCli => eprintln!("   [Primary] Claude CLI: sesión oficial, herramientas de Quirón"),
         GatewayBackend::OpenAiCompatible => {
             let model = config.primary_model.as_deref().unwrap_or("<unset>");
@@ -669,6 +678,7 @@ async fn main() {
 
     // Print Worker Setup
     match config.worker_backend {
+        GatewayBackend::CodexCli => eprintln!("   [Worker] Codex CLI: sesión oficial"),
         GatewayBackend::ClaudeCli => eprintln!("   [Worker] Claude CLI: sesión oficial"),
         GatewayBackend::OpenAiCompatible => {
             let model = config.worker_model.as_deref().unwrap_or("<unset>");
@@ -830,7 +840,19 @@ fn llama_usage_split(usage: &LlamaUsage) -> TokenUsageSplit {
     )
 }
 
-/// Procesa una request y despacha al backend configurado.
+fn requested_chat_provider(provider: Option<&str>, route: Route) -> Result<Option<GatewayBackend>, String> {
+    let Some(provider) = provider else { return Ok(None); };
+    if matches!(route, Route::Worker) {
+        return Err("La selección del chat no puede cambiar el proveedor del worker".into());
+    }
+    match provider {
+        "claude_cli" => Ok(Some(GatewayBackend::ClaudeCli)),
+        "codex_cli" => Ok(Some(GatewayBackend::CodexCli)),
+        _ => Err("Proveedor de chat no admitido; usa claude_cli o codex_cli".into()),
+    }
+}
+
+/// La elección explícita de CLI pertenece a esta petición, no al servicio.
 async fn process_request(req: GatewayRequest, config: &GatewayConfig) -> GatewayResponse {
     let route = match parse_route(req.route.as_deref()) {
         Ok(r) => r,
@@ -847,12 +869,20 @@ async fn process_request(req: GatewayRequest, config: &GatewayConfig) -> Gateway
         }
     };
 
-    let backend = match route {
+    if req.provider.is_some() && req.model.as_deref().is_none_or(|m|m.trim().is_empty()) {
+        return GatewayResponse { error:Some("La elección de proveedor requiere indicar un modelo".into()), ..Default::default() };
+    }
+    let configured_backend = match route {
         Route::Primary => config.primary_backend,
         Route::Worker => config.worker_backend,
     };
+    let backend = match requested_chat_provider(req.provider.as_deref(), route) {
+        Ok(override_backend) => override_backend.unwrap_or(configured_backend),
+        Err(error) => return GatewayResponse { error: Some(error), ..Default::default() },
+    };
 
     let etiqueta = match backend {
+        GatewayBackend::CodexCli => "codex_cli",
         GatewayBackend::ClaudeCli => "claude_cli",
         GatewayBackend::OpenAiCompatible => "openai_compatible",
         GatewayBackend::OllamaNative => "ollama_native",
@@ -860,6 +890,7 @@ async fn process_request(req: GatewayRequest, config: &GatewayConfig) -> Gateway
         GatewayBackend::CodexDirect => "codex_direct",
     };
     let respuesta = match backend {
+        GatewayBackend::CodexCli => codex_cli::process(req, route, config).await,
         GatewayBackend::ClaudeCli => process_request_claude_cli(req, route, config).await,
         GatewayBackend::OpenAiCompatible => {
             process_request_openai_compatible(req, route, config).await
@@ -2283,6 +2314,15 @@ async fn process_request_codex_direct(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chat_provider_selection_is_explicit_and_cannot_redirect_worker() {
+        assert_eq!(requested_chat_provider(Some("claude_cli"),Route::Primary).unwrap(),Some(GatewayBackend::ClaudeCli));
+        assert_eq!(requested_chat_provider(Some("codex_cli"),Route::Primary).unwrap(),Some(GatewayBackend::CodexCli));
+        assert_eq!(requested_chat_provider(None,Route::Worker).unwrap(),None);
+        assert!(requested_chat_provider(Some("claude_cli"),Route::Worker).is_err());
+        assert!(requested_chat_provider(Some("https://arbitrary.invalid"),Route::Primary).is_err());
+    }
 
     fn herramientas_de_prueba() -> Vec<ToolDef> {
         vec![ToolDef {

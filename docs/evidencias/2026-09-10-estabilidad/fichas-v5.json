@@ -1,0 +1,379 @@
+{
+  "test_collections": [
+    "quiron_probe_events_0b6ee217775f",
+    "quiron_probe_worker_0b6ee217775f"
+  ],
+  "binary_sha256": "25c67311bb4125acb15a96e577288333050a8340fee9a7aa537f2572d2b01557",
+  "cases": [
+    {
+      "group": "identificador",
+      "symbol": "stable_id",
+      "record": {
+        "calls": [
+          ".as_bytes",
+          ".extend_from_slice",
+          ".len",
+          ".push",
+          "NodeId::from_content",
+          "Vec::with_capacity"
+        ],
+        "content_hash": "61ff682e9b680ca00dc2e3ab69f84c17857659ca46763a4e7a3d7497a2e54ec7",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 9,
+        "id": "f9235ee0-f48e-5828-a6b9-00a356006941",
+        "kind": "function",
+        "partial": false,
+        "path": "identificador.rs",
+        "project": "0J2CS14PBM4KT0NJGD8BGY0XJW",
+        "score": 0.6389661,
+        "signature": "pub fn stable_id(project_id: &str, path: &str, symbol: &str) -> NodeId",
+        "start_line": 1,
+        "summary": {
+          "evidence": [
+            {
+              "line": 1,
+              "text": "pub fn stable_id(project_id: &str, path: &str, symbol: &str) -> NodeId {"
+            },
+            {
+              "line": 2,
+              "text": "    let mut key = Vec::with_capacity(project_id.len() + path.len() + symbol.len() + 2);"
+            },
+            {
+              "line": 3,
+              "text": "    key.extend_from_slice(project_id.as_bytes());"
+            }
+          ],
+          "purpose": "Generates a unique identifier for a node in a project based on project ID, path, and symbol.",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+        "summary_origin": "model",
+        "symbol": "stable_id"
+      },
+      "source": "pub fn stable_id(project_id: &str, path: &str, symbol: &str) -> NodeId {\n    let mut key = Vec::with_capacity(project_id.len() + path.len() + symbol.len() + 2);\n    key.extend_from_slice(project_id.as_bytes());\n    key.push(0);\n    key.extend_from_slice(path.as_bytes());\n    key.push(0);\n    key.extend_from_slice(symbol.as_bytes());\n    NodeId::from_content(&key)\n}\n",
+      "evidence_matches_source": true
+    },
+    {
+      "group": "llamadas",
+      "symbol": "collect_calls",
+      "record": {
+        "calls": [
+          ".and_then",
+          ".child_by_field_name",
+          ".children",
+          ".dedup",
+          ".kind",
+          ".pop",
+          ".push",
+          ".sort",
+          ".walk",
+          "Vec::new",
+          "callee_name"
+        ],
+        "content_hash": "263db1f8bd001a92dba5902bfa2c83d4064f2ff92a7595d18b5383df95025ebe",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 21,
+        "id": "eb365771-8b73-014b-5ddd-3db69feef24b",
+        "kind": "function",
+        "partial": false,
+        "path": "llamadas.rs",
+        "project": "0J2CS14PBM4KT0NJGD8BGY0XJW",
+        "score": 0.67673534,
+        "signature": "fn collect_calls(body: TsNode, source: &str) -> Vec<String>",
+        "start_line": 1,
+        "summary": {
+          "evidence": [
+            {
+              "line": 1,
+              "text": "fn collect_calls(body: TsNode, source: &str) -> Vec<String> {"
+            },
+            {
+              "line": 2,
+              "text": "    let mut out = Vec::new();"
+            },
+            {
+              "line": 3,
+              "text": "    let mut stack = vec![body];"
+            }
+          ],
+          "purpose": "Collects the names of all function calls in the given AST.",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+        "summary_origin": "model",
+        "symbol": "collect_calls"
+      },
+      "source": "fn collect_calls(body: TsNode, source: &str) -> Vec<String> {\n    let mut out = Vec::new();\n    let mut stack = vec![body];\n    while let Some(node) = stack.pop() {\n        if node.kind() == \"call_expression\" {\n            if let Some(name) = node\n                .child_by_field_name(\"function\")\n                .and_then(|function| callee_name(function, source))\n            {\n                out.push(name);\n            }\n        }\n        let mut cursor = node.walk();\n        for child in node.children(&mut cursor) {\n            stack.push(child);\n        }\n    }\n    out.sort();\n    out.dedup();\n    out\n}\n",
+      "evidence_matches_source": true
+    },
+    {
+      "group": "leer_archivo",
+      "symbol": "read_file",
+      "record": {
+        "calls": [
+          ".and_then",
+          ".as_str",
+          ".char_indices",
+          ".get",
+          ".last",
+          ".len",
+          ".len_utf8",
+          ".map",
+          ".take",
+          ".unwrap_or",
+          "ToolOutcome::error",
+          "ToolOutcome::ok",
+          "read_to_string",
+          "resolve_and_classify"
+        ],
+        "content_hash": "61572354b62a5a726a05fafdb929397671d7cadac0a7c17bcd9e3f5ad633fc6e",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 48,
+        "id": "de59d49c-cd3b-d7e7-3ec2-8291f69905ab",
+        "kind": "function",
+        "partial": false,
+        "path": "leer_archivo.rs",
+        "project": "0J2CS14PBM4KT0NJGD8BGY0XJW",
+        "score": 0.6591317,
+        "signature": "fn read_file(ctx: &ToolContext, input: &Value) -> ToolOutcome",
+        "start_line": 2,
+        "summary": {
+          "evidence": [
+            {
+              "line": 2,
+              "text": "fn read_file(ctx: &ToolContext, input: &Value) -> ToolOutcome {"
+            },
+            {
+              "line": 3,
+              "text": "    let Some(path) = input.get(\"path\").and_then(|p| p.as_str()) else {"
+            },
+            {
+              "line": 32,
+              "text": "    if contenido.len() > READ_FILE_MAX_CHARS {"
+            }
+          ],
+          "purpose": "Reads a file and returns its content, possibly truncated to fit within a predefined limit.",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+        "summary_origin": "model",
+        "symbol": "read_file"
+      },
+      "source": "const READ_FILE_MAX_CHARS: usize = 24_000;\nfn read_file(ctx: &ToolContext, input: &Value) -> ToolOutcome {\n    let Some(path) = input.get(\"path\").and_then(|p| p.as_str()) else {\n        return ToolOutcome::error(\"falta el argumento 'path'\");\n    };\n\n    let (resolved, access) = resolve_and_classify(ctx, path);\n    match access {\n        Access::Allowed => {}\n        Access::Secret => {\n            return ToolOutcome::error(format!(\n                \"acceso denegado: '{path}' es una credencial o secreto\"\n            ))\n        }\n        Access::Outside => {\n            return ToolOutcome::error(format!(\n                \"acceso denegado: '{path}' está fuera del proyecto\"\n            ))\n        }\n        Access::Noise => {\n            return ToolOutcome::error(format!(\n                \"'{path}' es un artefacto generado; no se lee por defecto\"\n            ))\n        }\n    }\n\n    let contenido = match std::fs::read_to_string(&resolved) {\n        Ok(c) => c,\n        Err(e) => return ToolOutcome::error(format!(\"no se pudo leer '{path}': {e}\")),\n    };\n\n    if contenido.len() > READ_FILE_MAX_CHARS {\n        let corte = contenido\n            .char_indices()\n            .take(READ_FILE_MAX_CHARS)\n            .last()\n            .map(|(i, c)| i + c.len_utf8())\n            .unwrap_or(0);\n        ToolOutcome::ok(format!(\n            \"{}\\n\\n[recortado: {} de {} caracteres]\",\n            &contenido[..corte],\n            READ_FILE_MAX_CHARS,\n            contenido.len()\n        ))\n    } else {\n        ToolOutcome::ok(contenido)\n    }\n}\n",
+      "evidence_matches_source": true
+    },
+    {
+      "group": "new",
+      "symbol": "enabled_count",
+      "record": {
+        "calls": [
+          ".count",
+          ".filter",
+          ".iter"
+        ],
+        "content_hash": "04234a8926e2210a132a4398d64e83b1a65d362e4149fa95e898f7cfafa5e288",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 1,
+        "id": "923edb38-b447-f2cf-3b73-c32d3b909c30",
+        "kind": "function",
+        "partial": false,
+        "path": "new_cases.rs",
+        "project": "0J2CS14PBM4KT0NJGD8BGY0XJW",
+        "score": 0.6473986,
+        "signature": "pub fn enabled_count(items: &[bool]) -> usize",
+        "start_line": 1,
+        "summary": {
+          "evidence": [
+            {
+              "line": 1,
+              "text": "pub fn enabled_count(items: &[bool]) -> usize { items.iter().filter(|flag| **flag).count() }"
+            }
+          ],
+          "purpose": "Returns the count of true values in a slice.",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+        "summary_origin": "model",
+        "symbol": "enabled_count"
+      },
+      "source": "pub fn enabled_count(items: &[bool]) -> usize { items.iter().filter(|flag| **flag).count() }\npub fn byte_length(value: &str) -> usize { value.len() }\npub fn middle_sorted(items: &mut [i32]) -> Option<i32> { if items.is_empty() { return None; } items.sort(); Some(items[items.len()/2]) }\npub fn next_index(i: usize, len: usize) -> Option<usize> { if len == 0 { None } else { Some((i+1)%len) } }\npub fn bounded(value: i32, limit: i32) -> Result<i32, &'static str> { if limit < 0 { return Err(\"negative limit\"); } Ok(value.clamp(0,limit)) }\n",
+      "evidence_matches_source": true
+    },
+    {
+      "group": "new",
+      "symbol": "byte_length",
+      "record": {
+        "calls": [
+          ".len"
+        ],
+        "content_hash": "04234a8926e2210a132a4398d64e83b1a65d362e4149fa95e898f7cfafa5e288",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 2,
+        "id": "892dcc3a-0bd1-eafe-3134-25fe7ac6f446",
+        "kind": "function",
+        "partial": false,
+        "path": "new_cases.rs",
+        "project": "0J2CS14PBM4KT0NJGD8BGY0XJW",
+        "score": 0.62971663,
+        "signature": "pub fn byte_length(value: &str) -> usize",
+        "start_line": 2,
+        "summary": {
+          "evidence": [
+            {
+              "line": 2,
+              "text": "pub fn byte_length(value: &str) -> usize { value.len() }"
+            }
+          ],
+          "purpose": "Returns the length of the string.",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+        "summary_origin": "model",
+        "symbol": "byte_length"
+      },
+      "source": "pub fn enabled_count(items: &[bool]) -> usize { items.iter().filter(|flag| **flag).count() }\npub fn byte_length(value: &str) -> usize { value.len() }\npub fn middle_sorted(items: &mut [i32]) -> Option<i32> { if items.is_empty() { return None; } items.sort(); Some(items[items.len()/2]) }\npub fn next_index(i: usize, len: usize) -> Option<usize> { if len == 0 { None } else { Some((i+1)%len) } }\npub fn bounded(value: i32, limit: i32) -> Result<i32, &'static str> { if limit < 0 { return Err(\"negative limit\"); } Ok(value.clamp(0,limit)) }\n",
+      "evidence_matches_source": true
+    },
+    {
+      "group": "new",
+      "symbol": "middle_sorted",
+      "record": {
+        "calls": [
+          ".is_empty",
+          ".len",
+          ".sort",
+          "Some"
+        ],
+        "content_hash": "04234a8926e2210a132a4398d64e83b1a65d362e4149fa95e898f7cfafa5e288",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 3,
+        "id": "919354a6-b4a9-5a61-f74f-e986ac573a26",
+        "kind": "function",
+        "partial": false,
+        "path": "new_cases.rs",
+        "project": "0J2CS14PBM4KT0NJGD8BGY0XJW",
+        "score": 0.6814848,
+        "signature": "pub fn middle_sorted(items: &mut [i32]) -> Option<i32>",
+        "start_line": 3,
+        "summary": {
+          "evidence": [
+            {
+              "line": 3,
+              "text": "pub fn middle_sorted(items: &mut [i32]) -> Option<i32> { if items.is_empty() { return None; } items.sort(); Some(items[items.len()/2]) }"
+            }
+          ],
+          "purpose": "Returns the middle element of a sorted slice.",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+        "summary_origin": "model",
+        "symbol": "middle_sorted"
+      },
+      "source": "pub fn enabled_count(items: &[bool]) -> usize { items.iter().filter(|flag| **flag).count() }\npub fn byte_length(value: &str) -> usize { value.len() }\npub fn middle_sorted(items: &mut [i32]) -> Option<i32> { if items.is_empty() { return None; } items.sort(); Some(items[items.len()/2]) }\npub fn next_index(i: usize, len: usize) -> Option<usize> { if len == 0 { None } else { Some((i+1)%len) } }\npub fn bounded(value: i32, limit: i32) -> Result<i32, &'static str> { if limit < 0 { return Err(\"negative limit\"); } Ok(value.clamp(0,limit)) }\n",
+      "evidence_matches_source": true
+    },
+    {
+      "group": "new",
+      "symbol": "next_index",
+      "record": {
+        "calls": [
+          "Some"
+        ],
+        "content_hash": "04234a8926e2210a132a4398d64e83b1a65d362e4149fa95e898f7cfafa5e288",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 4,
+        "id": "57a4ae3c-bce4-f973-ad4b-144060b9cf77",
+        "kind": "function",
+        "partial": false,
+        "path": "new_cases.rs",
+        "project": "0J2CS14PBM4KT0NJGD8BGY0XJW",
+        "score": 0.67977273,
+        "signature": "pub fn next_index(i: usize, len: usize) -> Option<usize>",
+        "start_line": 4,
+        "summary": {
+          "evidence": [
+            {
+              "line": 4,
+              "text": "pub fn next_index(i: usize, len: usize) -> Option<usize> { if len == 0 { None } else { Some((i+1)%len) } }"
+            }
+          ],
+          "purpose": "Returns the next index within the bounds of len.",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+        "summary_origin": "model",
+        "symbol": "next_index"
+      },
+      "source": "pub fn enabled_count(items: &[bool]) -> usize { items.iter().filter(|flag| **flag).count() }\npub fn byte_length(value: &str) -> usize { value.len() }\npub fn middle_sorted(items: &mut [i32]) -> Option<i32> { if items.is_empty() { return None; } items.sort(); Some(items[items.len()/2]) }\npub fn next_index(i: usize, len: usize) -> Option<usize> { if len == 0 { None } else { Some((i+1)%len) } }\npub fn bounded(value: i32, limit: i32) -> Result<i32, &'static str> { if limit < 0 { return Err(\"negative limit\"); } Ok(value.clamp(0,limit)) }\n",
+      "evidence_matches_source": true
+    },
+    {
+      "group": "new",
+      "symbol": "bounded",
+      "record": {
+        "calls": [
+          ".clamp",
+          "Err",
+          "Ok"
+        ],
+        "content_hash": "04234a8926e2210a132a4398d64e83b1a65d362e4149fa95e898f7cfafa5e288",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 5,
+        "id": "ddf46a02-fc7e-872f-3bba-6331bd218832",
+        "kind": "function",
+        "partial": false,
+        "path": "new_cases.rs",
+        "project": "0J2CS14PBM4KT0NJGD8BGY0XJW",
+        "score": 0.5544109,
+        "signature": "pub fn bounded(value: i32, limit: i32) -> Result<i32, &'static str>",
+        "start_line": 5,
+        "summary": {
+          "evidence": [],
+          "purpose": "Unidad function: bounded. Firma extraída del código: pub fn bounded(value: i32, limit: i32) -> Result<i32, &'static str>",
+          "unknowns": [
+            "El resumen del modelo no superó la validación; comprobar el comportamiento leyendo el código.",
+            "Validación: La descripción no termina una frase completa"
+          ]
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v5",
+        "summary_origin": "parser",
+        "symbol": "bounded"
+      },
+      "source": "pub fn enabled_count(items: &[bool]) -> usize { items.iter().filter(|flag| **flag).count() }\npub fn byte_length(value: &str) -> usize { value.len() }\npub fn middle_sorted(items: &mut [i32]) -> Option<i32> { if items.is_empty() { return None; } items.sort(); Some(items[items.len()/2]) }\npub fn next_index(i: usize, len: usize) -> Option<usize> { if len == 0 { None } else { Some((i+1)%len) } }\npub fn bounded(value: i32, limit: i32) -> Result<i32, &'static str> { if limit < 0 { return Err(\"negative limit\"); } Ok(value.clamp(0,limit)) }\n",
+      "evidence_matches_source": true
+    }
+  ],
+  "limits": [
+    "Tres regresiones conocidas y cinco ejemplos sintéticos nuevos; sin evaluación independiente.",
+    "Citas existentes no prueban cada afirmación semántica."
+  ],
+  "health": {
+    "status": "ok",
+    "service": "quiron-brain",
+    "event_count": 0,
+    "node_count": 0,
+    "invariant_count": 5
+  },
+  "progress": {
+    "project_id": "0J2CS14PBM4KT0NJGD8BGY0XJW",
+    "phase": "watching",
+    "files_total": 4,
+    "files_done": 4,
+    "units_written": 12,
+    "summaries_generated": 12,
+    "structural_fallbacks": 1,
+    "current_path": "",
+    "error": null
+  },
+  "model_summaries": 7,
+  "structural_fallbacks": 1,
+  "chain": {
+    "valid": true,
+    "event_count": 0,
+    "message": "Legacy chain verified with limited field coverage; next append creates a full-content anchor",
+    "legacy_events": 0,
+    "v2_events": 0,
+    "legacy_snapshot_protected": false
+  },
+  "ok": true
+}

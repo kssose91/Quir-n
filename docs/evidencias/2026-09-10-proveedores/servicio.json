@@ -1,0 +1,43 @@
+{
+  "health": {
+    "status": "ok",
+    "service": "quiron-brain",
+    "event_count": 5291,
+    "node_count": 1195,
+    "invariant_count": 5
+  },
+  "chain": {
+    "valid": true,
+    "event_count": 5291,
+    "message": "V2 full-content chain and legacy snapshot verified",
+    "legacy_events": 5284,
+    "v2_events": 7,
+    "legacy_snapshot_protected": true
+  },
+  "index_started": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "queued",
+    "files_total": 0,
+    "files_done": 0,
+    "units_written": 0,
+    "summaries_generated": 0,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  },
+  "default_provider": "claude_cli",
+  "default_model": "sonnet",
+  "conversation_providers": [
+    "claude_cli",
+    "codex_cli"
+  ],
+  "binaries": {
+    "ledger_admin": "cb613b2263b924659161b6c23819023fba52d8964e0e82769689d0922c6695ad",
+    "quiron-brain": "55842cf548c124a2134c8b1fd3a80956a063bc281584cb66583cf4c5d84c6b89",
+    "vertex-gateway": "6d44044aa3dd23f48b1e984a92b343fd7ca3b01bde3a32a744813dd8c0a77cc6",
+    "llore_gui": "da05221d3c75b9de91d338ad57470caeb17fd5c44af436ba0d50a6b7d35a77a4",
+    "index_repo": "8e777bea9560e3406a102479a11d3ab6a48209fff49d315e3c3de819e5f3b081"
+  },
+  "scope": "Ambas CLI disponibles por conversación; Claude Sonnet conserva el valor predeterminado del autor.",
+  "ok": true
+}

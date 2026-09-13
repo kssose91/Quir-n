@@ -1,4 +1,9 @@
-# Worker y conexiones: estado probado el 5 de septiembre de 2026
+# Worker y conexiones: revisión del 10 de septiembre de 2026
+
+Las pruebas del 5 de septiembre se conservan como evidencia histórica. La
+evaluación de localización del día 10 y los límites de la auditoría están en
+`CIERRE_TFM_2026-09-10.md`. Las correcciones posteriores y sus pruebas están en
+`ESTABILIZACION_2026-09-10.md`.
 
 El editor inicia un monitor cuando se abre explícitamente una carpeta, también
 con `llore_gui /ruta/al/proyecto`. La identidad es `.quiron/project.id`. El cerebro
@@ -17,24 +22,34 @@ quiron-brain` detiene el conjunto en la instalación nueva.
    Python, JavaScript y los demás lenguajes tienen por ahora ficha de archivo.
 3. Qwen2.5-Coder-1.5B-Instruct Q4_K_M produce un resumen breve en inglés y lo que no puede
    resolver. Solo recibe texto local; no tiene herramientas ni acceso a archivos.
-   La ficha v4 rechaza salidas truncadas, inválidas y repeticiones evidentes de
-   instrucciones. En esos casos conserva una ficha estructural con firma y
+   La ficha v5 pide una frase completa y de una a tres líneas de evidencia,
+   cuyos fragmentos copia el programa desde el código. Aporta además constantes
+   Rust referenciadas cuando sus definiciones caben en el contexto. Rechaza
+   frases incompletas, líneas inexistentes, cifras ausentes del contexto y
+   determinadas menciones de lenguajes no respaldadas por la entrada, además
+   de salidas inválidas y repeticiones de instrucciones.
+   En esos casos conserva una ficha estructural con firma, motivo del rechazo y
    `summary_origin=parser`; las aceptadas llevan `summary_origin=model`.
    Esto permite completar el mapa sin presentar un resumen fallido como válido.
    Un servidor no disponible sigue siendo un error y se reintenta.
    Las entradas de más de 6 000 caracteres se recortan y se marcan `partial`.
 4. BGE-M3 vectoriza ruta, símbolo, firma y resumen, compartiendo la instancia CPU del
-   cerebro. Qwen usa llama.cpp Vulkan, una solicitud simultánea y contexto 4 096.
+   cerebro. Qwen usa llama.cpp Vulkan o CPU, una solicitud simultánea y contexto
+   predeterminado de 8 192 tokens.
 5. Qdrant guarda las fichas en `quiron_code_worker_v1`, con filtro de proyecto
    dentro de la consulta. Neo4j guarda `CodeProject`, `CodeUnit`, `HAS_UNIT` y
-   `DEFINED_IN`. No se generan relaciones `CALLS` inventadas por el modelo.
+   `DEFINED_IN`. Las relaciones `CALLS` se aproximan a partir del parser de Rust
+   y de nombres de símbolos; no resuelven por completo módulos y tipos.
 6. Los hashes y la caché evitan repetir inferencia; una escritura se confirma
    después de Qdrant y Neo4j. Se retiran funciones y archivos desaparecidos, y sus
    fichas en caché. Un fallo de ficha deja el archivo pendiente y permite seguir
    con los restantes. El monitor reintenta después.
 7. La búsqueda comprueba identidad, ruta y hash actual. El chat principal puede
-   recibir hasta cuatro fichas del proyecto como pistas, identificadas como texto
-   generado que debe verificarse leyendo el código.
+   solicitar fichas del proyecto como pistas, identificadas como texto generado
+   que debe verificarse leyendo el código. La búsqueda añade hasta un vecino por
+   acierto mediante `CALLS`, con comprobación del hash de su archivo. Cypher
+   filtra proyecto y versiones de modelos tanto en la semilla como en el vecino;
+   conserva la ficha JSON y su indicador `partial`.
 
 Hasta ocho proyectos pueden permanecer monitorizados. Al reiniciar el cerebro,
 el editor vuelve a registrar el proyecto abierto; los demás se reanudan al
@@ -43,6 +58,12 @@ proyecto simultáneo. La separación se probó con dos identidades diferentes.
 
 ## Evidencia y límites
 
+- `evidencias/2026-09-10-estabilidad/worker-integracion.json`: 13 comprobaciones
+  aprobadas con los cuatro servicios reales. Incluye aristas de prueba entre
+  proyectos con archivos idénticos, exclusión de modelos anteriores y conservación
+  de metadatos. `fichas-v5.json`: ocho funciones, siete descripciones del modelo
+  aceptadas y una ficha estructural; los tres errores concretos de v4 no reaparecen.
+  Es una regresión de desarrollo, no una estimación de precisión general.
 - `evidencias/2026-09-05/worker-integracion.json`: prueba real con Qwen, BGE-M3,
   Qdrant y Neo4j. Autenticación obligatoria, dos proyectos, secretos/enlaces,
   consulta, modificación, eliminación y ausencia de inferencia al repetir un
@@ -65,7 +86,9 @@ proyecto simultáneo. La separación se probó con dos identidades diferentes.
   fidelidad semántica. Falta evaluar cobertura y recuperación sobre tareas reales.
 - El manifiesto incremental vive en Sled. Todavía no existe un historial completo
   de cambios de código que permita reconstruir estas proyecciones desde el ledger.
-  Tampoco está implementada la expansión de dependencias AST en la recuperación.
+  La recuperación sí amplía por `CALLS`, pero no representa todas las dependencias
+  AST. La consulta de vecinos ya filtra proyecto y modelos y conserva los
+  metadatos; las pruebas de aislamiento siguen siendo acotadas.
 - Se rechazan enlaces, pero sigue pendiente eliminar las carreras entre la
   inspección de una ruta y su apertura. Es una prueba para el escritorio local.
 
@@ -119,7 +142,8 @@ Cada proveedor determina cómo se inicia sesión y qué uso cubren sus límites.
 | Conexión | Autenticación y estado |
 |---|---|
 | `claude_cli` | CLI oficial autenticada mediante `claude auth login`; probado con sesión de claude.ai |
-| `codex_direct` | Adaptador existente que lee la sesión de Codex; conserva la limitación de renovación del token |
+| `codex_cli` | CLI oficial autenticada; modelo y esfuerzo explícitos, contrato JSON y herramientas ejecutadas por Quirón |
+| `codex_direct` | Adaptador histórico de HTTP que lee la sesión; se conserva para configuraciones existentes, pero «Usar ChatGPT» selecciona ahora `codex_cli` |
 | `openai_compatible` | Endpoint, modelo y credencial de API propia (OpenAI, un servidor compatible en la red local u Ollama por su `/v1`); transporta la conversación estructurada y las herramientas de Quirón (`tools` de OpenAI; las llamadas escritas como JSON por modelos pequeños también se aceptan) |
 | `ollama_native` | API nativa de Ollama (`/api/chat`), sin herramientas; la paleta usa la compatible |
 
@@ -133,10 +157,42 @@ evalúa: `GUIA_EVALUACION.md`.
 Todo eso se elige desde el editor en la paleta **Agentes** (chip «● Agentes»
 de la barra superior o paleta de órdenes): tarjetas con el estado real de cada
 proveedor en el equipo, «Iniciar sesión» (abre una terminal con el flujo de la
-propia CLI; la app no lee ni guarda credenciales), «Configurar…» (pide
+propia CLI), «Configurar…» (pide
 endpoint, modelo y, si procede, clave; la clave va por la entrada estándar del
 script, enmascarada en pantalla) y «Usar». La misma paleta enseña el modelo
 del worker local y permite cambiarlo por otro `.gguf` de su carpeta.
+Claude y Codex se ejecutan mediante sus CLI oficiales. La conexión nueva
+`codex_cli` usa `codex exec --ignore-user-config --ephemeral` con salida
+estructurada, en una carpeta temporal y con las herramientas nativas de archivos,
+comandos, imágenes, agentes y servicios desactivadas.
+La CLI administra su autenticación. Se probó la versión 0.153.0; el catálogo y
+los esfuerzos se leen de sus metadatos y pueden actualizarse desde el selector.
+No existe un identificador universal de suscripción.
+
+El selector conserva juntas las opciones de Claude (Sonnet, Opus y Haiku, alias
+de su CLI) y las del catálogo de Codex. La petición de chat incluye `provider`
+(`claude_cli` o `codex_cli`), de modo que cambiar el modelo no reescribe la
+configuración privada ni reinicia los servicios. El gateway rechaza otros valores
+en ese campo y cualquier intento de usarlo para cambiar la ruta del worker.
+
+El modelo elegido llega sin sustitución al gateway. `reasoning_effort` atraviesa
+el cliente, la API del cerebro y el adaptador; la selección no afecta al worker
+Qwen/BGE-M3. Ultra queda fuera del adaptador porque implica delegación nativa.
+Las llamadas a herramientas se devuelven como contrato JSON para que las ejecute
+la guardia del editor; cada respuesta del modelo recibe el historial necesario.
+El presupuesto de salida se envía como instrucción, no como límite duro de la CLI.
+
+```sh
+python3 scripts/configure-provider.py codex-cli --model gpt-6-astra --reasoning-effort xhigh --apply
+```
+
+Una prueba local con proveedor simulado inspecciona la petición de la CLI y
+comprueba que no ofrece herramientas nativas con acceso al proyecto. Sin catálogo,
+CLI 0.153.0 puede anunciar `request_user_input`, restringida al modo Plan e
+indisponible como entrada interactiva en `exec`; se registra esta salvedad.
+Las comprobaciones
+reales y de interfaz se conservan en `evidencias/2026-09-10-codex/`.
+La referencia del transporte es [Codex no interactivo](https://learn.chatgpt.com/docs/non-interactive-mode).
 
 Claude CLI 2.1.251 se probó con `--safe-mode`, `--restricted`, `--tools ""`,
 `--strict-mcp-config` y `--no-session-persistence`, en una carpeta temporal. No
@@ -162,8 +218,9 @@ para un archivo propio).
 Otras formas: `openai-compatible --endpoint URL --model M [--api-key-from-stdin]`,
 `ollama-native --model M` (endpoint `http://127.0.0.1:11434` por defecto) y
 `worker-model --worker-model ruta.gguf` (fija `QUIRON_WORKER_MODEL_FILE`, que
-lee `scripts/run-worker.sh`; el indexador etiqueta las fichas con ese modelo y
-las regenera si cambia).
+lee `scripts/run-worker.sh`; el indexador etiqueta las fichas con el nombre del
+archivo del modelo y las regenera si cambia ese nombre). Sustituir los pesos
+conservando el mismo nombre no invalida por sí solo esa caché.
 Reabrir el editor actualiza el selector a Sonnet/Opus/Haiku. La configuración
 principal existente se conserva hasta elegir otra. En este portátil quedó
 seleccionado `claude_cli` con `sonnet` el 5 de septiembre por la tarde; la

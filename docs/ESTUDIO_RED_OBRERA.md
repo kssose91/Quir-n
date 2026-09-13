@@ -3,6 +3,16 @@
 **Algoritmos y ecuaciones de los LLM recientes, y cómo reutilizarlos en nuestro worker**
 **TFM Quirón · Anexo A de la memoria · 10 de julio de 2026**
 
+> **Revisión de alcance — 10 de septiembre de 2026.** Este documento recoge
+> alternativas estudiadas para el diseño inicial. La versión implementada usa
+> modelos preentrenados descargables (Qwen como generador y BGE-M3 para embeddings);
+> no se entrenó ni exportó a ONNX el backbone aquí propuesto. Las etiquetas de
+> «verificación adversarial» describen el procedimiento declarado en julio y no
+> sustituyen una reproducción experimental ni una matriz pública de cada juicio.
+> La recuperación actual del índice de código usa archivos y caché local: no es
+> una reconstrucción completa desde el ledger. Los límites y resultados vigentes
+> se recogen en la memoria revisada y `docs/CIERRE_TFM_2026-09-10.md`.
+
 Este documento extrae **la matemática** de los mecanismos con los que se han
 construido los LLM recientes —no compara modelos— y explica, para cada uno:
 **(a)** la ecuación esencial, **(b)** por qué funciona, **(c)** la referencia de
@@ -28,15 +38,16 @@ Fue un barrido de fuentes primarias con verificación adversarial (tres pasadas,
 
 ---
 
-## 0. Qué es el worker (marco)
+## 0. Marco del diseño inicial
 
-Un **arnés** que se pone al asistente al abrir un proyecto: un daemon continuo, un
-**«git vitaminado»** que copia del **registro/líder inmutable** (cadena Blake3, la
-verdad) y proyecta sin parar dos vistas **desechables** por proyecto —vectores en
-Qdrant, grafo en Neo4j—. Cuando se toca un archivo, crea/actualiza un vector con
-el nombre del archivo y le extrae las lógicas de qué hace. **Una sola red**.
-**Propone; no ejecuta** — su peor error posible es un grafo que hay que
-reproyectar, reversible.
+El diseño inicial proponía un daemon asociado al proyecto, con dos proyecciones
+—vectores en Qdrant y grafo en Neo4j— reconstruibles desde un registro de cambios.
+Una sola red pequeña habría aportado descripciones y representaciones. Ese
+diseño no se realizó íntegramente: la versión de cierre usa archivos y caché
+local, Qwen para describir y BGE-M3 para vectorizar. Las limitaciones de la
+cadena de hashes se explican en §4.2.1 de la memoria. El worker no ejecuta
+herramientas, pero una descripción incorrecta sí puede inducir errores en el
+asistente que la recibe; reconstruir el grafo no valida esa descripción.
 
 Sus tres prioridades ordenan a qué sirve cada matemática de abajo:
 **(1) aislar por proyecto, (2) enlazar/recuperar vectores a escala, (3) etiquetar
@@ -109,6 +120,10 @@ un proyecto **sin coste cuadrático**. La selección top-n sirve a la prioridad 
 O = Norm( (Q Kᵀ) V )   →   O = Norm( Q (Kᵀ V) )        O(n²·d) → O(n·d²)
 ```
 
+La asociatividad anterior se refiere al producto sin una no linealidad entre
+`QKᵀ` y `V`: no permite mover la softmax de la atención convencional. Una
+formulación causal requiere además su máscara o recurrencia correspondiente.
+
 En forma recurrente con decaimiento, el estado es una matriz **d×d de tamaño fijo**:
 
 ```
@@ -158,8 +173,9 @@ cómputo por token**.
 
 **(c)** DeepSeekMoE `arXiv:2401.06066`; DeepSeek-V2/V3 `arXiv:2405.04434` / `2412.19437`.
 
-**(d) Aplicación al worker.** ⚠️ **Principio de diseño, no despliegue.** Un MoE real
-es impráctico a 48 GB y su *routing* tiene mala fricción con ONNX/Rust. Pero el
+**(d) Aplicación al worker.** ⚠️ **Principio de diseño, no despliegue.** Los modelos
+MoE de la escala citada exceden el equipo disponible; no se concluye que todo
+MoE sea inviable. Su *routing* requiere estudiar la exportación a ONNX/Rust. El
 patrón **«una cabeza compartida + cabezas especializadas por tipo de lógica»**
 inspira la estructura de **nuestra única red** sin necesidad de *routing* disperso.
 
@@ -363,14 +379,18 @@ en dimensión baja + reranking en dimensión alta. Escala la prioridad 2 sin dup
 Combinando **solo lo reutilizable**, una **única red pequeña** con esta forma:
 
 1. **Backbone híbrido mayormente lineal** (estado recurrente `d×d`, §1.3) con
-   **pocas capas de atención completa** (ratio ~7:1) → **encoder de coste constante
-   por token**, exportable a ONNX, que procesa archivos en *streaming* en el daemon.
+   **pocas capas de atención completa** (ratio ~7:1). El componente recurrente
+   tiene coste constante por paso para dimensiones fijas; el modelo completo
+   conserva la dependencia de la longitud en sus capas de atención completa.
+   Su exportación y rendimiento en ONNX requieren implementación y medición.
 2. **Una cabeza compartida + cabezas por tipo de lógica** (inspiración del experto
    compartido de §2.1, **sin** *routing* MoE real) para etiquetar.
 3. **Embeddings de código** con **InfoNCE (§4.3) + last-token pooling (§4.4) +
-   Matryoshka a 1024-dim (§4.5)** → compatibles con Qdrant/`bge-m3` y truncables.
+   Matryoshka a 1024-dim (§4.5)** → una representación que podría almacenarse en
+   Qdrant. Compartir dimensión no la hace semánticamente compatible con `bge-m3`;
+   requiere entrenamiento, evaluación y una colección/configuración coherente.
 4. **Entrenamiento por Sequence-Level KD (§3.2)** desde el profesor por login (solo
-   texto): la **única** destilación viable sin logits.
+   texto): una vía de destilación viable sin logits, no ejecutada en esta versión.
 5. **Despliegue cuantizado con AWQ INT4 (§4.1)** para caber en 48 GB y correr en el
    mismo `ort` de Rust que ya usa `semantic-ia-local`.
 
@@ -420,12 +440,11 @@ Matryoshka `2205.13147`.
 
 ---
 
-## Resumen en una frase
+## Síntesis de la propuesta inicial
 
-Reutilizamos, con su matemática, **cinco piezas** verificadas: **estado lineal
-recurrente `d×d`** para un encoder barato en *streaming*, **Sequence-Level KD** como
-única destilación posible sin logits, **AWQ INT4** para desplegar, e **InfoNCE +
-last-token pooling + Matryoshka** para embeddings de código 1024-dim truncables —
-todo en **una sola red**, sobre el `ort` de Rust. MLA, MoE y reverse-KL quedan como
-principios de diseño o descartes por fricción con nuestro stack o por el profesor
+Se estudiaron **estado lineal recurrente**, **Sequence-Level KD**, **AWQ** e
+**InfoNCE + last-token pooling + Matryoshka** como componentes de una red futura.
+La combinación no fue entrenada ni validada en ONNX/Rust. La versión del producto
+utiliza generador y embeddings preentrenados separados. MLA, MoE y reverse-KL
+permanecen como alternativas del estudio con las limitaciones descritas sobre el profesor
 sin logits.

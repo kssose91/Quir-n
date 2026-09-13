@@ -1,0 +1,394 @@
+   Compiling llore_ui v0.1.0 (/home/KSSOSE/Quirón/Quirón/llore_editor/crates/llore_ui)
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> crates/llore_ui/src/chat_tools.rs:361:16
+    |
+361 |         fn ctx(&self) -> ToolContext {
+    |                ^^^^^     ^^^^^^^^^^^ the same lifetime is hidden here
+    |                |
+    |                the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+    = note: `#[warn(mismatched_lifetime_syntaxes)]` on by default
+help: use `'_` for type paths
+    |
+361 |         fn ctx(&self) -> ToolContext<'_> {
+    |                                     ++++
+
+warning: `llore_ui` (lib test) generated 1 warning (run `cargo fix --lib -p llore_ui --tests` to apply 1 suggestion)
+warning: unused variable: `parser`
+   --> crates/llore_language/src/syntax.rs:168:13
+    |
+168 |         let parser = SyntaxParser::new();
+    |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_parser`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `llore_language` (lib test) generated 1 warning (run `cargo fix --lib -p llore_language --tests` to apply 1 suggestion)
+    Finished `test` profile [optimized + debuginfo] target(s) in 11.59s
+warning: the following packages contain code that will be rejected by a future version of Rust: ashpd v0.8.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (Quirón/llore_editor/target/debug/deps/llore_brain-f3c73c6087ed3d38)
+
+running 64 tests
+test client::tests::client_carries_workspace_project_id ... ok
+test client::tests::test_client_creation ... ok
+test client::tests::test_event_summary_accepts_numeric_kind ... ok
+test client::tests::test_parse_worker_result_from_fenced_json ... ok
+test client::tests::test_parse_worker_result_from_json ... ok
+test gates::tests::test_gate_names ... ok
+test client::tests::test_client_with_explicit_token ... ok
+test client::tests::test_custom_url ... ok
+test gates::tests::test_honesty_gate_false_bounded_scope_blocked ... ok
+test gates::tests::test_gate_result ... ok
+test gates::tests::test_honesty_gate_verified_claim_low_confidence ... ok
+test gates::tests::test_honesty_gate_need_more_context_always_allowed ... ok
+test gates::tests::test_honesty_gate_verified_claim_valid ... ok
+test client::tests::test_event_summary_accepts_event_id_alias ... ok
+test gates::tests::test_honesty_gate_no_evidence_unbounded_confidence ... ok
+test gates::tests::test_honesty_gate_verified_claim_without_evidence ... ok
+test gates::tests::test_honesty_gate_proposal_always_allowed ... ok
+test gates::tests::test_relevance_gate_path_overlap_allowed ... ok
+test gates::tests::test_relevance_gate_relevant_evidence_allowed ... ok
+test gates::tests::test_tokenize_helpers ... ok
+test gates::tests::test_relevance_gate_symbol_overlap_allowed ... ok
+test gates::tests::test_validator_ghost_editing ... ok
+test gates::tests::test_validator_scope_lock ... ok
+test gates::tests::test_relevance_gate_irrelevant_evidence_blocked ... ok
+test gates::tests::test_honesty_gate_no_evidence_bounded_confidence ... ok
+test integration_tests::combined_gates_tests::test_both_gates_must_pass ... ok
+test integration_tests::evidence_tests::test_add_evidence ... ok
+test integration_tests::evidence_tests::test_clear_state ... ok
+test integration_tests::ghost_editing_tests::test_full_ghost_editing_flow ... ok
+test integration_tests::ghost_editing_tests::test_multiple_files ... ok
+test integration_tests::ghost_editing_tests::test_read_allowed_without_prior_read ... ok
+test integration_tests::scope_lock_tests::test_multiple_scope_paths ... ok
+test integration_tests::scope_lock_tests::test_nested_scope ... ok
+test integration_tests::scope_lock_tests::test_scope_enforcement ... ok
+test integration_tests::warning_tests::test_stale_read_warning ... ok
+test ledger::tests::test_event_creation ... ok
+test orchestrator::tests::test_adaptive_scheduler_increases_on_stability_without_novelty ... ok
+test orchestrator::tests::test_adaptive_scheduler_reduces_on_high_latency ... ok
+test orchestrator::tests::test_adaptive_scheduler_reduces_on_worker_failures ... ok
+test orchestrator::tests::test_config_defaults ... ok
+test orchestrator::tests::test_delegation_metrics_initial_state ... ok
+test orchestrator::tests::test_detects_contradiction_with_overlap_and_opposite_polarity ... ok
+test orchestrator::tests::test_intent_serialization ... ok
+test orchestrator::tests::test_no_contradiction_without_context_overlap ... ok
+test orchestrator::tests::test_route_token_thresholds_follow_ewma ... ok
+test orchestrator::tests::test_runtime_operator_controls_update_budget_and_scales ... ok
+test orchestrator::tests::test_search_planner_next_batch_marks_in_progress ... ok
+test orchestrator::tests::test_search_planner_prioritizes_recent_for_recency_queries ... ok
+test orchestrator::tests::test_search_planner_rebalances_scope_priority_after_hits ... ok
+test orchestrator::tests::test_session_telemetry_rotates_after_idle_window ... ok
+test orchestrator::tests::test_session_telemetry_budget_anomaly_uses_hysteresis ... ok
+test orchestrator::tests::test_synthesize_response_surfaces_llm_failure_when_no_evidence ... ok
+test orchestrator::tests::test_working_set_accumulates_model_tokens_and_context_estimate ... ok
+test protocol::tests::test_request_creation ... ok
+test orchestrator::tests::test_session_telemetry_checkpoint_interval_and_force ... ok
+test protocol::tests::test_response_creation ... ok
+test protocol::tests::test_worker_contract_roundtrip ... ok
+test recall::tests::test_extract_snippet ... ok
+test tests::test_config_defaults ... ok
+test tests::test_runtime_controls_are_exposed ... ok
+test tests::un_resultado_enorme_vuelve_recortado_y_declarado ... ok
+test tests::una_negativa_del_arnes_viaja_como_error ... ok
+test tests::el_bucle_ejecuta_y_realimenta_hasta_cerrar ... ok
+test tests::un_cierre_de_juguete_tras_herramientas_se_reclama_una_vez ... ok
+
+test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src/lib.rs (Quirón/llore_editor/target/debug/deps/llore_buffer-26620022f6c50bf1)
+
+running 13 tests
+test buffer::tests::test_delete ... ok
+test buffer::tests::test_from_file ... ok
+test buffer::tests::test_insert_and_text ... ok
+test buffer::tests::test_modified_state ... ok
+test buffer::tests::test_replace ... ok
+test buffer::tests::test_undo_delete ... ok
+test buffer::tests::test_undo_redo ... ok
+test edit::tests::test_edit_delete ... ok
+test edit::tests::test_edit_replace ... ok
+test edit::tests::test_edit_insert ... ok
+test history::tests::test_save_state ... ok
+test history::tests::test_new_edit_clears_redo ... ok
+test history::tests::test_undo_redo ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (Quirón/llore_editor/target/debug/deps/llore_core-612381dc6d869879)
+
+running 9 tests
+test clock::tests::test_clock_tick ... ok
+test clock::tests::test_clock_observe ... ok
+test rope::tests::test_basic_operations ... ok
+test rope::tests::test_insert ... ok
+test rope::tests::test_lines ... ok
+test clock::tests::test_lamport_ordering ... ok
+test rope::tests::test_remove ... ok
+test rope::tests::test_replace ... ok
+test rope::tests::test_unicode ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (Quirón/llore_editor/target/debug/deps/llore_editor-2c3c63ba844cf8ea)
+
+running 34 tests
+test cursor::tests::test_cursor_new ... ok
+test cursor::tests::test_move_right ... ok
+test cursor::tests::test_move_left ... ok
+test cursor::tests::test_move_right_newline ... ok
+test cursor::tests::test_move_to_line_start_end ... ok
+test cursor::tests::test_move_up_down ... ok
+test display::tests::test_empty_text ... ok
+test display::tests::test_simple_display ... ok
+test display::tests::test_soft_wrap ... ok
+test display::tests::test_tab_expansion ... ok
+test editor::tests::test_backspace ... ok
+test editor::tests::test_delete_word_backward_forward ... ok
+test editor::tests::test_editor_new ... ok
+test editor::tests::test_editor_with_text ... ok
+test editor::tests::test_extend_selection_line_edges ... ok
+test editor::tests::test_extend_selection_vertical ... ok
+test editor::tests::test_extend_selection_word ... ok
+test editor::tests::test_insert ... ok
+test editor::tests::test_mode_switching ... ok
+test editor::tests::test_move_word_navigation ... ok
+test editor::tests::test_scroll_lines_clamped ... ok
+test editor::tests::test_select_all ... ok
+test editor::tests::test_select_line_at ... ok
+test editor::tests::test_select_word_at_whitespace_collapses ... ok
+test editor::tests::test_select_word_at_word ... ok
+test editor::tests::test_set_cursor_line_column ... ok
+test editor::tests::test_set_cursor_line_column_with_trailing_newline ... ok
+test editor::tests::test_set_selection_line_columns ... ok
+test editor::tests::test_undo_redo ... ok
+test selection::tests::test_collapse ... ok
+test selection::tests::test_reverse_selection ... ok
+test selection::tests::test_selected_text ... ok
+test selection::tests::test_selection_empty ... ok
+test selection::tests::test_selection_range ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (Quirón/llore_editor/target/debug/deps/llore_language-4620493f102535b5)
+
+running 12 tests
+test language::tests::test_filename_matching ... ok
+test language::tests::test_indent_string ... ok
+test language::tests::test_language_config_defaults ... ok
+test language::tests::test_rust_config ... ok
+test registry::tests::test_builtin_languages ... ok
+test registry::tests::test_detect_by_extension ... ok
+test registry::tests::test_detect_by_filename ... ok
+test registry::tests::test_find_by_name ... ok
+test language::tests::test_language_matching ... ok
+test registry::tests::test_register_custom ... ok
+test syntax::tests::test_parser_creation ... ok
+test syntax::tests::test_syntax_node_creation ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (Quirón/llore_editor/target/debug/deps/llore_ui-8462d8316ad5ae47)
+
+running 182 tests
+test app::tests::cada_accion_de_menu_vive_tambien_en_la_paleta ... ok
+test app::tests::chat_control_command_connection_does_not_call_llm ... ok
+test app::tests::add_selection_to_chat_input_appends_context_block ... ok
+test app::tests::activity_click_targets_drive_overlay_and_focus ... ok
+test app::tests::command_palette_appearance_preset_actions_update_state ... ok
+test app::tests::arranca_sin_proyecto_abierto ... ok
+test app::tests::activity_click_target_apply_appearance_preset_updates_state ... ok
+test app::tests::abrir_un_archivo_de_fuera_del_proyecto_se_deniega ... ok
+test app::tests::command_palette_density_actions_update_state ... ok
+test app::tests::command_palette_editor_font_actions_update_scale ... ok
+test app::tests::breadcrumb_segment_click_reveals_path_in_explorer ... ok
+test app::tests::command_palette_go_to_line_action_opens_overlay ... ok
+test app::tests::command_palette_cycle_telemetry_timeline_filter_rotates_state ... ok
+test app::tests::command_palette_includes_appearance_preset_commands ... ok
+test app::tests::command_palette_includes_cycle_telemetry_timeline_filter_command ... ok
+test app::tests::command_palette_includes_add_selection_to_chat_command ... ok
+test app::tests::abrir_una_carpeta_activa_el_proyecto_y_puebla_el_explorador ... ok
+test app::tests::command_palette_includes_density_commands ... ok
+test app::tests::command_palette_includes_editor_font_commands ... ok
+test app::tests::command_palette_find_in_workspace_action_opens_overlay ... ok
+test app::tests::command_palette_includes_find_in_workspace_command ... ok
+test app::tests::command_palette_includes_go_to_symbol_command ... ok
+test app::tests::command_palette_includes_go_to_workspace_symbol_command ... ok
+test app::tests::command_palette_includes_explorer_create_commands ... ok
+test app::tests::command_palette_includes_go_to_line_command ... ok
+test app::tests::command_palette_includes_load_more_telemetry_persisted_cache_command ... ok
+test app::tests::command_palette_includes_toggle_telemetry_panel_command ... ok
+test app::tests::command_palette_includes_session_telemetry_report_command ... ok
+test app::tests::command_palette_includes_new_window_command ... ok
+test app::tests::command_palette_includes_secure_reconnect_command ... ok
+test app::tests::command_palette_includes_session_telemetry_status_command ... ok
+test app::tests::command_palette_includes_show_appearance_panel_command ... ok
+test app::tests::command_palette_includes_refresh_telemetry_persisted_cache_command ... ok
+test app::tests::command_palette_includes_show_problems_command ... ok
+test app::tests::command_palette_includes_show_problems_git_command ... ok
+test app::tests::command_palette_includes_theme_cycle_commands ... ok
+test app::tests::command_palette_toggle_telemetry_panel_action_updates_state ... ok
+test app::tests::command_palette_theme_cycle_actions_rotate_with_wrap ... ok
+test app::tests::command_palette_reaches_every_sidebar_panel ... ok
+test app::tests::command_palette_reset_appearance_action_resets_all_state ... ok
+test app::tests::command_palette_includes_theme_graphite_command ... ok
+test app::tests::command_palette_open_to_side_uses_active_file ... ok
+test app::tests::command_palette_runtime_parallel_action_updates_cap ... ok
+test app::tests::el_catalogo_del_vectorizador_se_lee_del_json_del_script ... ok
+test app::tests::command_palette_runtime_budget_action_updates_quiron ... ok
+test app::tests::el_consejo_de_modelo_sigue_al_hardware ... ok
+test app::tests::el_campo_del_chat_edita_con_cursor_y_recuerda_preguntas ... ok
+test app::tests::el_endpoint_guardado_dice_que_tarjeta_esta_en_uso ... ok
+test app::tests::command_palette_runtime_threshold_action_updates_scales ... ok
+test app::tests::command_palette_show_appearance_panel_action_updates_state ... ok
+test app::tests::command_palette_theme_action_updates_ui_theme ... ok
+test app::tests::dual_pane_workflow_open_edit_save_and_focus_navigation ... ok
+test app::tests::el_bloque_de_pensamiento_se_pliega_y_despliega_por_clic ... ok
+test app::tests::conceder_acceso_crea_la_identidad_del_proyecto ... ok
+test app::tests::el_plan_de_ollama_fija_su_endpoint_y_exige_modelo ... ok
+test app::tests::el_plan_de_una_conexion_compatible_lleva_la_clave_aparte ... ok
+test app::tests::con_un_endpoint_compatible_el_chat_pide_el_modelo_configurado ... ok
+test app::tests::el_arrastre_respeta_los_minimos_de_columna ... ok
+test app::tests::el_chat_recibe_el_archivo_abierto_y_su_contenido ... ok
+test app::tests::el_explorador_oculta_secretos_y_ruido ... ok
+test app::tests::el_rotulo_del_brain_lleva_el_puerto_real_o_ninguno ... ok
+test app::tests::el_editor_solo_se_monta_si_cabe ... ok
+test app::tests::el_explorador_no_muestra_el_directorio_llore ... ok
+test app::tests::el_manual_tiene_secciones_y_bloques_limpios ... ok
+test app::tests::el_explorador_crea_renombra_copia_mueve_y_elimina_por_nombre ... ok
+test app::tests::explorer_create_file_and_folder_in_selected_directory ... ok
+test app::tests::el_historial_de_conversaciones_conserva_y_recupera_los_hilos ... ok
+test app::tests::las_instrucciones_declaran_las_manos_y_sus_reglas ... ok
+test app::tests::go_to_line_overlay_select_moves_cursor ... ok
+test app::tests::la_columna_de_segundo_plano_se_conmuta ... ok
+test app::tests::la_escala_de_la_interfaz_se_ajusta_y_vuelve_a_su_sitio ... ok
+test app::tests::la_rueda_desplaza_el_chat_dentro_de_su_tope_y_enviar_lo_devuelve_al_final ... ok
+test app::tests::go_to_line_overlay_invalid_query_shows_no_results ... ok
+test app::tests::los_modelos_de_ollama_se_leen_de_api_tags_y_sin_servidor_es_none ... ok
+test app::tests::la_busqueda_no_recorre_secretos_ni_artefactos ... ok
+test app::tests::layout_snapshot_restores_panel_docks_and_ai_model ... ok
+test app::tests::la_pantalla_del_proyecto_nuevo_no_crea_nada_hasta_dar_permiso ... ok
+test app::tests::open_selected_or_active_to_side_prefers_explorer_selection ... ok
+test app::tests::layout_snapshot_restores_horizontal_spacing_controls ... ok
+test app::tests::no_se_lee_un_secreto_del_propio_proyecto ... ok
+test app::tests::layout_snapshot_restores_ui_density ... ok
+test app::tests::parse_git_branch_header_extracts_branch_and_divergence ... ok
+test app::tests::layout_snapshot_restores_editor_font_scale ... ok
+test app::tests::navigate_problem_next_previous_wraps ... ok
+test app::tests::overlay_page_navigation_wraps_by_page_size ... ok
+test app::tests::open_to_side_duplicates_active_file_when_needed ... ok
+test app::tests::problems_overlay_context_filter_by_git ... ok
+test app::tests::layout_snapshot_restores_ui_theme ... ok
+test app::tests::nuevo_chat_vacia_el_hilo ... ok
+test app::tests::outline_select_click_moves_cursor ... ok
+test app::tests::problems_overlay_select_unsaved_tabs_uses_real_problem ... ok
+test app::tests::quick_open_alt_enter_opens_file_in_secondary_pane ... ok
+test app::tests::sidebar_problems_snapshot_reports_real_conditions ... ok
+test app::tests::sidebar_problem_click_select_uses_real_problem_index ... ok
+test app::tests::rebobinar_devuelve_la_pregunta_y_los_adjuntos_pasan_por_la_guardia ... ok
+test app::tests::reconnect_starts_async_health_check_task ... ok
+test app::tests::reabrir_el_mismo_proyecto_conserva_la_identidad ... ok
+test app::tests::sidebar_problems_snapshot_skips_syntax_error_for_valid_rust ... ok
+test app::tests::sin_proyecto_no_hay_identidad ... ok
+test app::tests::sidebar_problems_snapshot_includes_syntax_error_for_rust ... ok
+test app::tests::sin_proyecto_el_chat_no_tiene_contexto ... ok
+test app::tests::sidebar_outline_snapshot_detects_symbols ... ok
+test app::tests::sin_proyecto_el_chat_pide_abrir_una_carpeta ... ok
+test app::tests::sin_proyecto_el_explorador_queda_vacio ... ok
+test app::tests::sin_proyecto_no_se_escribe_estado_en_disco ... ok
+test app::tests::symbol_overlay_select_moves_cursor ... ok
+test app::tests::telemetry_panel_info_merges_persisted_cache_entries ... ok
+test app::tests::un_equipo_sin_agente_utilizable_no_cuenta_como_configurado ... ok
+test app::tests::sin_proyecto_toda_ruta_queda_fuera_de_alcance ... ok
+test app::tests::top_menu_keyboard_navigation_and_execute ... ok
+test app::tests::una_pestana_sin_titulo_no_cuenta_como_archivo_abierto ... ok
+test app::tests::un_archivo_enorme_se_recorta_y_el_recorte_se_declara ... ok
+test app::tests::split_layout_restores_after_restart ... ok
+test app::tests::top_menu_toggle_execute_and_close_on_outside_click ... ok
+test chat_tools::tests::list_files_oculta_secretos_y_ruido ... ok
+test app::tests::un_identificador_corrupto_impide_abrir_el_proyecto ... ok
+test chat_tools::tests::read_file_declara_el_recorte ... ok
+test chat_tools::tests::read_file_lee_un_archivo_permitido ... ok
+test chat_tools::tests::read_file_niega_salir_del_proyecto ... ok
+test chat_tools::tests::read_file_niega_un_secreto ... ok
+test chat_tools::tests::search_text_encuentra_y_confina ... ok
+test chat_tools::tests::search_text_recorta_lineas_largas_y_la_salida_total ... ok
+test chat_tools::tests::sin_proyecto_ninguna_herramienta_ejecuta ... ok
+test design::tests::el_tamano_logico_encoge_al_crecer_la_escala ... ok
+test chat_tools::tests::una_herramienta_desconocida_es_error_no_panico ... ok
+test design::tests::la_escala_tipografica_es_creciente ... ok
+test design::tests::la_escala_combina_usuario_y_monitor ... ok
+test design::tests::la_preferencia_del_usuario_se_acota ... ok
+test design::tests::la_rejilla_es_multiplo_de_cuatro ... ok
+test design::tests::un_factor_de_monitor_invalido_no_rompe_la_escala ... ok
+test elements::container::tests::test_container_row_layout_children ... ok
+test elements::div::tests::test_div_column_layout_children ... ok
+test layout::tests::test_layout_basic ... ok
+test app::tests::toggle_telemetry_panel_resets_and_primes_prefetch_state ... ok
+test paint::tests::medir_coste_de_la_sombra ... ignored
+test paint::tests::test_canvas_basic ... ok
+test design::tests::reset_devuelve_la_escala_natural_del_monitor ... ok
+test project_id::tests::crea_el_identificador_la_primera_vez ... ok
+test project_id::tests::dos_carpetas_con_el_mismo_nombre_son_proyectos_distintos ... ok
+test project_id::tests::mover_la_carpeta_conserva_la_identidad ... ok
+test project_id::tests::reabrir_el_proyecto_devuelve_el_mismo_identificador ... ok
+test project_id::tests::se_toleran_espacios_y_salto_de_linea ... ok
+test project_id::tests::un_identificador_corrupto_no_se_sobrescribe ... ok
+test project_id::tests::un_proyecto_con_llore_se_copia_a_quiron_sin_tocar_el_original ... ok
+test recents::tests::descarta_proyectos_que_ya_no_existen ... ok
+test app::tests::telemetry_report_action_posts_system_message ... ok
+test recents::tests::recuerda_y_ordena_por_uso_reciente ... ok
+test recents::tests::una_lista_inexistente_no_es_un_error ... ok
+test project_id::tests::no_deja_temporales_tras_escribir ... ok
+test syntax_highlight::tests::comment_marker_inside_string_is_ignored ... ok
+test syntax_highlight::tests::highlight_rust_keywords_and_comment ... ok
+test syntax_highlight::tests::python_def_and_comment ... ok
+test syntax_highlight::tests::syntax_diagnostic_detects_rust_error ... ok
+test paint::tests::la_sombra_no_pinta_el_interior_de_la_tarjeta ... ok
+test syntax_highlight::tests::syntax_diagnostic_returns_none_on_valid_python ... ok
+test app::tests::workspace_symbol_overlay_alt_enter_opens_to_side ... ok
+test text::tests::medir_coste_del_fotograma ... ignored
+test app::tests::workspace_text_search_overlay_alt_enter_opens_to_side ... ok
+test text::tests::la_escala_del_lienzo_agranda_el_texto_y_lo_reposiciona ... ok
+test text::tests::el_texto_envuelto_reparte_sus_lineas_en_vertical ... ok
+test text::tests::un_icono_de_lucide_se_rasteriza ... ok
+test text::tests::las_tipografias_empotradas_estan_registradas ... ok
+test workspace_guard::tests::bloquea_credenciales_a_cualquier_profundidad ... ok
+test text::tests::el_recorte_no_desborda_aunque_el_hueco_sea_diminuto ... ok
+test workspace_guard::tests::bloquea_ficheros_de_entorno_pero_no_sus_plantillas ... ok
+test workspace_guard::tests::permite_un_archivo_dentro_del_proyecto ... ok
+test workspace_guard::tests::permite_un_archivo_todavia_inexistente ... ok
+test workspace_guard::tests::la_raiz_misma_es_accesible ... ok
+test workspace_guard::tests::rechaza_el_ascenso_con_puntos_dobles ... ok
+test workspace_guard::tests::rechaza_un_enlace_que_escapa_de_la_raiz ... ok
+test workspace_guard::tests::marca_artefactos_como_ruido_y_no_como_secreto ... ok
+test workspace_guard::tests::rechaza_una_ruta_absoluta_ajena ... ok
+test workspace_guard::tests::un_secreto_dentro_de_ruido_sigue_siendo_secreto ... ok
+test text::tests::una_etiqueta_larga_se_recorta_en_una_sola_linea ... ok
+test text::tests::una_etiqueta_que_cabe_no_se_toca ... ok
+test app::tests::workspace_text_search_overlay_select_opens_file_and_moves_cursor ... ok
+test app::tests::workspace_symbol_overlay_select_opens_file_and_moves_cursor ... ok
+test text::tests::una_sola_linea_conserva_su_base ... ok
+test app::tests::command_palette_connection_status_opens_agents_palette ... ok
+test app::tests::empezar_entra_al_programa_sin_abrir_carpeta ... ok
+test app::tests::la_paleta_agentes_teclea_solo_con_un_campo_abierto_y_esc_retrocede ... ok
+test app::tests::enviar_no_bloquea_la_interfaz_y_la_respuesta_llega_por_sondeo ... ok
+
+test result: ok. 180 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 5.23s
+
+     Running unittests src/lib.rs (Quirón/llore_editor/target/debug/deps/llore_util-3fe01be7ba9899a0)
+
+running 9 tests
+test paths::tests::test_default_paths ... ok
+test paths::tests::test_from_base ... ok
+test result_ext::tests::test_log_err ... ok
+test result_ext::tests::test_option_ext ... ok
+test paths::tests::test_special_paths ... ok
+test string_ext::tests::test_line_operations ... ok
+test string_ext::tests::test_format_bytes ... ok
+test string_ext::tests::test_trim_trailing ... ok
+test string_ext::tests::test_truncate ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

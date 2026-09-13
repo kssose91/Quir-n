@@ -121,7 +121,7 @@ class InstallTests(unittest.TestCase):
         shutil.copy2(ROOT / "deploy/install-linux.py", self.pkg / "install.py")
         for d in ("bin", "scripts", "assets", "docs", "licenses"):
             (self.pkg / d).mkdir()
-        for b in ("llore_gui", "quiron-brain", "index_repo", "vertex-gateway"):
+        for b in ("llore_gui", "quiron-brain", "index_repo", "vertex-gateway", "ledger_admin"):
             p = self.pkg / "bin" / b
             p.write_text("#!/bin/sh\nexit 0\n")
             p.chmod(0o755)

@@ -1,0 +1,14 @@
+test_instalacion_aislada_y_credenciales_privadas (test_delivery.InstallTests.test_instalacion_aislada_y_credenciales_privadas) ... ok
+test_paquete_corrupto_no_escribe_instalacion (test_delivery.InstallTests.test_paquete_corrupto_no_escribe_instalacion) ... ok
+test_bolt_o_credencial_incorrectos_impiden_exito (test_delivery.StoreTests.test_bolt_o_credencial_incorrectos_impiden_exito) ... ok
+test_contenedor_heredado_recibe_tope_y_sin_reinicio_antes_de_arrancar (test_delivery.StoreTests.test_contenedor_heredado_recibe_tope_y_sin_reinicio_antes_de_arrancar) ... ok
+test_http_500_no_se_anuncia_como_listo (test_delivery.StoreTests.test_http_500_no_se_anuncia_como_listo) ... ok
+test_nuevos_almacenes_solo_locales_y_con_imagen_fija (test_delivery.StoreTests.test_nuevos_almacenes_solo_locales_y_con_imagen_fija) ... ok
+test_rechaza_password_vacio_antes_de_crear (test_delivery.StoreTests.test_rechaza_password_vacio_antes_de_crear) ... ok
+test_sin_docker_no_crea_ni_anuncia_almacenes (test_delivery.StoreTests.test_sin_docker_no_crea_ni_anuncia_almacenes) ... ok
+test_stop_no_descubre_ni_adopta_contenedores_ajenos (test_delivery.StoreTests.test_stop_no_descubre_ni_adopta_contenedores_ajenos) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 3.237s
+
+OK

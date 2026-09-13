@@ -1,0 +1,7 @@
+{
+  "exit_code": 0,
+  "output": "version: 0.4.0-dev (build 10816, commit 427291b5b)\nbuilt with GNU 11.4.0 for Linux x86_64\n",
+  "image": "quiron-build:ubuntu24.04",
+  "scope": "Carga del runtime y consulta de versión; sin descarga ni inferencia GPU dentro del contenedor.",
+  "ok": true
+}

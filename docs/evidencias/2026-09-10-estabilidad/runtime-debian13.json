@@ -1,0 +1,29 @@
+{
+  "image": "sha256:037cf5756f0135cbfd66b739b6df7c7c4bb100f9ce11602f6f9538e17e02c74d",
+  "libc": "glibc 2.41",
+  "binaries": {
+    "index_repo": {
+      "sha256": "67cbd3044a0ca7874b80b54781f3d8bce2f89a1caf5c3ae188948cae148843b9"
+    },
+    "llore_gui": {
+      "sha256": "5bb4aea016913d8d4660b6d884efcd6b7d481584246f61f3171b1d78635396f2"
+    },
+    "vertex-gateway": {
+      "sha256": "9a65e313c098000e1af4dce260b9c85ccec88b6077ea49cb1bcf9df91f6d8b03"
+    },
+    "quiron-brain": {
+      "sha256": "9a1d3d2f80ea6e8e3c78bcd823a018c941dccb4c8215bf90cabff115fcf6d4e5"
+    },
+    "ledger_admin": {
+      "sha256": "6ab86ba7f876d2eb4c97c6bc144a2a4fac7c992777378675bdcd50ac4c7e75a1"
+    }
+  },
+  "checks": {
+    "all_five_binaries_resolve": true,
+    "ledger_admin_executes": true
+  },
+  "limits": [
+    "Base Debian 13 de la imagen local de Neo4j; no instalación completa de escritorio."
+  ],
+  "ok": true
+}

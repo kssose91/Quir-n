@@ -1,0 +1,26 @@
+{
+  "default_provider": "claude_cli",
+  "default_model": "sonnet",
+  "chain": {
+    "valid": true,
+    "event_count": 5295,
+    "message": "V2 full-content chain and legacy snapshot verified",
+    "legacy_events": 5284,
+    "v2_events": 11,
+    "legacy_snapshot_protected": true
+  },
+  "root_index": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "watching",
+    "files_total": 194,
+    "files_done": 194,
+    "units_written": 7,
+    "summaries_generated": 7,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  },
+  "synthetic_index_removed": true,
+  "scope": "Solo se retiraron el archivo y el monitor del proyecto sintético de esta revisión.",
+  "ok": true
+}

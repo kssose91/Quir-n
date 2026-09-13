@@ -5,13 +5,15 @@ use crate::storage::cf::all_tree_names;
 use sled::{Db, Tree};
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// Storage wrapper around Sled embedded database.
 #[derive(Clone)]
 pub struct Storage {
     db: Arc<Db>,
     trees: Arc<HashMap<String, Tree>>,
+    // Serializes ledger writers and verification across cloned database handles.
+    ledger_lock: Arc<Mutex<()>>,
 }
 
 impl Storage {
@@ -37,6 +39,13 @@ impl Storage {
         Ok(Self {
             db: Arc::new(db),
             trees: Arc::new(trees),
+            ledger_lock: Arc::new(Mutex::new(())),
+        })
+    }
+
+    pub(crate) fn lock_ledger(&self) -> Result<MutexGuard<'_, ()>> {
+        self.ledger_lock.lock().map_err(|_| {
+            BrainError::Internal(anyhow::anyhow!("Ledger lock poisoned; reopen and verify the database"))
         })
     }
 

@@ -1,0 +1,35 @@
+{
+  "suites": [
+    {
+      "suite": "brain",
+      "command": "CARGO_BUILD_JOBS=1 cargo test --locked --offline --manifest-path Quirón/quiron-brain/Cargo.toml --features full --lib",
+      "passed": 184,
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "f48d3ca901ad61b3ff227c7c135bad7602ad93ad4517822b0c1f93abf1f67abf"
+    },
+    {
+      "suite": "editor",
+      "command": "CARGO_BUILD_JOBS=1 cargo test --locked --offline --manifest-path Quirón/llore_editor/Cargo.toml --workspace --lib",
+      "passed": 321,
+      "failed": 0,
+      "ignored": 2,
+      "log_sha256": "6d7f65cffebfea8b5ce1db747c17472271d55d28a64c9bc0581646fe83ae2366"
+    },
+    {
+      "suite": "delivery",
+      "command": "python3 -B -m unittest discover -s scripts/tests -p test_delivery.py -v",
+      "passed": 9,
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "f8e7458de2e6c7e1c947341332a6c99d443d8508eaaff03b368e10aad51bf785"
+    }
+  ],
+  "passed_total": 514,
+  "ignored_total": 2,
+  "pdf_pages": 37,
+  "pdf_content_outside_page": [],
+  "pdf_sha256": "055638349233cc972661d9e9e4b5c7c2032681603ac04ff76320b3badda3bd69",
+  "scope": "Cerebro, editor y entrega repetidos tras las correcciones; el gateway conserva la evidencia inicial del mismo día. Entrega usa Docker simulado; las pruebas reales se registran por separado.",
+  "ok": true
+}

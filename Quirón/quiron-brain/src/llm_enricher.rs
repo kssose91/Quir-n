@@ -81,6 +81,8 @@ impl LlmEnricher {
         );
 
         let req = MessagesRequest {
+            provider: None,
+            reasoning_effort: None,
             model: self.model.clone().unwrap_or_default(),
             route: Some("worker".to_string()),
             messages: vec![Message {

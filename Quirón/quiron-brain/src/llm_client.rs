@@ -68,6 +68,10 @@ pub struct Message {
 /// final es decidido por vertex-gateway según su configuración.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessagesRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
     /// Modelo preferido para esta llamada
     pub model: String,
     pub messages: Vec<Message>,
@@ -172,6 +176,10 @@ pub struct Usage {
 /// Request a vertex-gateway (stdin)
 #[derive(Debug, Serialize)]
 struct GatewayRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<String>,
     prompt: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     system: Option<String>,
@@ -659,6 +667,8 @@ impl LlmClient {
 
         // Llamar al gateway
         let gateway_req = GatewayRequest {
+            provider: req.provider.clone(),
+            reasoning_effort: req.reasoning_effort.clone(),
             prompt,
             system: req.system.clone(),
             max_tokens: req.max_tokens,
@@ -692,6 +702,8 @@ impl LlmClient {
     /// Llamada simple (solo prompt y system)
     pub async fn simple_call(&self, prompt: &str, system: Option<&str>) -> Result<String> {
         let gateway_req = GatewayRequest {
+            provider: None,
+            reasoning_effort: None,
             prompt: prompt.to_string(),
             system: system.map(|s| s.to_string()),
             max_tokens: 4096,
@@ -754,6 +766,8 @@ mod tests {
     #[test]
     fn test_gateway_request_serialization() {
         let req = GatewayRequest {
+            provider: None,
+            reasoning_effort: None,
             prompt: "Hola".into(),
             system: Some("Eres un asistente".into()),
             max_tokens: 100,

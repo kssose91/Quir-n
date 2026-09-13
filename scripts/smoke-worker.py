@@ -44,13 +44,16 @@ def main():
     def api(path, body=None, method=None):
         return request(base+path, body, method, {'Authorization':'Bearer '+token})
 
-    def graph_count(project):
+    def graph_query(statement, parameters):
         auth = base64.b64encode((env.get('NEO4J_USER','neo4j')+':'+env['NEO4J_PASSWORD']).encode()).decode()
         value = request('http://127.0.0.1:7474/db/neo4j/tx/commit', {'statements':[{
-            'statement':'MATCH (u:CodeUnit {project:$p}) RETURN count(u), collect(DISTINCT u.summary_origin)', 'parameters':{'p':project}}]},
+            'statement':statement, 'parameters':parameters}]},
             headers={'Authorization':'Basic '+auth})
         assert not value['errors'], value['errors']
-        row = value['results'][0]['data'][0]['row']
+        return [item['row'] for item in value['results'][0]['data']]
+
+    def graph_count(project):
+        row = graph_query('MATCH (u:CodeUnit {project:$p}) RETURN count(u), collect(DISTINCT u.summary_origin)', {'p':project})[0]
         if row[0]: assert row[1] and all(v in ['model','parser'] for v in row[1]), row
         return row[0]
 
@@ -109,6 +112,30 @@ def main():
             assert any(h['summary_origin']=='model' for h in hits), 'Ninguna ficha neuronal aceptada en la muestra simple'
             results.setdefault('initial',[]).append({'seconds':round(time.monotonic()-t,2),'progress':progress,'hits':hits})
         results['checks'].update(project_isolation=True, qdrant_retrieval=True, neo4j_projection=True, secrets_and_symlinks_excluded=True)
+        # Both projects have identical paths/content. A hash check alone cannot
+        # reject an incorrect edge into the other project or an obsolete model.
+        first, second = projects[0][1], projects[1][1]
+        second_ids = {h['id'] for h in results['initial'][1]['hits']}
+        graph_query('MATCH (a:CodeUnit {project:$a}), (b:CodeUnit {project:$b}) MERGE (a)-[:CALLS]->(b)', {'a':first,'b':second})
+        hits = api('/index/search?'+urllib.parse.urlencode({'project_id':first,'q':'calcular total con descuento','limit':1}))['results']
+        assert not any(h['id'] in second_ids for h in hits), 'Expansión fuera del proyecto'
+        results['checks']['graph_neighbor_project_filter']=True
+        original_record = results['initial'][0]['hits'][0]
+        probe = dict(original_record, id='probe-'+first, partial=True,
+                     summary_model='obsolete-model', summary_json=json.dumps(original_record['summary']))
+        probe.pop('summary',None);probe.pop('score',None)
+        graph_query('CREATE (v:CodeUnit) SET v=$props WITH v MATCH (u:CodeUnit {project:$p}) WHERE u.id<>v.id MERGE (u)-[:CALLS]->(v)', {'props':probe,'p':first})
+        try:
+            hits=api('/index/search?'+urllib.parse.urlencode({'project_id':first,'q':'calcular total con descuento','limit':1}))['results']
+            assert not any(h['id']==probe['id'] for h in hits), 'Expansión con modelo obsoleto'
+            results['checks']['graph_neighbor_model_filter']=True
+            graph_query('MATCH (v:CodeUnit {id:$id}) SET v.summary_model=$model', {'id':probe['id'],'model':original_record['summary_model']})
+            hits=api('/index/search?'+urllib.parse.urlencode({'project_id':first,'q':'calcular total con descuento','limit':1}))['results']
+            expanded=next(h for h in hits if h['id']==probe['id'])
+            assert expanded['partial'] is True and isinstance(expanded['summary'],dict)
+            results['checks']['graph_preserves_partial_and_summary_metadata']=True
+        finally:
+            graph_query('MATCH (v:CodeUnit {id:$id, project:$p}) DETACH DELETE v',{'id':probe['id'],'p':first})
         root,project=projects[0]
         original=api('/index/project/'+project)['summaries_generated']
         time.sleep(12)

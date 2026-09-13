@@ -6,6 +6,19 @@ BGE-M3 trabaja en CPU. `--with-worker` prepara Qwen 1.5B Q4_K_M y llama.cpp
 Vulkan/CPU (1,15 GB de descarga adicional). Para NVIDIA hace falta un controlador
 Vulkan funcional; sin NVIDIA se usa CPU. No se incluye entrenamiento.
 
+**Base de compilación de la entrega:** Ubuntu 24.04, glibc 2.39. El
+empaquetador impide incluir símbolos de glibc posteriores. Esta compilación
+sustituye al primer candidato del día 10 que exigía `GLIBC_2.43`.
+Las bibliotecas requeridas por cada binario figuran en `BUILD.json` y
+`docs/*-ldd.txt`; disponer de esa glibc no basta si falta otra dependencia.
+Las pruebas de compatibilidad se detallan en `docs/ESTABILIZACION_2026-09-10.md`.
+
+Bibliotecas de escritorio en Ubuntu 24.04: `libssl3t64`, `libxkbcommon0`,
+`libwayland-client0` y, para X11/XWayland, `libx11-6`, `libx11-xcb1`,
+`libxcursor1` y `libxi6`. El worker Vulkan utiliza `libvulkan1` y el controlador
+del dispositivo. El instalador comprueba también las bibliotecas que la ventana
+carga dinámicamente y que no aparecen en `ldd`.
+
 ```sh
 tar -xzf quiron-linux-x86_64.tar.gz
 cd quiron-linux-x86_64
@@ -34,8 +47,9 @@ journalctl --user -u quiron-brain
 systemctl --user stop quiron-brain
 ```
 
-El servicio no se habilita al iniciar sesión. Cerrar la ventana todavía no
-detiene el servicio: usar el comando `stop` anterior. Los puertos nuevos se
+El servicio no se habilita al iniciar sesión. Cerrar la ventana deja el trabajo
+en segundo plano hasta el apagado por inactividad descrito abajo; el comando
+`stop` permite detenerlo inmediatamente. Los puertos nuevos se
 publican solo en `127.0.0.1`. Los contenedores existentes no se migran ni adoptan
 por su puerto. Esta versión rechaza una configuración previa: la migración del
 equipo de desarrollo necesita verificar rutas, credenciales y copias de datos.
@@ -46,12 +60,24 @@ Para probar la instalación sin cambiar la sesión ni iniciar Docker:
 python3 install.py --destdir /tmp/quiron-install-check
 ```
 
-Para generar el paquete desde el repositorio: `bash scripts/package-linux.sh`.
-Se compilan todos los binarios incluidos y el cerebro lleva `full` activado.
-El archivo `source.tar.gz` contiene el código correspondiente y la memoria en
-Markdown. La revisión de licencias transitivas y la exportación final a PDF/DOCX
-siguen pendientes antes de publicar la entrega. El nuevo monitor y las conexiones se describen en
-`docs/WORKER_Y_PROVEEDORES.md`.
+Para generar la entrega desde el repositorio: `bash scripts/package-linux-portable.sh`.
+Requiere Docker, Rust 1.93.0 y las dependencias locales de Cargo y ONNX Runtime;
+prepara la imagen y compila sin red sobre Ubuntu 24.04. La salida queda en
+`dist/portable/`. `package-linux.sh` permite compilar directamente en el host,
+pero esa variante no fija una ABI compatible con equipos más antiguos.
+Se compilan cinco binarios y el cerebro lleva `full` activado.
+El archivo `source.tar.gz` contiene el código correspondiente. En `docs/` se
+incluyen la memoria en Markdown, DOCX y PDF de revisión, el estudio anexo y el
+informe de cierre. Las exportaciones se verifican contra sus fuentes al
+empaquetar. La memoria conserva los campos que debe completar el autor.
+La revisión completa de licencias transitivas y la certificación en equipo
+limpio siguen pendientes antes de publicar. El monitor y las conexiones se
+describen en `docs/WORKER_Y_PROVEEDORES.md`.
+
+El paquete incluye `ledger_admin` para verificar y anclar una base histórica con
+el servicio detenido y una copia previa. El procedimiento y sus límites están
+en `docs/ESTABILIZACION_2026-09-10.md`. No sustituir el cerebro por una versión
+anterior sobre datos v2 sin revisar también la restauración de los datos.
 
 ## Memoria
 

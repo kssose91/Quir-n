@@ -7,8 +7,12 @@ Tiempo estimado: 15 minutos más las descargas de la primera apertura.
 ## 1. Instalar
 
 Requisitos: Linux x86_64, Python 3.12+, Docker accesible por el usuario,
-systemd de usuario, curl. No hace falta Rust ni GPU (sin GPU, el worker local
-resume el código en CPU o queda en su fichas estructurales).
+systemd de usuario, curl. No hace falta Rust ni GPU; sin GPU, el modelo local
+puede ejecutarse en CPU. Consulte `BUILD.json` para la ABI de los binarios.
+La entrega se compila sobre Ubuntu 24.04 y limita los símbolos requeridos a
+glibc 2.39. Sustituye al primer candidato que exigía `GLIBC_2.43`.
+Las comprobaciones de bibliotecas y staging se documentan en
+`ESTABILIZACION_2026-09-10.md`; la instalación limpia completa sigue pendiente.
 
 ```sh
 tar -xzf quiron-linux-x86_64.tar.gz
@@ -37,12 +41,15 @@ está lista y en ámbar si falta algo, y qué hacer:
 | **OpenAI / compatible** | endpoint, modelo y clave de API | Configurar… (tres campos; la clave no se muestra ni sale en ninguna orden) → Usar |
 | **Servidor en red local** | un servidor compatible en la LAN (llama-server, vLLM, SGLang…) | Configurar… (endpoint, modelo y clave opcional) → Usar |
 | **Ollama local** | Ollama en marcha con un modelo descargado (`ollama pull qwen2.5-coder:7b`) | Instalar → Configurar… (propone el primer modelo descargado) → Usar |
-| **Vectorizador (worker)** | el Qwen que lee el proyecto, escribe qué hace cada función y vectoriza; no chatea | Modelos (guía de hardware del equipo, `.gguf` locales y catálogo descargable con SHA-256: de Coder 0.5B a Qwen3 8B, y 30B-A3B para memoria unificada) · Añadir .gguf… |
+| **Vectorizador (worker)** | Qwen describe archivos y unidades Rust; BGE-M3 genera los vectores | Modelos (orientación de hardware, `.gguf` locales y catálogo descargable con SHA-256) · Añadir .gguf… |
 
 «Usar» reescribe el archivo privado (`~/.config/quiron/quiron-brain.env`) y
-reinicia el cerebro; el editor reconecta solo. La aplicación no lee ni guarda
-credenciales de las suscripciones: la sesión la gestiona cada CLI en su
-terminal. «Comprobar» vuelve a sondear el equipo.
+reinicia el cerebro; el editor reconecta solo. El inicio de sesión se hace en
+la CLI. Claude y ChatGPT responden mediante sus CLI oficiales. El selector del
+chat reúne ambos proveedores; pasar entre ellos desde ese menú no reinicia los
+servicios. En Codex puedes actualizar el catálogo y elegir el nivel de
+razonamiento. «Comprobar» vuelve a sondear
+el equipo. No se admite un identificador universal de suscripción.
 
 Sin interfaz (por ejemplo por SSH), lo mismo con el script que usa la paleta:
 
@@ -111,7 +118,8 @@ Resultados de la ronda hecha en el portátil de desarrollo el 5 de septiembre de
   uso; el registro del cerebro deja una línea por llamada:
   `journalctl --user -u quiron-brain | grep '\[gateway\]'`.
 - **El índice no avanza**: `systemctl --user status quiron-brain quiron-worker`
-  y la esquina «Segundo plano» del editor. Sin worker, las fichas son
-  estructurales (del analizador sintáctico) y la búsqueda sigue funcionando.
+  y la esquina «Segundo plano» del editor. Sin servidor o modelo, la generación
+  falla y se reintenta. La ficha estructural se usa ante una respuesta inválida
+  del modelo; la falta de GPU permite usar CPU.
 - **Memoria**: las unidades llevan topes (`MemoryHigh`/`MemoryMax`); en equipos
   de 16 GB conviene `earlyoom`. Detalles en `deploy/LINUX.md`.

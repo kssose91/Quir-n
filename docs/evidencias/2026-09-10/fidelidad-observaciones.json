@@ -1,0 +1,187 @@
+{
+  "reviewed_utc": "2026-09-10T12:51:51.831145+00:00",
+  "method": "Inspección asistida de ejemplos tras la recuperación; no evaluación independiente ni tasa representativa de error.",
+  "retrieval_report_sha256": "08928b7ba7ada17ef34c9718eeb6922670dab5a14b4a84000650cd76811e282d",
+  "observations": [
+    {
+      "case_id": "identificador",
+      "label": "Orden de los separadores",
+      "observation": "El resumen sitúa dos ceros después de la concatenación; el código intercala uno entre proyecto y ruta y otro entre ruta y símbolo.",
+      "retrieved_record": {
+        "calls": [
+          ".as_bytes",
+          ".extend_from_slice",
+          ".len",
+          ".push",
+          "NodeId::from_content",
+          "Vec::with_capacity"
+        ],
+        "content_hash": "8204422f69f066a5732dd41d66b1a451bce76f3758d4f329334837fb8b6e49fb",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 34,
+        "id": "5d540ed9-afa4-154e-e4f0-d020e47ecccb",
+        "kind": "function",
+        "partial": false,
+        "path": "Quirón/quiron-brain/src/index/unit.rs",
+        "project": "01KX61WD5MPKNFGF4849N79CXE",
+        "score": 0.5861583,
+        "signature": "pub fn stable_id(project_id: &str, path: &str, symbol: &str) -> NodeId",
+        "start_line": 26,
+        "summary": {
+          "purpose": "This function takes three string arguments: project_id, path, and symbol. It creates a vector key by concatenating the bytes of these arguments, followed by two zeros. The resulting vector is then used to create a NodeId using the from_content method. The function returns the resulting NodeId.",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+        "summary_origin": "model",
+        "symbol": "stable_id"
+      },
+      "comparison": {
+        "path": "Quirón/quiron-brain/src/index/unit.rs",
+        "start_line": 26,
+        "end_line": 34,
+        "source": "pub fn stable_id(project_id: &str, path: &str, symbol: &str) -> NodeId {\n    let mut key = Vec::with_capacity(project_id.len() + path.len() + symbol.len() + 2);\n    key.extend_from_slice(project_id.as_bytes());\n    key.push(0);\n    key.extend_from_slice(path.as_bytes());\n    key.push(0);\n    key.extend_from_slice(symbol.as_bytes());\n    NodeId::from_content(&key)\n}"
+      }
+    },
+    {
+      "case_id": "llamadas",
+      "label": "Lenguaje incorrecto",
+      "observation": "La ficha menciona TypeScript. El parser integrado en extract.rs es tree_sitter_rust; TsNode es un alias de tree_sitter::Node.",
+      "retrieved_record": {
+        "calls": [
+          ".and_then",
+          ".child_by_field_name",
+          ".children",
+          ".dedup",
+          ".kind",
+          ".pop",
+          ".push",
+          ".sort",
+          ".walk",
+          "Vec::new",
+          "callee_name"
+        ],
+        "content_hash": "50b13619affc74cdd84d5472934c769175d7d342327a8682a89c5aa12d014df5",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 159,
+        "id": "d3028122-b6dc-450a-d874-98b181ebc260",
+        "kind": "function",
+        "partial": false,
+        "path": "Quirón/quiron-brain/src/index/extract.rs",
+        "project": "01KX61WD5MPKNFGF4849N79CXE",
+        "score": 0.5695688,
+        "signature": "fn collect_calls(body: TsNode, source: &str) -> Vec<String>",
+        "start_line": 139,
+        "summary": {
+          "purpose": "This function collects the names of function calls in a given TypeScript AST (Abstract Syntax Tree). It uses a depth-first search (DFS) approach to traverse the AST and collect the names of function calls. The function takes two parameters: `body`, which is the root node of the AST, and `source`, which is the source code of the TypeScript file. The function returns a vector of strings containing the names of the function calls found in the AST. The function uses a stack to do",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+        "summary_origin": "model",
+        "symbol": "collect_calls"
+      },
+      "comparison": {
+        "path": "Quirón/quiron-brain/src/index/extract.rs",
+        "start_line": 1,
+        "end_line": 36,
+        "source": "//! Extracción determinista de unidades desde el árbol sintáctico.\n//!\n//! Dado el texto de un archivo, produce su unidad Archivo y las unidades Lógica\n//! que contiene. No interviene ningún modelo: las relaciones y los símbolos se\n//! derivan del árbol, y si el análisis no resuelve algo, no se inventa.\n//!\n//! Hoy soporta Rust. Añadir un lenguaje es añadir un extractor; el resto del\n//! sistema no cambia.\n\nuse super::unit::{content_hash, stable_id, FileUnit, LogicKind, LogicUnit};\nuse tree_sitter::{Node as TsNode, Parser};\n\n/// Detecta el lenguaje por extensión. `None` si no se sabe analizar.\npub fn language_of(path: &str) -> Option<&'static str> {\n    match path.rsplit('.').next() {\n        Some(\"rs\") => Some(\"rust\"),\n        _ => None,\n    }\n}\n\n/// Extrae la unidad Archivo y sus unidades Lógica.\n/// Devuelve `None` si el lenguaje no se soporta o el análisis falla.\npub fn extract(project_id: &str, path: &str, source: &str) -> Option<(FileUnit, Vec<LogicUnit>)> {\n    match language_of(path)? {\n        \"rust\" => extract_rust(project_id, path, source),\n        _ => None,\n    }\n}\n\nfn extract_rust(project_id: &str, path: &str, source: &str) -> Option<(FileUnit, Vec<LogicUnit>)> {\n    let mut parser = Parser::new();\n    parser.set_language(&tree_sitter_rust::LANGUAGE.into()).ok()?;\n    let tree = parser.parse(source, None)?;\n    let root = tree.root_node();\n    let bytes = source.as_bytes();\n"
+      }
+    },
+    {
+      "case_id": "leer_archivo",
+      "label": "Límite inventado",
+      "observation": "La ficha menciona 1000 caracteres. READ_FILE_MAX_CHARS vale 24000; el disparador usa len() en bytes y el corte recorre caracteres.",
+      "retrieved_record": {
+        "calls": [
+          ".and_then",
+          ".as_str",
+          ".char_indices",
+          ".get",
+          ".last",
+          ".len",
+          ".len_utf8",
+          ".map",
+          ".take",
+          ".unwrap_or",
+          "ToolOutcome::error",
+          "ToolOutcome::ok",
+          "read_to_string",
+          "resolve_and_classify"
+        ],
+        "content_hash": "a01838c1987e9f3ed916b212f8eadd574b191452fbc3558e8d2a49b71ebca864",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 204,
+        "id": "96ccca28-ad27-bca8-687a-4f906d969923",
+        "kind": "function",
+        "partial": false,
+        "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+        "project": "01KX61WD5MPKNFGF4849N79CXE",
+        "score": 0.64895964,
+        "signature": "fn read_file(ctx: &ToolContext, input: &Value) -> ToolOutcome",
+        "start_line": 158,
+        "summary": {
+          "purpose": "This function reads a file from the specified path and returns its content. It checks the access level of the file and handles different types of access (allowed, secret, outside, noise). If the file is too large, it truncates the content to a maximum of 1000 characters. The function returns an error if the file cannot be read or if the access level is denied. The function also returns an error if the file is outside the project. The function returns an error if the file is a",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+        "summary_origin": "model",
+        "symbol": "read_file"
+      },
+      "comparison": {
+        "path": "Quirón/llore_editor/crates/llore_ui/src/chat_tools.rs",
+        "start_line": 25,
+        "end_line": 32,
+        "source": "/// con manos va siempre por `gpt-5.5`, elija lo que elija el selector.\npub const TOOLS_CHAT_MODEL: &str = \"gpt-5.5\";\n\n/// Caracteres de un archivo que devuelve `read_file`. Un archivo mayor se\n/// recorta y el recorte se declara.\nconst READ_FILE_MAX_CHARS: usize = 24_000;\n/// Máximo de rutas que devuelve `list_files`.\nconst LIST_FILES_MAX: usize = 400;"
+      }
+    },
+    {
+      "case_id": "vigencia",
+      "label": "Frase incompleta",
+      "observation": "El texto almacenado acaba en «The », aunque el JSON es válido.",
+      "retrieved_record": {
+        "calls": [
+          ".any",
+          ".as_os_str",
+          ".canonicalize",
+          ".components",
+          ".file_type",
+          ".is_absolute",
+          ".is_symlink",
+          ".push",
+          ".starts_with",
+          ".to_path_buf",
+          ".to_string_lossy",
+          "Ok",
+          "Path::new",
+          "content_hash",
+          "is_secret",
+          "read",
+          "symlink_metadata"
+        ],
+        "content_hash": "fd4199e7f1236487577086ee96822a1c1cdf2fd281f3bce2fcca2c85d5cc1ca0",
+        "embedding_model": "BAAI/bge-m3",
+        "end_line": 700,
+        "id": "d5c46950-53d7-bdaa-6c30-83fd9cbbf5c7",
+        "kind": "function",
+        "partial": false,
+        "path": "Quirón/quiron-brain/src/index/worker.rs",
+        "project": "01KX61WD5MPKNFGF4849N79CXE",
+        "score": 0.50741327,
+        "signature": "fn ensure_current(root: &Path, path: &str, hash: &str) -> Result<()>",
+        "start_line": 674,
+        "summary": {
+          "purpose": "This function ensures that the given path is valid, not a secret, and not a symlink to a different directory. It also checks if the path is within the project directory and if the file content hash matches the expected hash. If any of these checks fail, it returns an error. The function takes three arguments: the root directory, the path to be checked, and the expected hash of the file. The function returns a Result<(), Error> indicating whether the path is valid or not. The ",
+          "unknowns": []
+        },
+        "summary_model": "qwen2.5-coder-1.5b-q4km-f86cb2c1-ficha-v4",
+        "summary_origin": "model",
+        "symbol": "ensure_current"
+      },
+      "comparison": {
+        "path": "Quirón/quiron-brain/src/index/worker.rs",
+        "start_line": 83,
+        "end_line": 105,
+        "source": "    pub purpose: String,\n    pub unknowns: Vec<String>,\n}\n\nimpl Brief {\n    fn validate(&self) -> Result<()> {\n        let lower = self.purpose.to_lowercase();\n        if [\"resumen del comportamiento visible\", \"untrusted data\", \"return json\",\n            \"devuelve json\", \"una a tres frases\", \"describe the actual behavior\"]\n            .iter().any(|phrase| lower.contains(phrase)) {\n            bail!(\"El modelo repitió instrucciones en lugar de describir el código\");\n        }\n        if self.purpose.trim().is_empty() {\n            bail!(\"Ficha sin propósito\");\n        }\n        let lists = [&self.unknowns];\n        if lists.iter().any(|list| list.len() > 8) {\n            bail!(\"Ficha con demasiados elementos\");\n        }\n        if self.text().split_whitespace().count() > 180 || self.text().len() > 4000 {\n            bail!(\"Ficha excede el límite de 180 palabras\");\n        }\n        Ok(())"
+      }
+    }
+  ]
+}

@@ -189,14 +189,15 @@ impl LedgerReader {
         let mut events_by_hash: HashMap<[u8; 32], Event> = HashMap::new();
         let mut next_by_prev: HashMap<Option<[u8; 32]>, [u8; 32]> = HashMap::new();
 
-        for (_, value) in self.storage.iter_tree(CF_EVENTS)? {
-            let event: Event = match crate::types::event::deserialize_event(&value) {
-                Ok(event) => event,
-                Err(e) => {
-                    tracing::warn!("Failed to deserialize event (ordered_chain_events): {}", e);
-                    continue;
-                }
-            };
+        let tree = self.storage.tree(CF_EVENTS)
+            .ok_or_else(|| anyhow::anyhow!("Missing events tree"))?;
+        for entry in tree.iter() {
+            let (key, value) = entry.map_err(|e| anyhow::anyhow!("Cannot read ledger: {e}"))?;
+            let event = crate::types::event::deserialize_event(&value)
+                .map_err(|e| anyhow::anyhow!("Unreadable ledger event: {e}"))?;
+            if key.as_ref() != event.id.to_bytes().as_slice() {
+                return Err(anyhow::anyhow!("Ledger key does not match event {}", event.id).into());
+            }
 
             let this_hash = event.this_hash.ok_or_else(|| {
                 BrainError::Internal(anyhow::anyhow!(

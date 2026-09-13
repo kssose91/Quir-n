@@ -62,6 +62,8 @@ impl LlmDistiller {
         );
 
         let req = MessagesRequest {
+            provider: None,
+            reasoning_effort: None,
             // Si no se configura un modelo explícito, delegamos la resolución al gateway.
             model: self.model.clone().unwrap_or_default(),
             route: Some("primary".to_string()),

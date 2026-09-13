@@ -1,0 +1,7 @@
+{
+  "ok": true,
+  "content": "Cuando x vale 7, la función devuelve 14.",
+  "input_tokens": 9402,
+  "output_tokens": 77,
+  "model": "gpt-6-astra"
+}

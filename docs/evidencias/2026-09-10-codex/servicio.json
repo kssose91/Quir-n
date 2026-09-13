@@ -1,0 +1,40 @@
+{
+  "health": {
+    "status": "ok",
+    "service": "quiron-brain",
+    "event_count": 5286,
+    "node_count": 1195,
+    "invariant_count": 5
+  },
+  "chain": {
+    "valid": true,
+    "event_count": 5286,
+    "message": "V2 full-content chain and legacy snapshot verified",
+    "legacy_events": 5284,
+    "v2_events": 2,
+    "legacy_snapshot_protected": true
+  },
+  "index_started": {
+    "project_id": "01KX61WD5MPKNFGF4849N79CXE",
+    "phase": "queued",
+    "files_total": 0,
+    "files_done": 0,
+    "units_written": 0,
+    "summaries_generated": 0,
+    "structural_fallbacks": 0,
+    "current_path": "",
+    "error": null
+  },
+  "provider": "codex_cli",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "xhigh",
+  "binaries": {
+    "ledger_admin": "c113e9bf1df7f6025d32de51bd03a917785dc553fefc8789af80b511db9ad210",
+    "quiron-brain": "2b543de964a0c127a3555fd04ecb2929b7d9f88d1458c72d8953135f02e58a3d",
+    "vertex-gateway": "995c196a8a0d6f7ce1ebf444092b0cf5606d5449789d3454d7ad78e0fa0fd0ca",
+    "llore_gui": "947ad2c3bb703bf503aa4523462bd7080a3f367d0418799643e8c276a1511715",
+    "index_repo": "2ead5ec050765ed82fb18dd3bddbb11d5d250bb57037b62df4d15668dbbffd1d"
+  },
+  "scope": "Nueva conexión activada; índice del proyecto registrado para continuar en segundo plano.",
+  "ok": true
+}

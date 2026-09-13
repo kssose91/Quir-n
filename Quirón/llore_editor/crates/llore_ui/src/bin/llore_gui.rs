@@ -1737,6 +1737,10 @@ fn render_app(window: &mut Window, state: &mut AppState) {
         state.add_click_target(b, accion);
         chip_x += w + 6.0;
     };
+    if !state.reasoning_options().is_empty() {
+        let effort=state.reasoning_label().to_string();
+        chip(state, canvas, &effort, true, ClickTargetAction::ChatPopoverToggle(ChatPopover::Reasoning));
+    }
     let manos_texto = if state.chat_tools_enabled { "manos ✓" } else { "manos ✗" };
     let manos_activas = state.chat_tools_enabled;
     chip(state, canvas, manos_texto, manos_activas, ClickTargetAction::ChatMenu(ChatMenuItem::ToggleTools));
@@ -3152,11 +3156,39 @@ fn render_chat_popover(
     let filas: Vec<(String, Option<ClickTargetAction>)> = match state.chat_popover {
         ChatPopover::Models => {
             let actual = state.selected_ai_model().to_string();
-            let mut v = vec![("MODELO".to_string(), None)];
-            for m in state.ai_model_options().iter().map(|m| m.to_string()).collect::<Vec<_>>() {
-                let marca = if m == actual { "● " } else { "   " };
-                v.push((format!("{marca}{m}"), Some(ClickTargetAction::ChatModelPick(m))));
+            let current_provider=state.chat_provider_override().unwrap_or_else(||state.ai_provider().to_string());
+            let mut v = Vec::new();
+            for (provider, models) in state.chat_model_groups() {
+                v.push((match provider {
+                    "claude_cli"=>"CLAUDE · ANTHROPIC",
+                    "codex_cli"=>"CHATGPT · CODEX",
+                    _=>"PROVEEDOR CONFIGURADO",
+                }.to_string(),None));
+                for m in models {
+                    let marca=if m==actual && provider==current_provider {"● "}else{"   "};
+                    let label=match (provider,m) {
+                        ("claude_cli","sonnet")=>"Claude Sonnet",
+                        ("claude_cli","opus")=>"Claude Opus",
+                        ("claude_cli","haiku")=>"Claude Haiku",
+                        _=>state.ai_model_label(m),
+                    };
+                    v.push((format!("{marca}{}",if label.is_empty(){m}else{label}),Some(ClickTargetAction::ChatProviderModelPick {provider:provider.into(),model:m.into()})));
+                }
             }
+            v.push(("Actualizar modelos de Codex".into(),Some(ClickTargetAction::RefreshAiModels)));
+            if !state.reasoning_options().is_empty() {
+                v.push((format!("Razonamiento: {}…",state.reasoning_label()),Some(ClickTargetAction::ChatMenu(ChatMenuItem::Reasoning))));
+            }
+            v
+        }
+        ChatPopover::Reasoning => {
+            let current=state.reasoning_effort().unwrap_or("");
+            let mut v=vec![("RAZONAMIENTO".to_string(),None)];
+            for effort in state.reasoning_options() {
+                let mark=if effort==current{"● "}else{"   "};
+                v.push((format!("{mark}{}",llore_ui::ai_models::effort_label(effort)),Some(ClickTargetAction::ChatReasoningPick(effort.into()))));
+            }
+            if v.len()==1 {v.push(("Actualiza el catálogo de modelos".into(),Some(ClickTargetAction::RefreshAiModels)));}
             v
         }
         _ => vec![
