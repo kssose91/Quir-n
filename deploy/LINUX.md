@@ -67,9 +67,8 @@ prepara la imagen y compila sin red sobre Ubuntu 24.04. La salida queda en
 pero esa variante no fija una ABI compatible con equipos más antiguos.
 Se compilan cinco binarios y el cerebro lleva `full` activado.
 El archivo `source.tar.gz` contiene el código correspondiente. En `docs/` se
-incluyen la memoria en Markdown, DOCX y PDF de revisión, el estudio anexo y el
-informe de cierre. Las exportaciones se verifican contra sus fuentes al
-empaquetar. La memoria conserva los campos que debe completar el autor.
+incluyen el estudio anexo y los informes de cierre; la memoria del TFM se
+entrega aparte del paquete.
 La revisión completa de licencias transitivas y la certificación en equipo
 limpio siguen pendientes antes de publicar. El monitor y las conexiones se
 describen en `docs/WORKER_Y_PROVEEDORES.md`.

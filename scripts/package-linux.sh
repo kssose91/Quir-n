@@ -19,19 +19,6 @@ trap 'rm -rf "$STAGE"' EXIT
 PKG="$STAGE/quiron-linux-x86_64"
 mkdir -p "$PKG/bin" "$PKG/scripts" "$PKG/assets" "$PKG/docs" "$PKG/licenses"
 
-# Impide entregar exportaciones de una versión distinta de la memoria.
-python3 - "$ROOT" <<'PY'
-import hashlib, json, pathlib, sys
-root = pathlib.Path(sys.argv[1])
-report = json.loads((root / "docs/evidencias/2026-09-10/exportacion.json").read_text())
-checks = [(root / "memoria/borrador-memoria-tfm.md", report["source_sha256"]),
-          (root / "docs/ESTUDIO_RED_OBRERA.md", report["annex_sha256"])]
-checks.extend((root / "memoria" / name, digest) for name, digest in report["outputs"].items())
-for path, expected in checks:
-    if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-        raise SystemExit(f"Exportación desactualizada: {path.name}. Ejecutar scripts/export-memory.py.")
-PY
-
 cargo build --locked --release --manifest-path "$ROOT/Quirón/llore_editor/Cargo.toml" --target-dir "$EDITOR_TARGET" -p llore_ui --bin llore_gui
 cargo build --locked --release --manifest-path "$ROOT/Quirón/quiron-brain/Cargo.toml" --target-dir "$BRAIN_TARGET" --features full --bin quiron-brain --bin index_repo --bin ledger_admin
 cargo build --locked --release --manifest-path "$ROOT/Quirón/vertex-gateway/Cargo.toml" --target-dir "$GATEWAY_TARGET" --bin vertex-gateway
@@ -45,7 +32,7 @@ install -m644 "$ROOT/deploy/LINUX.md" "$PKG/README.md"
 install -m644 "$ROOT/docs/WORKER_Y_PROVEEDORES.md" "$ROOT/docs/GUIA_EVALUACION.md" "$ROOT/docs/MANUAL.md" "$PKG/docs/"
 install -m755 "$ROOT/scripts/demo-consulta-codigo.py" "$ROOT/scripts/demo-agentes.py" "$ROOT/scripts/smoke-gui-x11.py" "$PKG/scripts/"
 mkdir -p "$PKG/scripts/tests" && install -m755 "$ROOT/scripts/tests/mock-openai.py" "$PKG/scripts/tests/"
-install -m644 "$ROOT/memoria/borrador-memoria-tfm.md" "$ROOT/memoria/Borrador memoria TFM - Quirón.docx" "$ROOT/memoria/Memoria TFM - Quirón.pdf" "$PKG/docs/"
+# La memoria del TFM se entrega aparte del repositorio y no forma parte del paquete.
 install -m644 "$ROOT/docs/ESTUDIO_RED_OBRERA.md" "$ROOT/docs/CIERRE_TFM_2026-09-10.md" "$ROOT/docs/ESTABILIZACION_2026-09-10.md" "$PKG/docs/"
 install -m644 "$ROOT/docs/CODEX_EN_QUIRON_2026-09-10.md" "$PKG/docs/"
 cp -R "$ROOT/docs/evaluacion" "$ROOT/docs/evidencias" "$PKG/docs/"
@@ -82,10 +69,7 @@ tracked = run("git", "ls-files", "--cached", "--others", "--exclude-standard", "
 with tarfile.open(pkg / "source.tar.gz", "w:gz") as tar:
     for name in tracked:
         p = root / name
-        # Los apuntes sueltos del autor se conservan en disco, fuera de la entrega.
-        if name.startswith("memoria/") and p.suffix not in (".md", ".docx", ".pdf"):
-            continue
-        if name.startswith(("Quirón/", "memoria/", "docs/", "scripts/", "deploy/")) or name == "README.md":
+        if name.startswith(("Quirón/", "docs/", "scripts/", "deploy/")) or name == "README.md":
             if p.is_file() and not p.is_symlink() and not any(x.startswith(".env") for x in p.parts):
                 tar.add(p, arcname=name, recursive=False)
     for name in ("scripts/package-linux.sh", "deploy/install-linux.py", "deploy/LINUX.md"):

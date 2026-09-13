@@ -1,6 +1,6 @@
 # Proyecto TFM: editor con índice de código, grafo y red obrera
 
-**Estado y alcance:** la memoria del TFM (`memoria/borrador-memoria-tfm.md`) es
+**Estado y alcance:** la memoria del TFM, entregada aparte de este repositorio, es
 la fuente de verdad sobre qué está implementado y qué queda pendiente; el cierre
 técnico se documenta en [`docs/CIERRE_TFM_2026-09-10.md`](docs/CIERRE_TFM_2026-09-10.md)
 y [`docs/ESTABILIZACION_2026-09-10.md`](docs/ESTABILIZACION_2026-09-10.md).
@@ -228,9 +228,9 @@ todavía no para systemd: para cerrar también los almacenes, usar
 
 ## Documentos
 
-- `memoria/borrador-memoria-tfm.md` — la memoria del TFM. Es la única fuente
-  de verdad del proyecto: arquitectura, objetivos, plan y resultados. Léase
-  primero.
+- Memoria del TFM (documento entregado aparte de este repositorio, en PDF y
+  DOCX) — la única fuente de verdad del proyecto: arquitectura, objetivos, plan
+  y resultados. Léase primero.
 - `docs/ESTUDIO_RED_OBRERA.md` — Anexo A: la matemática de la red obrera,
   con etiquetas de evidencia y verificación adversarial.
 - `docs/ciclo-worker.html` — recorrido visual del ciclo: de conceder acceso a

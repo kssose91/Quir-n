@@ -97,9 +97,8 @@ Desde el repositorio, con las fuentes y modelos locales disponibles:
 
 ```sh
 python3 -m venv /tmp/quiron-tfm-tools
-/tmp/quiron-tfm-tools/bin/pip install -r scripts/requirements-tfm.txt
+/tmp/quiron-tfm-tools/bin/pip install -r scripts/requirements-evaluacion.txt
 /tmp/quiron-tfm-tools/bin/python scripts/evaluate-index.py --start-index --output /tmp/localizacion.json
-/tmp/quiron-tfm-tools/bin/python scripts/export-memory.py
 CARGO_BUILD_JOBS=1 bash scripts/package-linux.sh
 ```
 
@@ -108,11 +107,11 @@ y acceso al token local; no lo imprime ni lo incluye en evidencias. La exportaci
 necesita las fuentes Liberation Sans/Mono. Los resultados nuevos deben guardarse
 en otra ruta para conservar la evidencia de esta revisión.
 
-La fuente editorial es `memoria/borrador-memoria-tfm.md`; el exportador incorpora
-`docs/ESTUDIO_RED_OBRERA.md` como Anexo A y produce DOCX/PDF. El informe
-`evidencias/2026-09-10/exportacion.json` identifica sus hashes. El paquete incluye
-fuentes, binarios, manuales y evidencias; omite los apuntes sueltos de `memoria/`
-que no son Markdown, DOCX o PDF, conservándolos en el disco del autor.
+La memoria del TFM, su fuente Markdown y el exportador que la convierte en DOCX
+y PDF se entregan aparte de este repositorio; el exportador incorpora
+`docs/ESTUDIO_RED_OBRERA.md` como Anexo A y su informe `exportacion.json`
+identifica los hashes. El paquete incluye fuentes, binarios, manuales y
+evidencias.
 
 La verificación del archivo de distribución, el staging y la prueba de la
 ventana se registra por separado junto al paquete, después de construirlo.
