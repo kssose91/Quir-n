@@ -411,7 +411,7 @@ Combinando **solo lo reutilizable**, una **única red pequeña** con esta forma:
 
 ---
 
-# Cuestiones abiertas y lagunas honestas
+# Cuestiones abiertas
 
 - **Sin respaldo primario en este barrido** (fórmulas fundamentales, incluidas por
   canónicas pero **no re-verificadas** aquí): KD con temperatura `T²` (§3.1),
@@ -426,7 +426,7 @@ Combinando **solo lo reutilizable**, una **única red pequeña** con esta forma:
 
 ---
 
-# Referencias (todas verificadas como fuentes reales)
+# Referencias del anexo
 
 **Atención y KV:** MLA — DeepSeek-V2 `2405.04434`, DeepSeek-V3 `2412.19437` · NSA
 `2502.11089` · Lightning/lineal — MiniMax-01 `2501.08313`, MiniMax-M1 `2506.13585`,

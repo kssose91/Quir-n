@@ -106,11 +106,22 @@ def register_fonts():
         raise SystemExit('Faltan fuentes Liberation Sans/Mono para generar el PDF')
     for label, file in [('Body', 'LiberationSans-Regular.ttf'), ('Body-Bold', 'LiberationSans-Bold.ttf'),
                         ('Body-Italic', 'LiberationSans-Italic.ttf'),
-                        ('Body-BoldItalic', 'LiberationSans-BoldItalic.ttf'),
-                        ('Code', 'LiberationMono-Regular.ttf')]:
+                        ('Body-BoldItalic', 'LiberationSans-BoldItalic.ttf')]:
         pdfmetrics.registerFont(TTFont(label, str(font_dir / file)))
+    # El código y las ecuaciones del anexo usan símbolos (∈, ‖, ∇…) que Liberation
+    # Mono no tiene; DejaVu Sans Mono, distribuida con matplotlib, sí los cubre.
+    code_font = font_dir / 'LiberationMono-Regular.ttf'
+    try:
+        import matplotlib
+        candidate = Path(matplotlib.__file__).parent / 'mpl-data/fonts/ttf/DejaVuSansMono.ttf'
+        if candidate.is_file():
+            code_font = candidate
+    except ImportError:
+        pass
+    pdfmetrics.registerFont(TTFont('Code', str(code_font)))
     pdfmetrics.registerFontFamily('Body', normal='Body', bold='Body-Bold', italic='Body-Italic',
                                   boldItalic='Body-BoldItalic')
+    return code_font.name.startswith('DejaVu')
 
 
 def build_styles():
@@ -133,8 +144,9 @@ def build_styles():
         styles[f'Heading{n}'].fontName = 'Body-Bold'
         styles[f'Heading{n}'].fontSize = [17, 14, 12][n - 1]
         styles[f'Heading{n}'].leading = [22, 19, 16][n - 1]
-        styles[f'Heading{n}'].spaceBefore = 15
+        styles[f'Heading{n}'].spaceBefore = [15, 12, 10][n - 1]
         styles[f'Heading{n}'].spaceAfter = 12
+        styles[f'Heading{n}'].keepWithNext = 1
     return styles
 
 
@@ -179,11 +191,18 @@ def main():
     annex = annex_path.read_text()
     # Dentro de la memoria, el anexo cuelga de un único título de nivel 1.
     annex = re.sub(r'^(#{1,2}) ', r'#\1 ', annex, flags=re.M)
-    clean = lambda s: re.sub('[✅📐⚠🔬️]', '', s)
+    dejavu = register_fonts()
+    def clean(text):
+        text = re.sub(r'[✅📐⚠🔬❌️]\ufe0f?\s?', '', text)
+        # Símbolos sin glifo ni siquiera en DejaVu Sans Mono.
+        text = text.replace('≪', '<<').replace('⟺', '<=>')
+        if not dejavu:
+            for src, dst in (('∈', 'in'), ('‖', '||'), ('⁺', '+'), ('∇', 'grad'), ('∼', '~')):
+                text = text.replace(src, dst)
+        return text
     combined = body + '\n\n# Anexo A. Estudio de alternativas para la red obrera\n\n' + annex
     tokens = MarkdownIt('commonmark').enable('table').parse(clean(combined))
 
-    register_fonts()
     styles = build_styles()
     header = f"{meta['titulo_corto']} · {meta['autor']}"
 

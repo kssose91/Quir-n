@@ -12,7 +12,7 @@ fecha: Septiembre de 2026
 
 Los asistentes de programación necesitan localizar información relevante dentro de un repositorio para responder y proponer cambios. Este trabajo presenta Quirón, un editor nativo escrito en Rust que integra un índice de código mantenido por un worker local. Al abrir un proyecto, el sistema detecta sus archivos, extrae unidades sintácticas de Rust, genera fichas descriptivas y produce representaciones vectoriales para su consulta. La configuración inicial utiliza Qwen2.5-Coder-1.5B cuantizado para redactar las fichas y BGE-M3 para vectorizarlas; ambos modelos se ejecutan en el equipo del usuario. Qdrant almacena los vectores y Neo4j representa la pertenencia de las unidades y relaciones aproximadas de llamadas. Cada ficha conserva proyecto, ruta, símbolo, líneas y hash del archivo, y la recuperación comprueba su vigencia frente al código actual antes de entregarla al asistente.
 
-La aportación consiste en integrar ese recorrido con el editor, con la descarga y selección de modelos compatibles y con distintas conexiones a asistentes (Claude, Codex, servidores compatibles con OpenAI y Ollama). El entrenamiento de una red propia, previsto en el planteamiento inicial, quedó fuera del alcance final por razones de recursos, plazo y prioridad de validación, y se documenta como estudio de alternativas. Las evidencias registradas incluyen indexación incremental, aislamiento entre proyectos, cambios, borrados y uso de herramientas mediante proveedores reales y simulados, junto con una evaluación exploratoria de localización. También muestran limitaciones de fidelidad en los resúmenes generados. La evaluación disponible acredita un prototipo funcional; no permite afirmar todavía ahorro de tokens en tareas completas, prevención de duplicados ni análisis exhaustivo de dependencias.
+La aportación consiste en integrar ese recorrido con el editor, con la descarga y selección de modelos compatibles y con distintas conexiones a asistentes (Claude, Codex, servidores compatibles con OpenAI y Ollama). El entrenamiento de una red propia, previsto en el planteamiento inicial, quedó fuera del alcance final por razones de recursos, plazo y prioridad de validación, y se documenta como estudio de alternativas. Las evidencias registradas cubren indexación incremental, aislamiento entre proyectos, cambios, borrados, uso de herramientas con proveedores reales y simulados y una evaluación exploratoria de localización; también muestran limitaciones de fidelidad en los resúmenes generados. La evaluación acredita un prototipo funcional; no permite afirmar todavía ahorro de tokens en tareas completas, prevención de duplicados ni análisis exhaustivo de dependencias.
 
 **Palabras clave:** modelos de lenguaje, recuperación aumentada, índice de código, inferencia local, editor nativo, trazabilidad.
 
@@ -30,42 +30,42 @@ The contribution is the integration of this workflow with the editor, with downl
 | Campo | Datos |
 | --- | --- |
 | Nombre y apellidos | Lorenzo Juan Santacreu Pascual |
-| Título | Quirón: un editor nativo con índice de código verificable y una red neuronal local para el aporte de contexto a modelos de lenguaje |
-| Director/a | [COMPLETAR] |
-| Colaboración con empresa | No |
-| Producto implementado | Sí: prototipo de editor nativo con índice de código local |
-| Investigación o innovación | Ingeniería aplicada y estudio de alternativas de modelos |
-| Objetivo general | Integrar un índice consultable con fuentes comprobables y un worker local configurable dentro de un editor nativo |
+| Título del proyecto | Quirón: un editor nativo con índice de código verificable y una red neuronal local para el aporte de contexto a modelos de lenguaje |
+| Directores del proyecto | [COMPLETAR] |
+| El proyecto se ha realizado en colaboración de una empresa o a petición de una empresa | NO |
+| El proyecto ha implementado un producto | SÍ: prototipo de editor nativo con índice de código local |
+| El proyecto ha consistido en el desarrollo de una investigación o innovación | NO: ingeniería aplicada; el estudio de alternativas del Anexo A no constituye una investigación experimental |
+| Objetivo general del proyecto | Construir y evaluar un prototipo de editor nativo que mantenga un índice de código mediante un worker local configurable y aporte al asistente referencias comprobables contra los archivos del proyecto |
 
 # Capítulo 1. RESUMEN DEL PROYECTO
 
 ## 1.1 Contexto y justificación
 
-Trabajar sobre proyectos grandes exige conocer qué contiene cada archivo y dónde se implementa cada responsabilidad. La experiencia de trabajo con asistentes de programación durante el máster puso de manifiesto tres problemas recurrentes: el asistente reescribe lógica que ya existe porque no la encuentra, interpreta mal el código por falta de contexto, y consume una parte considerable de su ventana de contexto en leer archivos que no necesita. De ahí surge la idea de un mapa persistente del proyecto que facilite localizar código existente y seleccionar contexto. Reducir esos problemas exige una evaluación específica y no se deduce de disponer de un índice, así que la memoria distingue en todo momento lo que se ha implementado y probado de lo que sigue siendo hipótesis.
-
-Quirón separa el trabajo continuo de descripción y búsqueda del razonamiento que se pide al asistente. El procesamiento del índice se realiza en local, con modelos preentrenados que se ejecutan en el equipo del usuario. El asistente puede ser un proveedor remoto o un servidor compatible elegido por el usuario. La aplicación mantiene una relación explícita entre la ficha recuperada y el archivo que debe leerse para comprobarla.
+Trabajar sobre proyectos grandes exige saber qué contiene cada archivo y dónde se implementa cada responsabilidad. La experiencia con asistentes de programación durante el máster mostró tres problemas recurrentes: el asistente reescribe lógica que ya existe porque no la encuentra, interpreta mal el código por falta de contexto y gasta buena parte de su ventana en leer archivos que no necesita. De ahí nace la idea de un mapa persistente del proyecto, mantenido en local, que facilite localizar código y seleccionar contexto.
 
 ## 1.2 Planteamiento del problema
 
-La pregunta de implementación es la siguiente: **¿puede un editor mantener un mapa consultable de los archivos y las lógicas de un proyecto mediante un worker local, y entregar al asistente referencias cuya vigencia se compruebe contra el código?** La pregunta experimental adicional es si ese mapa mejora la localización y reduce el contexto necesario manteniendo la calidad de las respuestas. Ambas preguntas requieren evidencias distintas: integración funcional para la primera y comparación entre métodos para la segunda. Este trabajo responde a la primera y aporta una evaluación exploratoria de la segunda.
+La pregunta de implementación es: **¿puede un editor mantener un mapa consultable de los archivos y las lógicas de un proyecto mediante un worker local, y entregar al asistente referencias cuya vigencia se compruebe contra el código?** La pregunta experimental es si ese mapa mejora la localización y reduce el contexto necesario sin perder calidad. Este trabajo, un desarrollo de producto sin colaboración empresarial, responde a la primera con un prototipo y aporta una evaluación exploratoria de la segunda.
 
 ## 1.3 Objetivos del proyecto
 
-El alcance final comprende el editor, la guardia de rutas, la indexación incremental, las fichas generadas mediante un modelo preentrenado, los embeddings, las proyecciones en Qdrant y Neo4j y la recuperación conectada al chat. La descarga y selección de modelos compatibles permite adaptar el worker al dispositivo. La evolución de los objetivos iniciales se documenta en el Capítulo 3 y en el apartado 4.2.8.
+El alcance final comprende el editor con guardia de rutas, la indexación incremental con fichas de un modelo preentrenado y embeddings, las proyecciones en Qdrant y Neo4j, la recuperación conectada al chat y la selección de modelos para adaptar el worker al equipo; el Capítulo 3 detalla los objetivos y su evolución.
 
 ## 1.4 Resultados obtenidos
 
-Se ha construido un prototipo funcional en el que abrir una carpeta produce, en segundo plano, un índice de fichas vectorizadas por proyecto que el chat consulta y devuelve como fuentes clicables. Las pruebas registradas muestran el funcionamiento del worker Qwen/BGE-M3 con Qdrant y Neo4j sobre proyectos sintéticos y sobre el propio repositorio de Quirón: apertura, consultas, cambios, retirada de unidades, exclusión de archivos sensibles y enlaces, y aislamiento entre proyectos. Hay evidencias de rondas completas desde la interfaz con Claude y con Codex, y pruebas de transporte con un servidor compatible simulado. Una evaluación exploratoria de localización sobre diez preguntas obtuvo el objetivo entre los cinco primeros resultados en todos los casos. Los resultados negativos del generador se conservaron para estudiar errores de contenido y truncamiento, y motivaron una versión de fichas con citas verificadas por el programa.
-
-La revisión final del código encontró límites de integridad en el registro de eventos, en la resolución de llamadas y en la reconstrucción del índice de código, y llevó a corregir los dos primeros. El apartado 4.6 separa las evidencias de cada tipo.
+Abrir una carpeta produce en segundo plano un índice de fichas vectorizadas por proyecto que el chat consulta y devuelve como fuentes clicables. Las pruebas registradas cubren apertura, consultas, cambios, borrados, exclusión de archivos sensibles y aislamiento entre proyectos, además de rondas completas desde la interfaz con Claude y Codex. En una evaluación exploratoria de localización con diez preguntas, el objetivo apareció entre los cinco primeros resultados en todos los casos. Los errores del generador se conservaron y motivaron fichas con citas verificadas por el programa; la revisión final corrigió la integridad del registro de eventos y documentó los límites restantes.
 
 ## 1.5 Estructura de la memoria
 
-El Capítulo 2 presenta los antecedentes; el 3 fija los objetivos y los cambios de alcance; el 4 describe planificación, implementación y evaluación; el 5 discute los límites; el 6 presenta las conclusiones; el 7 recoge el trabajo futuro; el 8 contiene las referencias y el 9 identifica los anexos y las evidencias.
+Los capítulos 2 a 9 presentan, por este orden, los antecedentes, los objetivos, el desarrollo y la evaluación, la discusión, las conclusiones, el trabajo futuro, las referencias y los anexos con las evidencias.
 
 # Capítulo 2. ANTECEDENTES / ESTADO DEL ARTE
 
-## 2.1 Recuperación de contexto en repositorios
+## 2.1 Estado del arte
+
+Los asistentes de programación necesitan recuperar del repositorio el contexto que no cabe en su ventana. La literatura analizada se organiza en tres frentes: la recuperación de contexto en repositorios, los modelos de representación y generación con sus almacenes, y las arquitecturas que se estudiaron para una red propia.
+
+### 2.1.1 Recuperación de contexto en repositorios
 
 Existen trabajos previos que recuperan información del repositorio para asistir a modelos de código. RepoCoder combina recuperación por similitud y generación iterativa [25]. GraphCoder utiliza grafos de contexto de código para recuperar fragmentos [26]. RepoGraph ofrece una estructura de repositorio que sirve de apoyo a agentes de ingeniería de software [27]. Estos antecedentes sitúan a Quirón: la recuperación de código mediante grafos y vectores no es una invención de este trabajo.
 
@@ -81,7 +81,7 @@ Lo que se estudia aquí es la integración de un worker local configurable con u
 | Dependencias | Pertenencia y aproximación de llamadas Rust; cobertura incompleta |
 | Evaluación | Integración y casos exploratorios; falta comparación de tareas completas |
 
-## 2.2 Representación, generación y almacenes
+### 2.1.2 Representación, generación y almacenes
 
 Un generador de texto y un modelo de embeddings cumplen tareas distintas. BGE-M3 [19][29] proporciona las representaciones utilizadas por esta implementación. Qwen2.5-Coder [23] genera descripciones breves. La calidad de estas descripciones puede influir en la recuperación, pero el tamaño del generador no garantiza una mejora en todas las tareas.
 
@@ -89,7 +89,7 @@ La literatura sobre InfoNCE [13], last-token pooling [14][15] y Matryoshka [16] 
 
 Qdrant [17] almacena los vectores y permite restringir candidatos mediante filtros de carga útil. Neo4j [18] almacena nodos y relaciones consultables. La identidad de las unidades permite vincular ambas proyecciones. La existencia de un grafo no implica que sus relaciones resuelvan todos los tipos, importaciones o llamadas del programa.
 
-## 2.3 Estudio de alternativas para la red obrera
+### 2.1.3 Alternativas para una red propia
 
 El estudio inicial revisó MLA [1][2], atención dispersa [3], mecanismos lineales [4–7], mezcla de expertos [8][9], destilación [10–12c] y cuantización [20][21]. Su resultado se conserva en el Anexo A como exploración de alternativas. Ninguno de esos mecanismos se implementó como un nuevo backbone entrenado en este trabajo.
 
@@ -97,31 +97,35 @@ La recurrencia de estado fijo puede tener coste constante por paso respecto a la
 
 Sequence-Level KD [11] permite utilizar respuestas textuales de un profesor. QLoRA [24] muestra que es posible ajustar modelos preentrenados reduciendo el consumo de memoria. La decisión de no entrenar en esta versión es de alcance y viabilidad; no supone que cualquier ajuste resulte imposible con el equipo disponible.
 
-## 2.4 Justificación del proyecto
+## 2.2 Contexto y justificación
 
-Se busca facilitar la navegación por responsabilidades del código, conservar referencias comprobables y adaptar la inferencia al equipo del usuario. El ahorro económico y la prevención de lógica duplicada permanecen como hipótesis de aplicación. El cómputo local tiene costes de descarga, almacenamiento, memoria, energía y mantenimiento; disponer del hardware no los elimina. Las suscripciones y las conexiones por API son vías de acceso diferentes, con condiciones y límites propios.
+El proyecto nace de la práctica diaria con asistentes de programación sobre repositorios propios de tamaño medio, y su aplicabilidad prevista es el uso individual de un desarrollador en su equipo: el índice se construye y se consulta en local, y el asistente puede ser cualquiera de los proveedores admitidos. Se busca facilitar la navegación por responsabilidades del código, conservar referencias comprobables y adaptar la inferencia al equipo del usuario. El ahorro económico y la prevención de lógica duplicada permanecen como hipótesis de aplicación. El cómputo local tiene costes de descarga, almacenamiento, memoria, energía y mantenimiento; disponer del hardware no los elimina. Las suscripciones y las conexiones por API son vías de acceso diferentes, con condiciones y límites propios.
+
+## 2.3 Planteamiento del problema
+
+Los sistemas revisados resuelven la recuperación desde el lado del agente o de la herramienta de completado: construyen el contexto por petición, sobre un repositorio que tratan como estático, y no ofrecen al usuario un mapa persistente que evolucione con el código ni una comprobación de que lo recuperado sigue vigente. Tampoco separan el trabajo continuo de descripción, que puede asumir un modelo pequeño en local, del razonamiento que se pide a un modelo grande. La necesidad detectada es un componente que viva en el editor, mantenga el índice mientras se trabaja, aísle cada proyecto y entregue referencias verificables. De esa necesidad se derivan los objetivos del Capítulo 3.
 
 # Capítulo 3. OBJETIVOS
 
-## 3.1 Objetivo general y evolución del alcance
+## 3.1 Objetivo general
 
-El objetivo general es **construir y evaluar un prototipo de editor nativo que mantenga un índice de código mediante un worker local configurable y aporte al asistente referencias comprobables contra los archivos del proyecto**. La versión inicial del proyecto incluía el entrenamiento de una red propia, un historial completo de cambios y un análisis amplio de dependencias. Durante el desarrollo se priorizó el recorrido funcional con modelos preentrenados, y se conserva la numeración de los objetivos para hacer visible esa evolución en lugar de presentar una reformulación como cumplimiento retroactivo del planteamiento inicial.
+El objetivo general del presente trabajo es **construir y evaluar un prototipo de editor nativo que mantenga un índice de código mediante un worker local configurable y aporte al asistente referencias comprobables contra los archivos del proyecto**. La versión inicial del proyecto incluía el entrenamiento de una red propia, un historial completo de cambios y un análisis amplio de dependencias. Durante el desarrollo se priorizó el recorrido funcional con modelos preentrenados, y se conserva la numeración de los objetivos para hacer visible esa evolución en lugar de presentar una reformulación como cumplimiento retroactivo del planteamiento inicial.
 
-## 3.2 Objetivos específicos y estado
+## 3.2 Objetivos específicos
 
 <!-- tabla: Objetivos específicos, planteamiento inicial y estado al cierre -->
 | Objetivo | Planteamiento inicial | Alcance y estado al cierre |
 | --- | --- | --- |
-| OE1 | Registro inmutable y dos proyecciones reconstruibles desde él | Registro encadenado v2 con hash de todos los campos, transacciones y anclaje compatible; herramientas de replay de eventos; reconstrucción completa del índice de código pendiente |
-| OE2 | Editor con confinamiento al proyecto | Editor y guardia de rutas implementados, con pruebas; quedan límites ante carreras del sistema de archivos |
-| OE3 | Indexador incremental de Archivo, Lógica y Cambio | Archivo y lógica Rust operativos; tipo Cambio definido sin historial completo integrado |
-| OE4 | Grafo de dependencias resuelto por análisis estático | Pertenencia y llamadas aproximadas Rust; resolución de tipos, imports y dependencias completas pendientes |
-| OE5 | Vector, expansión, reranker y presupuesto de contexto | Filtro en la búsqueda de código y expansión limitada implementados; reranker y presupuesto global pendientes |
-| OE6 | Estudiar mecanismos para una red propia exportable | Estudio de alternativas documentado (Anexo A); no se construyó un nuevo backbone |
-| OE7 | Entrenar por destilación y desplegar una red propia | Entrenamiento excluido; objetivo reformulado a integrar, descargar y seleccionar modelos preentrenados compatibles |
-| OE8 | Medir ahorro, recuperación, aislamiento y fidelidad | Evidencias funcionales y evaluación exploratoria; la hipótesis de ahorro en tareas completas no está demostrada |
+| OE1 | Construir un registro inmutable de eventos y dos proyecciones reconstruibles desde él | Registro encadenado v2 con hash de todos los campos, transacciones y anclaje compatible; herramientas de replay de eventos; reconstrucción completa del índice de código pendiente |
+| OE2 | Desarrollar un editor nativo confinado al proyecto abierto | Editor y guardia de rutas implementados, con pruebas; quedan límites ante carreras del sistema de archivos |
+| OE3 | Implementar un indexador incremental de unidades Archivo, Lógica y Cambio | Archivo y lógica Rust operativos; tipo Cambio definido sin historial completo integrado |
+| OE4 | Construir un grafo de dependencias resuelto por análisis estático | Pertenencia y llamadas aproximadas Rust; resolución de tipos, imports y dependencias completas pendientes |
+| OE5 | Recuperar contexto por vector, expansión por grafo, reranker y presupuesto de tokens | Filtro en la búsqueda de código y expansión limitada implementados; reranker y presupuesto global pendientes |
+| OE6 | Estudiar mecanismos para una red propia exportable a ONNX | Estudio de alternativas documentado (Anexo A); no se construyó un nuevo backbone |
+| OE7 | Entrenar por destilación y desplegar una red propia como worker | Entrenamiento excluido; objetivo reformulado a integrar, descargar y seleccionar modelos preentrenados compatibles |
+| OE8 | Medir ahorro de contexto, recuperación, aislamiento y fidelidad | Evidencias funcionales y evaluación exploratoria; la hipótesis de ahorro en tareas completas no está demostrada |
 
-## 3.3 Beneficios previstos y límites de la aportación
+## 3.3 Beneficios del proyecto
 
 El índice facilita localizar código que podría reutilizarse y revisar la procedencia de la información recuperada. Un hash coincidente acredita la vigencia del archivo, no la corrección de su resumen. Quirón no dispone de un detector automático de lógica duplicada conectado al editor ni de resúmenes consolidados de responsabilidades por carpeta. Esas extensiones no forman parte de los resultados de esta versión.
 
@@ -140,17 +144,21 @@ La planificación inicial situaba la infraestructura y el editor antes del entre
 | Interfaz y proveedores | Septiembre de 2026 | Rediseño de la interfaz, paleta Agentes, conexiones Claude, Codex, compatibles y Ollama, catálogo del vectorizador |
 | Cierre | 10–13 de septiembre de 2026 | Contraste entre código y memoria, ledger v2, fichas v5, paquete portátil, evaluación exploratoria, limpieza del código y redacción final |
 
+![Cronograma del proyecto: actividades realizadas entre febrero y septiembre de 2026](figuras/fig-cronograma.png)
+
+El esfuerzo total en horas se recoge en el presupuesto del apartado 4.4. El historial Git del repositorio de entrega comienza el 29 de agosto de 2026 con la reorganización documental del proyecto; el código anterior a esa fecha se incorporó en ese primer commit.
+
 La entrega se realiza por repositorio, según lo acordado con el tutor: **[COMPLETAR — URL del repositorio de entrega]**. La revisión entregada está identificada con la etiqueta `entrega-tfm`; el paquete binario incluye un inventario de hashes (`BUILD.json` y `SHA256SUMS`).
 
 ## 4.2 Solución, metodología y herramientas
 
-Quirón se compone de cuatro piezas: el editor nativo, el cerebro (índice, registro de eventos y API local), la pasarela hacia los asistentes y el vectorizador local. La figura resume los componentes y los flujos de datos entre ellos.
+Quirón se compone de cuatro piezas: el editor nativo, el cerebro (índice, registro de eventos y API local), la pasarela hacia los asistentes y el vectorizador local. En esta memoria «worker» designa el proceso del cerebro que mantiene el índice; en la interfaz aparece como «vectorizador», y el modelo Qwen que redacta las fichas es su generador. La figura resume los componentes y los flujos de datos entre ellos.
 
 ![Componentes de Quirón y flujo de datos entre editor, cerebro, almacenes, vectorizador y asistentes](figuras/fig-arquitectura.png)
 
 ### 4.2.1 Memoria de eventos e índice de código
 
-El cerebro utiliza Sled como almacenamiento local; el nombre histórico del módulo `storage/rocks.rs` no significa que se utilice RocksDB. Los eventos se encadenan mediante Blake3. Existen envolturas de memoria con estados y relaciones de sustitución o retractación, y herramientas de reconstrucción de proyecciones de eventos.
+El cerebro utiliza Sled [32] como almacenamiento local; el nombre histórico del módulo `storage/rocks.rs` no significa que se utilice RocksDB. Los eventos se encadenan mediante Blake3. Existen envolturas de memoria con estados y relaciones de sustitución o retractación, y herramientas de reconstrucción de proyecciones de eventos.
 
 El índice de código mantiene su manifiesto y la caché de fichas y vectores en Sled, y obtiene el contenido de los archivos del disco. Confirma un archivo después de recibir el acuse de Qdrant y Neo4j, y comprueba periódicamente la presencia de las unidades para reparar determinadas pérdidas mediante la caché. Este mecanismo no equivale a reconstruir íntegramente el índice desde el registro de eventos: no se registran eventos suficientes para reproducir todo su historial.
 
@@ -166,13 +174,13 @@ El recorrido excluye enlaces simbólicos, nombres sensibles y directorios genera
 
 ### 4.2.3 Archivos, lógicas y fichas
 
-Se genera una unidad de archivo para las extensiones admitidas. Tree-sitter añade unidades de lógica Rust: funciones, métodos, estructuras, enumeraciones y traits, con firma y líneas. La cobertura no incluye toda construcción del lenguaje, y los demás lenguajes tienen por ahora ficha de archivo.
+Se genera una unidad de archivo para las extensiones admitidas. Tree-sitter [31] añade unidades de lógica Rust: funciones, métodos, estructuras, enumeraciones y traits, con firma y líneas. La cobertura no incluye toda construcción del lenguaje, y los demás lenguajes tienen por ahora ficha de archivo.
 
 El worker proporciona al generador hasta 6 000 caracteres de la unidad, numerados por línea, y las definiciones de constantes Rust referenciadas cuando caben en un contexto acotado. Esas definiciones participan en la huella de caché, de modo que un cambio en ellas invalida la ficha. Las entradas recortadas se marcan como parciales. La respuesta solicitada es un propósito en una frase completa, el contexto no resuelto y entre una y tres líneas de evidencia; el programa copia los fragmentos citados desde el código y convierte sus líneas a posiciones del archivo, de modo que el modelo no redacta las citas.
 
 Se rechazan frases incompletas, referencias inexistentes, cifras ausentes del contexto y determinadas menciones de lenguajes sin respaldo en la entrada, además de salidas inválidas o que repiten instrucciones. En esos casos se guarda una ficha estructural con el motivo y `summary_origin=parser`; las aceptadas llevan `model`. Los errores de conexión son reintentables. Las reglas y las citas verifican restricciones concretas, no toda afirmación semántica de la descripción.
 
-BGE-M3 vectoriza ruta, símbolo, firma y descripción. La ficha mantiene la relación con el archivo sin copiar todo su código al texto del vector. El extractor calcula además una huella del cuerpo normalizado por espacios, pero no existe un comparador automático de duplicados conectado a esa huella.
+BGE-M3 [19][29], ejecutado en proceso sobre ONNX Runtime [22], vectoriza ruta, símbolo, firma y descripción. La ficha mantiene la relación con el archivo sin copiar todo su código al texto del vector. El extractor calcula además una huella del cuerpo normalizado por espacios, pero no existe un comparador automático de duplicados conectado a esa huella.
 
 ![Pantalla de vectorización al abrir un proyecto: el editor muestra el progreso del worker y queda vigilando cambios](figuras/fig-vectorizado.png)
 
@@ -204,7 +212,7 @@ Las evidencias incluyen proveedores reales y un servidor simulado que comprueba 
 
 ### 4.2.7 Worker descargable y adaptación al dispositivo
 
-La configuración inicial emplea Qwen2.5-Coder-1.5B-Instruct Q4_K_M mediante llama.cpp y BGE-M3 en CPU. El catálogo de `setup-worker.py` permite descargar modelos con revisión y SHA-256 fijos, y la paleta permite seleccionar cualquier GGUF compatible. El razonamiento del vectorizador va desactivado: su tarea es describir, no conversar. El techo recomendado para una GPU dedicada es Qwen3 8B a 4 bits; por encima solo tiene sentido en equipos con memoria unificada. Las recomendaciones de memoria del catálogo son orientativas y no equivalen a benchmarks de todos sus modelos.
+La configuración inicial emplea Qwen2.5-Coder-1.5B-Instruct Q4_K_M [23] mediante llama.cpp [28] y BGE-M3 en CPU. El catálogo de `setup-worker.py` permite descargar modelos con revisión y SHA-256 fijos, y la paleta permite seleccionar cualquier GGUF compatible. El razonamiento del vectorizador va desactivado: su tarea es describir, no conversar. El techo recomendado para una GPU dedicada es Qwen3 8B [30] a 4 bits; por encima solo tiene sentido en equipos con memoria unificada. Las recomendaciones de memoria del catálogo son orientativas y no equivalen a benchmarks de todos sus modelos.
 
 Un dispositivo con más recursos puede evaluar un generador de mayor capacidad manteniendo el mismo recorrido. Una ficha más precisa puede aportar mejores datos para recuperar contexto, pero hay que medir calidad, latencia y memoria. La identificación del generador utiliza su nombre de archivo; sustituir pesos con el mismo nombre requiere invalidar la caché manualmente.
 
@@ -239,22 +247,24 @@ El coste inicial incluye descargas: aproximadamente 1,15 GB para el runtime y el
 ## 4.4 Presupuesto
 
 <!-- tabla: Presupuesto del proyecto -->
-| Concepto | Importe o base |
-| --- | --- |
-| Dedicación del autor | [COMPLETAR — horas y criterio de valoración] |
-| Hardware | [COMPLETAR — coste imputado o amortización; distinguir equipos disponibles y usados] |
-| Suscripciones y servicios | [COMPLETAR — gastos reales por periodo] |
-| Electricidad y almacenamiento | [COMPLETAR — estimación y método, si se incluyen] |
-| Software y modelos | 0 €: componentes de código abierto y pesos descargables bajo sus licencias |
-| Entrenamiento propio | No realizado; no se declara un gasto ni un ahorro medido |
+| Tipo de coste | Valor | Comentarios |
+| --- | --- | --- |
+| Horas de trabajo en el proyecto | [COMPLETAR — horas totales] | Trabajo del autor; no han participado otras personas |
+| Equipo técnico: portátil con RTX 3060 de 6 GB y 15 GiB de RAM | [COMPLETAR — valor de mercado] € | Equipo propio, no adquirido para el proyecto; en él se hicieron todas las pruebas registradas |
+| Equipo técnico: dos estaciones con dos RTX 3090 | [COMPLETAR — valor de mercado] € | Equipos propios accesibles por SSH; no se usaron para entrenar |
+| Software utilizado | 0 € | Rust, Sled, Qdrant, Neo4j, llama.cpp, ONNX Runtime, Python, Docker y los pesos de Qwen y BGE-M3 son de código abierto o de descarga gratuita bajo sus licencias |
+| Suscripciones a asistentes (Claude y ChatGPT/Codex) | [COMPLETAR — gasto real por periodo] € | Necesarias para las rondas con proveedores reales; los servidores compatibles y Ollama no requieren suscripción |
+| Estudios e informes | 0 € | Todas las fuentes consultadas son de acceso abierto (arXiv y documentación pública) |
+| Materiales empleados | 0 € | Sin material de laboratorio; descargas de unos 1,15 GB para el runtime y el modelo del worker, además de BGE-M3 y las imágenes de los almacenes |
+| Electricidad y almacenamiento | [COMPLETAR — estimación, si se incluye] | Coste de la inferencia local; no se ha medido el consumo |
 
-La disponibilidad de software y pesos descargables no elimina las condiciones de licencia ni los costes operativos. La revisión de licencias de distribución acompaña al paquete.
+No se presenta un coste total hasta completar las filas pendientes. La disponibilidad de software y pesos descargables no elimina las condiciones de licencia ni los costes operativos. La revisión de licencias de distribución acompaña al paquete.
 
 ## 4.5 Viabilidad y despliegue
 
 Existe un paquete de instalación por usuario para Linux x86_64 que prepara configuración privada, servicios y lanzador. Requiere Python, Docker, systemd de usuario y acceso a las descargas. No es un paquete offline ni una distribución certificada para cualquier Linux. La comprobación mediante `--destdir` verifica archivos y configuración sin activar servicios; no sustituye una prueba de arranque en un equipo limpio.
 
-El primer candidato, compilado en el equipo de desarrollo, exigía `GLIBC_2.43` y no cargaba en una base Debian 13 con glibc 2.41. La compilación de entrega pasa a Ubuntu 24.04 (glibc 2.39), con imagen base fijada por digest y Rust 1.93.0, y el empaquetador rechaza símbolos superiores a esa versión. Ubuntu 22.04 se descartó porque el archivo estático de ONNX Runtime utiliza funciones de C23 que su glibc no proporciona. El paquete incluye cinco binarios (editor, cerebro, pasarela, indexador y herramienta del registro), las fuentes, la memoria y las evidencias. Los cinco binarios resuelven sus bibliotecas en Ubuntu 24.04 y Debian 13; en Ubuntu se abrió una ventana Xvfb a 1280 × 720 y se comprobó el instalador en staging. Esa prueba descubrió bibliotecas X11 cargadas dinámicamente que `ldd` no detecta (`libXcursor`, `libXi`); se añadieron al control previo del instalador. No se certifica el ciclo completo con Docker y systemd en una máquina virtual limpia.
+El primer candidato, compilado en el equipo de desarrollo, exigía `GLIBC_2.43` y no cargaba en una base Debian 13 con glibc 2.41. La compilación de entrega pasa a Ubuntu 24.04 (glibc 2.39), con imagen base fijada por digest y Rust 1.93.0, y el empaquetador rechaza símbolos superiores a esa versión. Ubuntu 22.04 se descartó porque el archivo estático de ONNX Runtime utiliza funciones de C23 que su glibc no proporciona. El paquete incluye cinco binarios (editor, cerebro, pasarela, indexador y herramienta del registro), las fuentes, la memoria y las evidencias. Los cinco binarios resuelven sus bibliotecas en Ubuntu 24.04 y Debian 13; en Ubuntu se abrió una ventana Xvfb a 1280 × 720 y se comprobó el instalador en staging. Esa prueba descubrió bibliotecas X11 cargadas dinámicamente que `ldd` no detecta (`libXcursor`, `libXi`); se añadieron al control previo del instalador. No se certifica el ciclo completo con Docker y systemd en una máquina virtual limpia. El paquete comprobado se compiló a partir de la revisión del 10 de septiembre; el script de empaquetado permite regenerarlo desde la revisión entregada.
 
 El cerebro mantiene los almacenes y el worker: Qdrant y Neo4j se levantan justo antes del cerebro y se paran con él, sin arrancar al encender la máquina. Cerrar la ventana permite continuar el trabajo en segundo plano, y el apagado por inactividad tiene en cuenta las peticiones y los barridos activos.
 
@@ -377,13 +387,13 @@ Los informes técnicos de modelos se citan como resultados de sus autores; no so
 
 [5] MiniMax, "MiniMax-M1", arXiv:2506.13585, 2025.
 
-[6] "Every Attention Matters: An Efficient Hybrid Architecture for Long-Context Reasoning", arXiv:2510.19338, 2025. https://arxiv.org/abs/2510.19338
+[6] Ling Team, "Every Attention Matters: An Efficient Hybrid Architecture for Long-Context Reasoning", arXiv:2510.19338, 2025. https://arxiv.org/abs/2510.19338
 
-[7] "Scaling Linear Attention with Sparse State Expansion", arXiv:2507.16577, 2025. https://arxiv.org/abs/2507.16577
+[7] Y. Pan, Y. An, Z. Li, Y. Chou, R. Zhu, X. Wang, M. Wang, J. Wang y G. Li, "Scaling Linear Attention with Sparse State Expansion", arXiv:2507.16577, 2025. https://arxiv.org/abs/2507.16577
 
 [8] DeepSeek-AI, "DeepSeekMoE: Towards Ultimate Expert Specialization in Mixture-of-Experts Language Models", arXiv:2401.06066, 2024.
 
-[9] "Auxiliary-Loss-Free Load Balancing Strategy for Mixture-of-Experts", arXiv:2408.15664, 2024.
+[9] L. Wang, H. Gao, C. Zhao, X. Sun y D. Dai, "Auxiliary-Loss-Free Load Balancing Strategy for Mixture-of-Experts", arXiv:2408.15664, 2024.
 
 [10] G. Hinton, O. Vinyals, J. Dean, "Distilling the Knowledge in a Neural Network", arXiv:1503.02531, 2015.
 
@@ -393,27 +403,27 @@ Los informes técnicos de modelos se citan como resultados de sus autores; no so
 
 [12b] R. Agarwal et al., "On-Policy Distillation of Language Models (GKD)", arXiv:2306.13649, 2023.
 
-[12c] "Rethinking Kullback-Leibler Divergence in Knowledge Distillation for Large Language Models", arXiv:2404.02657, 2024. https://arxiv.org/abs/2404.02657
+[12c] T. Wu, C. Tao, J. Wang, R. Yang, Z. Zhao y N. Wong, "Rethinking Kullback-Leibler Divergence in Knowledge Distillation for Large Language Models", arXiv:2404.02657, 2024. https://arxiv.org/abs/2404.02657
 
 [13] A. van den Oord, Y. Li, O. Vinyals, "Representation Learning with Contrastive Predictive Coding", arXiv:1807.03748, 2018.
 
 [14] L. Wang et al., "Improving Text Embeddings with Large Language Models (e5-mistral)", arXiv:2401.00368, 2024.
 
-[15] "Efficient Code Embeddings from Code Generation Models", arXiv:2508.21290, 2025. https://arxiv.org/abs/2508.21290
+[15] D. Kryvosheieva, S. Sturua, M. Günther y H. Xiao, "Efficient Code Embeddings from Code Generation Models", arXiv:2508.21290, 2025. https://arxiv.org/abs/2508.21290
 
 [16] A. Kusupati et al., "Matryoshka Representation Learning", arXiv:2205.13147, 2022.
 
-[17] Qdrant — Vector Database. https://qdrant.tech
+[17] Qdrant, "Qdrant — Vector Database", documentación. https://qdrant.tech (consultado en septiembre de 2026).
 
-[18] Neo4j Graph Database. https://neo4j.com
+[18] Neo4j, "Neo4j Graph Database", documentación. https://neo4j.com (consultado en septiembre de 2026).
 
-[19] BAAI, modelos `bge-m3` y `bge-reranker-v2-m3`. https://huggingface.co/BAAI
+[19] BAAI, modelos `bge-m3` y `bge-reranker-v2-m3`. https://huggingface.co/BAAI (consultado en septiembre de 2026).
 
 [20] J. Lin et al., "AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration", arXiv:2306.00978, 2023.
 
 [21] E. Frantar et al., "GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers", arXiv:2210.17323, 2022.
 
-[22] ONNX Runtime. https://onnxruntime.ai
+[22] Microsoft, "ONNX Runtime", documentación. https://onnxruntime.ai (consultado en septiembre de 2026).
 
 [23] B. Hui et al., "Qwen2.5-Coder Technical Report", arXiv:2409.12186, 2024. https://arxiv.org/abs/2409.12186
 
@@ -425,9 +435,15 @@ Los informes técnicos de modelos se citan como resultados de sus autores; no so
 
 [27] S. Ouyang et al., "RepoGraph: Enhancing AI Software Engineering with Repository-level Code Graph", arXiv:2410.14684, 2024. https://arxiv.org/abs/2410.14684
 
-[28] ggml-org, "llama.cpp server", documentación y código. https://github.com/ggml-org/llama.cpp/tree/master/tools/server
+[28] ggml-org, "llama.cpp server", documentación y código. https://github.com/ggml-org/llama.cpp/tree/master/tools/server (consultado en septiembre de 2026).
 
 [29] J. Chen et al., "M3-Embedding: Multi-Linguality, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation", arXiv:2402.03216, 2024. https://arxiv.org/abs/2402.03216
+
+[30] Qwen Team, "Qwen3 Technical Report", arXiv:2505.09388, 2025. https://arxiv.org/abs/2505.09388
+
+[31] M. Brunsfeld et al., "Tree-sitter: an incremental parsing system for programming tools", documentación y código. https://tree-sitter.github.io (consultado en septiembre de 2026).
+
+[32] T. Kemp et al., "sled: an embedded database", código. https://github.com/spacejam/sled (consultado en septiembre de 2026).
 
 # Capítulo 9. ANEXOS Y TRAZABILIDAD
 
